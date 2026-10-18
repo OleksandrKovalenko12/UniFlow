@@ -11,6 +11,7 @@ classDiagram
         +string Email
         +string FirstName
         +string LastName
+        +string PhoneNumber
         +bool IsActive
         +DateTime CreatedAt
     }
@@ -18,6 +19,7 @@ classDiagram
     class StudentProfile {
         +string UserId
         +string AlbumNumber
+        +string PrivateEmail
     }
 
     class Faculty {
@@ -237,6 +239,19 @@ statusu — nie potrzeba osobnego pola.
 Reguły „czy załącznik jest wymagany” zależą od wartości pól (urlop zdrowotny), więc są w
 walidatorze formularza danego typu (wybieranym po `Code`), a nie w kolumnie bazy.
 
+### Dane identyfikacyjne vs kontaktowe
+
+| Dane | Zmiana | Pole |
+|---|---|---|
+| Imię, nazwisko | wniosek `PERSONAL_DATA_CHANGE` + dokument → dziekanat | `ApplicationUser.FirstName/LastName` |
+| Telefon (opcjonalny) | student sam w profilu, bez akceptacji | `ApplicationUser.PhoneNumber` (wbudowane w Identity) |
+| Prywatny e-mail (opcjonalny) | student sam w profilu, bez akceptacji | `StudentProfile.PrivateEmail` |
+| E-mail logowania | tylko Administrator | `ApplicationUser.Email` |
+
+Danych kontaktowych nie da się zweryfikować dokumentem, więc nie przechodzą przez workflow;
+każda zmiana zapisywana w `AuditLogEntry` (stara → nowa wartość). Adres nie jest zbierany
+(minimalizacja danych — decyzje doręczane elektronicznie).
+
 ### Efekt zatwierdzenia `PERSONAL_DATA_CHANGE`
 
 - Po przejściu do `Approved` system **automatycznie** aktualizuje `FirstName` / `LastName`
@@ -272,6 +287,6 @@ walidatorze formularza danego typu (wybieranym po `Code`), a nie w kolumnie bazy
 | `Attachment.OriginalContentType` | Typ MIME — czy konwertować przez Gotenberg, jak zwrócić plik przeglądarce. |
 | `Attachment.StoragePath` + `PdfStoragePath` | Ścieżki na **dysku** (nie w bazie) — oryginał zostaje jako dowód, obok wersja PDF. |
 | `Attachment.IsArchived` | Wymóg MVP: archiwizacja zamiast kasowania. |
-| `AuditLogEntry` | Zdarzenia spoza obiegu wniosków (nadanie roli, przypisanie do wydziału, dezaktywacja konta, zmiana danych osobowych). |
+| `AuditLogEntry` | Zdarzenia spoza obiegu wniosków (nadanie roli, przypisanie do wydziału, dezaktywacja konta, zmiana danych osobowych i kontaktowych). |
 
 
