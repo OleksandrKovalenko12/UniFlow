@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="UniFlow.Api/UniFlow.Api.csproj" />
+    <Project Path="UniFlow.Client/UniFlow.Client.csproj" />
+    <Project Path="UniFlow.Domain/UniFlow.Domain.csproj" />
+    <Project Path="UniFlow.Infrastructure/UniFlow.Infrastructure.csproj" />
+    <Project Path="UniFlow.Shared/UniFlow.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="UniFlow.Tests/UniFlow.Tests.csproj" />
+  </Folder>
+</Solution>
