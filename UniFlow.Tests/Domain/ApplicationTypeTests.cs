@@ -1,6 +1,6 @@
-﻿using UniFlow.Tests.Domain.Entities;
+﻿using UniFlow.Domain.Entities;
 
-namespace UniFlow.Domain.Entities;
+namespace UniFlow.Tests.Domain;
 
 public class ApplicationTypeTests
 {

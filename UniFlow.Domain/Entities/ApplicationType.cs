@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace UniFlow.Tests.Domain.Entities;
+namespace UniFlow.Domain.Entities;
 
 public class ApplicationType
 {
