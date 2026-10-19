@@ -67,6 +67,7 @@ classDiagram
         +int EnrollmentId
         +int ApplicationTypeId
         +ApplicationStatus Status
+        +bool RequiresDeanDecision
         +string FormData
         +string AssignedToId
         +DateTime CreatedAt
@@ -275,6 +276,7 @@ każda zmiana zapisywana w `AuditLogEntry` (stara → nowa wartość). Adres nie
 | `Application.RowVersion` (`xmin`) | Optymistyczna współbieżność: dwie osoby zmieniające status naraz → druga dostaje błąd zamiast nadpisać decyzję pierwszej. |
 | `ApplicationType.Code` | Stały identyfikator techniczny — wybór formularza, walidatora i szablonu PDF. `Name` może się zmienić. |
 | `ApplicationType.RequiresDeanDecision` | Krótka ścieżka (decyzja dziekanatu) vs długa (decyzja prodziekana) — jedna maszyna stanów parametryzowana typem. |
+| `Application.RequiresDeanDecision` | Kopia flagi z typu w chwili złożenia — wnioski w toku kończą ścieżką z regulaminu, według którego je złożono („prawo nie działa wstecz”). Maszyna stanów sprawdza tę kopię, nie typ. |
 | `ApplicationUser.IsActive` | Dezaktywacja zamiast usuwania — historia i audyt muszą wskazywać na istniejących użytkowników. |
 | `ApplicationUser.FirstName/LastName` | W `User`, nie w `StudentProfile` — pracownicy też mają imię i nazwisko. |
 | `StudentProfile.AlbumNumber` | Jeden numer albumu na studenta na uczelni (niezależnie od liczby kierunków). |
