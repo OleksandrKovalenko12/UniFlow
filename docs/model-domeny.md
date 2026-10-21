@@ -73,7 +73,14 @@ classDiagram
         +DateTime CreatedAt
         +DateTime UpdatedAt
         +uint RowVersion
-        +ChangeStatus(newStatus, user, comment, isInternal)
+        +TakeForReview(actor, now)
+        +RequestCorrection(actor, comment, now)
+        +Resubmit(actor, newFormData, now)
+        +ForwardToDean(actor, internalNote, now)
+        +Approve(actor, now)
+        +Reject(actor, comment, now)
+        +ReturnToDeanOffice(actor, internalComment, now)
+        +Withdraw(actor, now)
     }
 
     class Attachment {
@@ -209,22 +216,23 @@ stateDiagram-v2
 ### Tabela przejść (źródło prawdy dla maszyny stanów i testów)
 
 Każde przejście wykonywane przez Dziekanat / Prodziekana wymaga dodatkowo, by użytkownik
-miał `StaffAssignment` do wydziału, którego dotyczy wniosek.
+miał `StaffAssignment` do wydziału, którego dotyczy wniosek (sprawdza Api), oraz by nie był
+autorem wniosku (konflikt interesów — sprawdza Domain).
 
-| Z | Do | Kto | Warunek / uwagi |
-|---|---|---|---|
-| — | Submitted | Student | Złożenie wniosku w ramach własnego, aktywnego `Enrollment` |
-| Submitted, Resubmitted | UnderReview | Dziekanat | Ustawia `AssignedTo` |
-| UnderReview | NeedsCorrection | Dziekanat | Komentarz wymagany (widoczny dla studenta) |
-| NeedsCorrection | Resubmitted | Student | Poprawiony wniosek, priorytet w kolejce |
-| UnderReview | ForwardedToDean | Dziekanat | Tylko gdy `RequiresDeanDecision = true`; opcjonalna notatka wewnętrzna |
-| UnderReview | Approved | Dziekanat | Tylko gdy `RequiresDeanDecision = false` |
-| UnderReview | Rejected | Dziekanat | Odrzucenie formalne; komentarz wymagany |
-| NeedsCorrection | Rejected | Dziekanat | Brak reakcji studenta; komentarz wymagany |
-| ForwardedToDean | Approved | Prodziekan | |
-| ForwardedToDean | Rejected | Prodziekan | Odrzucenie merytoryczne; komentarz wymagany |
-| ForwardedToDean | UnderReview | Prodziekan | Komentarz wewnętrzny wymagany (`IsInternal = true`) |
-| Submitted, UnderReview, NeedsCorrection, Resubmitted | Withdrawn | Student | Tylko autor wniosku; zablokowane od ForwardedToDean |
+| Z | Do | Kto | Metoda `Application` | Warunek / uwagi |
+|---|---|---|---|---|
+| — | Submitted | Student | konstruktor | Złożenie wniosku w ramach własnego, aktywnego `Enrollment` |
+| Submitted, Resubmitted | UnderReview | Dziekanat | `TakeForReview` | Ustawia `AssignedTo` |
+| UnderReview | NeedsCorrection | Dziekanat | `RequestCorrection` | Komentarz wymagany (widoczny dla studenta) |
+| NeedsCorrection | Resubmitted | Student | `Resubmit` | Poprawiony wniosek (nowy `FormData`), priorytet w kolejce |
+| UnderReview | ForwardedToDean | Dziekanat | `ForwardToDean` | Tylko gdy `RequiresDeanDecision = true`; opcjonalna notatka wewnętrzna |
+| UnderReview | Approved | Dziekanat | `Approve` | Tylko gdy `RequiresDeanDecision = false` |
+| UnderReview | Rejected | Dziekanat | `Reject` | Odrzucenie formalne; komentarz wymagany |
+| NeedsCorrection | Rejected | Dziekanat | `Reject` | Brak reakcji studenta; komentarz wymagany |
+| ForwardedToDean | Approved | Prodziekan | `Approve` | |
+| ForwardedToDean | Rejected | Prodziekan | `Reject` | Odrzucenie merytoryczne; komentarz wymagany |
+| ForwardedToDean | UnderReview | Prodziekan | `ReturnToDeanOffice` | Komentarz wewnętrzny wymagany (`IsInternal = true`) |
+| Submitted, UnderReview, NeedsCorrection, Resubmitted | Withdrawn | Student | `Withdraw` | Tylko autor wniosku; zablokowane od ForwardedToDean |
 
 Rodzaj odrzucenia (formalne / merytoryczne) wynika z historii: kto odrzucił i z jakiego
 statusu — nie potrzeba osobnego pola.
