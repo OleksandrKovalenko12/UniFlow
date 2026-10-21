@@ -1,4 +1,5 @@
-﻿using UniFlow.Domain.Entities;
+﻿using UniFlow.Domain;
+using UniFlow.Domain.Entities;
 using UniFlow.Domain.Enums;
 
 namespace UniFlow.Tests.Domain;
@@ -25,8 +26,57 @@ public class ApplicationTests
         new("UF/2026/0001", applicantId, enrollment ?? CreateEnrollment(), type ?? CreateType(),
             "{}", Now);
 
-    //Right submissions
+    //Actors
+    private static readonly Actor Student = new(StudentId, ActorRole.Student);
+    private static readonly Actor OtherStudent = new("student-2", ActorRole.Student);
+    private static readonly Actor DeanOffice = new("dean-office-1", ActorRole.DeanOffice);
+    private static readonly Actor ViceDean = new("vice-dean-1", ActorRole.ViceDean);
 
+    //Gets new application to the given status in the shortest way.
+    private static Application CreateInStatus(ApplicationStatus status,
+        bool requiresDeanDecision = true)
+    {
+        var app = Submit(type: CreateType(requiresDeanDecision));
+
+        switch (status)
+        {
+            case ApplicationStatus.Submitted:
+                break;
+            case ApplicationStatus.UnderReview:
+                app.TakeForReview(DeanOffice, Now);
+                break;
+            case ApplicationStatus.NeedsCorrection:
+                app.TakeForReview(DeanOffice, Now);
+                app.RequestCorrection(DeanOffice, "Missing signature.", Now);
+                break;
+            case ApplicationStatus.Resubmitted:
+                app.TakeForReview(DeanOffice, Now);
+                app.RequestCorrection(DeanOffice, "Missing signature.", Now);
+                app.Resubmit(Student, "{\"fixed\":true}", Now);
+                break;
+            case ApplicationStatus.ForwardedToDean:
+                app.TakeForReview(DeanOffice, Now);
+                app.ForwardToDean(DeanOffice, null, Now);
+                break;
+            case ApplicationStatus.Approved:
+                app.TakeForReview(DeanOffice, Now);
+                app.ForwardToDean(DeanOffice, null, Now);
+                app.Approve(ViceDean, Now);
+                break;
+            case ApplicationStatus.Rejected:
+                app.TakeForReview(DeanOffice, Now);
+                app.Reject(DeanOffice, "Submitted after deadline.", Now);
+                break;
+            case ApplicationStatus.Withdrawn:
+                app.Withdraw(Student, Now);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(status));
+        }
+        return app;
+    }
+
+    //Right submissions
     [Fact]
     public void Constructor_ValidData_CreatesSubmittedApplication()
     {
@@ -59,12 +109,12 @@ public class ApplicationTests
         var type = CreateType(requiresDeanDecision: false);
         var application = Submit(type: type);
 
-        type.SetRequiresDeanDecision(true);   // statute is changed
+        type.SetRequiresDeanDecision(true);   // regulations changed
 
         Assert.False(application.RequiresDeanDecision);
     }
 
-    //Bizness rules
+    //Business rules
 
     [Fact]
     public void Constructor_OtherStudentsEnrollment_Throws()
@@ -93,7 +143,7 @@ public class ApplicationTests
         Assert.Throws<InvalidOperationException>(() => Submit(type: type));
     }
 
-    //Walidation of data
+    //Data validation
 
     [Theory]
     [InlineData("")]
@@ -114,5 +164,269 @@ public class ApplicationTests
         Assert.Throws<ArgumentException>(
             () => new Application("UF/2026/0001", StudentId, CreateEnrollment(), CreateType(),
                 "{}", localTime));
+    }
+
+    //Allowed status changes
+    [Fact]
+    public void TakeForReview_FromSubmitted_ChangesStatusAndAssignsWorker()
+    {
+        var app = CreateInStatus(ApplicationStatus.Submitted);
+
+        app.TakeForReview(DeanOffice, Now);
+
+        Assert.Equal(ApplicationStatus.UnderReview, app.Status);
+        Assert.Equal(DeanOffice.Id, app.AssignedToId);
+    }
+
+    [Fact]
+    public void TakeForReview_FromResubmitted_ChangesStatus()
+    {
+        var app = CreateInStatus(ApplicationStatus.Resubmitted);
+
+        app.TakeForReview(DeanOffice, Now);
+
+        Assert.Equal(ApplicationStatus.UnderReview, app.Status);
+    }
+
+    [Fact]
+    public void RequestCorrection_AddsPublicTrimmedComment()
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview);
+
+        app.RequestCorrection(DeanOffice, "  Missing signature.  ", Now);
+
+        Assert.Equal(ApplicationStatus.NeedsCorrection, app.Status);
+        var entry = app.StatusHistory.Last();
+        Assert.Equal("Missing signature.", entry.Comment);
+        Assert.False(entry.IsInternal);
+    }
+
+    [Fact]
+    public void Resubmit_ByApplicant_UpdatesFormData()
+    {
+        var app = CreateInStatus(ApplicationStatus.NeedsCorrection);
+
+        app.Resubmit(Student, "{\"new\":1}", Now);
+
+        Assert.Equal(ApplicationStatus.Resubmitted, app.Status);
+        Assert.Equal("{\"new\":1}", app.FormData);
+    }
+
+    [Fact]
+    public void ForwardToDean_WithNote_CreatesInternalEntry()
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview);
+
+        app.ForwardToDean(DeanOffice, "2 free places.", Now);
+
+        Assert.Equal(ApplicationStatus.ForwardedToDean, app.Status);
+        Assert.True(app.StatusHistory.Last().IsInternal);
+    }
+
+    [Fact]
+    public void ForwardToDean_WithoutNote_CreatesPublicEntry()
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview);
+
+        app.ForwardToDean(DeanOffice, null, Now);
+
+        Assert.False(app.StatusHistory.Last().IsInternal);
+    }
+
+    [Fact]
+    public void Approve_ShortPath_ByDeanOffice()
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview, requiresDeanDecision: false);
+
+        app.Approve(DeanOffice, Now);
+
+        Assert.Equal(ApplicationStatus.Approved, app.Status);
+    }
+
+    [Fact]
+    public void Approve_LongPath_ByViceDean()
+    {
+        var app = CreateInStatus(ApplicationStatus.ForwardedToDean);
+
+        app.Approve(ViceDean, Now);
+
+        Assert.Equal(ApplicationStatus.Approved, app.Status);
+    }
+
+    [Theory]
+    [InlineData(ApplicationStatus.UnderReview)]
+    [InlineData(ApplicationStatus.NeedsCorrection)]
+    public void Reject_ByDeanOffice_FormalRejection(ApplicationStatus from)
+    {
+        var app = CreateInStatus(from);
+
+        app.Reject(DeanOffice, "Submitted after deadline.", Now);
+
+        Assert.Equal(ApplicationStatus.Rejected, app.Status);
+    }
+
+    [Fact]
+    public void Reject_ByViceDean_MeritRejection()
+    {
+        var app = CreateInStatus(ApplicationStatus.ForwardedToDean);
+
+        app.Reject(ViceDean, "No explanation.", Now);
+
+        Assert.Equal(ApplicationStatus.Rejected, app.Status);
+    }
+
+    [Fact]
+    public void ReturnToDeanOffice_CreatesInternalEntry_KeepsAssignedWorker()
+    {
+        var app = CreateInStatus(ApplicationStatus.ForwardedToDean);
+
+        app.ReturnToDeanOffice(ViceDean, "Please attach the teacher's opinion.", Now);
+
+        Assert.Equal(ApplicationStatus.UnderReview, app.Status);
+        Assert.True(app.StatusHistory.Last().IsInternal);
+        Assert.Equal(DeanOffice.Id, app.AssignedToId);
+    }
+
+    [Theory]
+    [InlineData(ApplicationStatus.Submitted)]
+    [InlineData(ApplicationStatus.UnderReview)]
+    [InlineData(ApplicationStatus.NeedsCorrection)]
+    [InlineData(ApplicationStatus.Resubmitted)]
+    public void Withdraw_ByApplicant_FromEarlyStatus(ApplicationStatus from)
+    {
+        var app = CreateInStatus(from);
+
+        app.Withdraw(Student, Now);
+
+        Assert.Equal(ApplicationStatus.Withdrawn, app.Status);
+    }
+
+    //Disallowed status changes
+    [Fact]
+    public void Approve_LongPath_ByDeanOffice_Throws()
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview, requiresDeanDecision: true);
+
+        Assert.Throws<InvalidOperationException>(() => app.Approve(DeanOffice, Now));
+    }
+
+    [Fact]
+    public void ForwardToDean_ShortPath_Throws()
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview, requiresDeanDecision: false);
+
+        Assert.Throws<InvalidOperationException>(() => app.ForwardToDean(DeanOffice, null, Now));
+    }
+
+    [Fact]
+    public void Approve_ByStudent_Throws()
+    {
+        var app = CreateInStatus(ApplicationStatus.ForwardedToDean);
+
+        Assert.Throws<InvalidOperationException>(() => app.Approve(Student, Now));
+    }
+
+    [Fact]
+    public void Approve_FromSubmitted_Throws()
+    {
+        var app = CreateInStatus(ApplicationStatus.Submitted);
+
+        Assert.Throws<InvalidOperationException>(() => app.Approve(ViceDean, Now));
+    }
+
+    [Fact]
+    public void Resubmit_ByOtherStudent_Throws()
+    {
+        var app = CreateInStatus(ApplicationStatus.NeedsCorrection);
+
+        Assert.Throws<InvalidOperationException>(() => app.Resubmit(OtherStudent, "{}", Now));
+    }
+
+    [Fact]
+    public void Withdraw_ByOtherStudent_Throws()
+    {
+        var app = CreateInStatus(ApplicationStatus.Submitted);
+
+        Assert.Throws<InvalidOperationException>(() => app.Withdraw(OtherStudent, Now));
+    }
+
+    [Fact]
+    public void TakeForReview_ByStaffWhoIsApplicant_Throws()
+    {
+        var app = CreateInStatus(ApplicationStatus.Submitted);
+        var staffWhoIsApplicant = new Actor(StudentId, ActorRole.DeanOffice);
+
+        Assert.Throws<InvalidOperationException>(() => app.TakeForReview(staffWhoIsApplicant, Now));
+    }
+
+    [Theory]
+    [InlineData(ApplicationStatus.ForwardedToDean)]
+    [InlineData(ApplicationStatus.Approved)]
+    [InlineData(ApplicationStatus.Rejected)]
+    [InlineData(ApplicationStatus.Withdrawn)]
+    public void Withdraw_FromLateOrFinalStatus_Throws(ApplicationStatus from)
+    {
+        var app = CreateInStatus(from);
+
+        Assert.Throws<InvalidOperationException>(() => app.Withdraw(Student, Now));
+    }
+
+    [Theory]
+    [InlineData(ApplicationStatus.Approved)]
+    [InlineData(ApplicationStatus.Rejected)]
+    [InlineData(ApplicationStatus.Withdrawn)]
+    public void FinalStatus_CannotBeTakenForReview(ApplicationStatus final)
+    {
+        var app = CreateInStatus(final);
+
+        Assert.Throws<InvalidOperationException>(() => app.TakeForReview(DeanOffice, Now));
+    }
+
+    //Comments tests
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Reject_WithoutComment_Throws(string comment)
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview);
+
+        Assert.Throws<ArgumentException>(() => app.Reject(DeanOffice, comment, Now));
+    }
+
+    [Fact]
+    public void RequestCorrection_TooLongComment_Throws_AndStatusIsUnchanged()
+    {
+        var app = CreateInStatus(ApplicationStatus.UnderReview);
+        var historyCountBefore = app.StatusHistory.Count;
+
+        Assert.Throws<ArgumentException>(
+            () => app.RequestCorrection(DeanOffice, new string('x', 2001), Now));
+
+        Assert.Equal(ApplicationStatus.UnderReview, app.Status);
+        Assert.Equal(historyCountBefore, app.StatusHistory.Count);
+    }
+
+    //Full path
+    [Fact]
+    public void FullLongPath_HistoryRecordsEveryStep()
+    {
+        var app = Submit(type: CreateType(requiresDeanDecision: true));
+
+        app.TakeForReview(DeanOffice, Now);
+        app.ForwardToDean(DeanOffice, "There are free places.", Now);
+        app.ReturnToDeanOffice(ViceDean, "Please attach the teacher's opinion", Now);
+        app.ForwardToDean(DeanOffice, "Teacher agreed.", Now);
+        app.Approve(ViceDean, Now);
+
+        var statuses = app.StatusHistory.Select(e => e.ToStatus).ToArray();
+        Assert.Equal(new[]
+        {
+            ApplicationStatus.Submitted,
+            ApplicationStatus.UnderReview,
+            ApplicationStatus.ForwardedToDean,
+            ApplicationStatus.UnderReview,
+            ApplicationStatus.ForwardedToDean,
+            ApplicationStatus.Approved
+        }, statuses);
     }
 }
