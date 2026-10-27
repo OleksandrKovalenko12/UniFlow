@@ -112,7 +112,7 @@ classDiagram
     class AuditLogEntry {
         +long Id
         +string ActorId
-        +string Action
+        +AuditAction Action
         +string TargetUserId
         +string Details
         +DateTime CreatedAt
@@ -257,15 +257,18 @@ walidatorze formularza danego typu (wybieranym po `Code`), a nie w kolumnie bazy
 | Prywatny e-mail (opcjonalny) | student sam w profilu, bez akceptacji | `StudentProfile.PrivateEmail` |
 | E-mail logowania | tylko Administrator | `ApplicationUser.Email` |
 
-Danych kontaktowych nie da się zweryfikować dokumentem, więc nie przechodzą przez workflow;
-każda zmiana zapisywana w `AuditLogEntry` (stara → nowa wartość). Adres nie jest zbierany
+Danych kontaktowych nie da się zweryfikować dokumentem i nie służą do celów bezpieczeństwa
+(logowanie, reset hasła), więc nie przechodzą przez workflow ani audyt. Adres nie jest zbierany
 (minimalizacja danych — decyzje doręczane elektronicznie).
 
 ### Efekt zatwierdzenia `PERSONAL_DATA_CHANGE`
 
 - Po przejściu do `Approved` system **automatycznie** aktualizuje `FirstName` / `LastName`
   w `ApplicationUser` (w tej samej transakcji co zmiana statusu).
-- Stare wartości zostają w historii: wpis w `AuditLogEntry` (stare → nowe) + dane wniosku.
+- Stare wartości zostają we wniosku: przy złożeniu system dopisuje do `FormData` snapshot
+  obecnych danych (`current`) obok wnioskowanych (`requested`) — wniosek jest pełnym śladem
+  zmiany (bez wpisu w `AuditLogEntry`). Przy zatwierdzaniu: jeśli dane konta różnią się od
+  `current`, zatwierdzenie jest wstrzymywane.
 - Wcześniej wygenerowane PDF-y zostają bez zmian (dokument odzwierciedla stan z chwili
   wygenerowania).
 - Dane osobowe dotyczą osoby, nie kierunku — zmiana obowiązuje we wszystkich `Enrollment`.
@@ -297,6 +300,6 @@ każda zmiana zapisywana w `AuditLogEntry` (stara → nowa wartość). Adres nie
 | `Attachment.OriginalContentType` | Typ MIME — czy konwertować przez Gotenberg, jak zwrócić plik przeglądarce. |
 | `Attachment.StoragePath` + `PdfStoragePath` | Ścieżki na **dysku** (nie w bazie) — oryginał zostaje jako dowód, obok wersja PDF. |
 | `Attachment.IsArchived` | Wymóg MVP: archiwizacja zamiast kasowania. |
-| `AuditLogEntry` | Zdarzenia spoza obiegu wniosków (nadanie roli, przypisanie do wydziału, dezaktywacja konta, zmiana danych osobowych i kontaktowych). |
+| `AuditLogEntry` | Działania administracyjne: konta i uprawnienia (role, przypisania do wydziałów, aktywacja, e-mail logowania, korekty imienia/nazwiska), struktura uczelni (wydziały, kierunki), typy podań. Sprawy studentów dokumentują ich wnioski. |
 
 
