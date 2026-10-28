@@ -15,6 +15,7 @@ public class Application
     public ApplicationType ApplicationType { get; private set; } = null!;
     public ApplicationStatus Status { get; private set; }
     public bool RequiresDeanDecision { get; private set; }
+    public int MaxAttachments { get; private set; }
     public string FormData { get; private set; } = null!;
     public string? AssignedToId { get; private set; }
     public DateTime CreatedAt { get; private set; }
@@ -53,6 +54,7 @@ public class Application
         ApplicationTypeId = applicationType.Id;
 
         RequiresDeanDecision = applicationType.RequiresDeanDecision;
+        MaxAttachments = applicationType.MaxAttachments;
         Status = ApplicationStatus.Submitted;
         CreatedAt = now;
         UpdatedAt = now;

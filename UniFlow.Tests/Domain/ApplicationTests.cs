@@ -8,7 +8,6 @@ public class ApplicationTests
 {
     private const string StudentId = "student-1";
     private static readonly DateTime Now = new(2026, 10, 1, 10, 0, 0, DateTimeKind.Utc);
-
     private static Enrollment CreateEnrollment(string studentId = StudentId)
     {
         var faculty = new Faculty("WI", "Wydział Informatyki");
@@ -16,8 +15,9 @@ public class ApplicationTests
         return new Enrollment(studentId, field, 3, StudyMode.FullTime);
     }
 
-    private static ApplicationType CreateType(bool requiresDeanDecision = true) =>
-        new("GROUP_CHANGE", "Zmiana grupy", "Opis typu.", requiresDeanDecision);
+    private static ApplicationType CreateType(bool requiresDeanDecision = true,
+        int maxAttachments = 5) =>
+        new("GROUP_CHANGE", "Zmiana grupy", "Opis typu.", requiresDeanDecision, maxAttachments);
 
     private static Application Submit(
         Enrollment? enrollment = null,
@@ -114,8 +114,18 @@ public class ApplicationTests
         Assert.False(application.RequiresDeanDecision);
     }
 
-    //Business rules
+    [Fact]
+    public void Constructor_CopiesMaxAttachments_ChangeOfTypeDoesNotAffectApplication()
+    {
+        var type = CreateType(maxAttachments: 3);
+        var application = Submit(type: type);
 
+        type.SetMaxAttachments(1);   // admin lowered the limit
+
+        Assert.Equal(3, application.MaxAttachments);
+    }
+
+    //Business rules
     [Fact]
     public void Constructor_OtherStudentsEnrollment_Throws()
     {
@@ -144,7 +154,6 @@ public class ApplicationTests
     }
 
     //Data validation
-
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

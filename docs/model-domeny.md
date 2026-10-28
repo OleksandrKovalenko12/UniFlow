@@ -304,8 +304,8 @@ Danych kontaktowych nie da się zweryfikować dokumentem i nie służą do celó
 | `ApplicationType.Code` | Stały identyfikator techniczny — wybór formularza, walidatora i szablonu PDF. `Name` może się zmienić. |
 | `ApplicationType.RequiresDeanDecision` | Krótka ścieżka (decyzja dziekanatu) vs długa (decyzja prodziekana) — jedna maszyna stanów parametryzowana typem. |
 | `Application.RequiresDeanDecision` | Kopia flagi z typu w chwili złożenia — wnioski w toku kończą ścieżką z regulaminu, według którego je złożono („prawo nie działa wstecz”). Maszyna stanów sprawdza tę kopię, nie typ. |
-| `ApplicationType.MaxAttachments` | Różne podania wymagają różnej liczby dokumentów. Ustalany razem z typem (seed), niezmienny — typy podań definiuje programista. |
-| `Application.MaxAttachments` | Kopia limitu z chwili złożenia — wniosek sam pilnuje swoich reguł, bez wczytywania typu. |
+| `ApplicationType.MaxAttachments` | Różne podania wymagają różnej liczby dokumentów. Parametr regulaminowy — zmienia go Administrator (jak `RequiresDeanDecision`). |
+| `Application.MaxAttachments` | Kopia limitu z chwili złożenia — obniżenie limitu nie blokuje wniosków w toku; wniosek pilnuje swoich reguł bez wczytywania typu. |
 | `ApplicationUser.IsActive` | Dezaktywacja zamiast usuwania — historia i audyt muszą wskazywać na istniejących użytkowników. |
 | `ApplicationUser.FirstName/LastName` | W `User`, nie w `StudentProfile` — pracownicy też mają imię i nazwisko. |
 | `StudentProfile.AlbumNumber` | Jeden numer albumu na studenta na uczelni (niezależnie od liczby kierunków). |

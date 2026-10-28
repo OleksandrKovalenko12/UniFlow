@@ -4,6 +4,7 @@ namespace UniFlow.Domain.Entities;
 
 public class ApplicationType
 {
+    private const int MaxAllowedAttachments = 20;
     private const int MaxNameLength = 200;
     private const int MaxDescriptionLength = 1000;
 
@@ -12,10 +13,13 @@ public class ApplicationType
     public string Name { get; private set; } = null!;
     public string Description { get; private set; } = null!;
     public bool RequiresDeanDecision {  get; private set; }
+    public int MaxAttachments { get; private set; }
     public bool IsActive { get; private set;  }
 
-    public ApplicationType(string code, string name, string description, bool requiresDeanDecision)
+    public ApplicationType(string code, string name, string description, bool requiresDeanDecision,
+        int maxAttachments)
     {
+        MaxAttachments = ValidateMaxAttachments(maxAttachments, nameof(maxAttachments));
         Code = ValidateCode(code);
         Name = NormalizeText(name, nameof(name),MaxNameLength);
         Description = NormalizeText(description, nameof(description),MaxDescriptionLength);
@@ -31,6 +35,10 @@ public class ApplicationType
     public void ChangeDescription(string newDescription)
     {
         Description = NormalizeText(newDescription, nameof(newDescription), MaxDescriptionLength);
+    }
+    public void SetMaxAttachments(int maxAttachments)
+    {
+        MaxAttachments = ValidateMaxAttachments(maxAttachments, nameof(maxAttachments));
     }
 
     public void SetRequiresDeanDecision(bool value)
@@ -68,5 +76,14 @@ public class ApplicationType
             throw new ArgumentException($"{paramName} must be at most {maxLength} characters long.", paramName);
 
         return normalized;
+    }
+
+    private static int ValidateMaxAttachments(int value, string paramName)
+    {
+        if (value < 0 || value > MaxAllowedAttachments)
+            throw new ArgumentOutOfRangeException(paramName,
+                $"Max attachments must be between 0 and {MaxAllowedAttachments}.");
+
+        return value;
     }
 }
