@@ -83,9 +83,9 @@ classDiagram
         +Reject(actor, comment, now)
         +ReturnToDeanOffice(actor, internalComment, now)
         +Withdraw(actor, now)
-        +AddAttachment(...)
+        +AddAttachment(actor, file, now)
         +ArchiveAttachment(actor, attachmentId, now)
-        +AttachGeneratedDocument(...)
+        +AttachGeneratedDocument(file, now)
     }
 
     class Attachment {
@@ -95,7 +95,7 @@ classDiagram
         +string OriginalFileName
         +string OriginalContentType
         +string StoragePath
-        +string PdfStoragePath
+        +string PdfStoragePath (null dla PDF)
         +long SizeBytes
         +string UploadedById
         +DateTime UploadedAt
@@ -258,6 +258,7 @@ walidatorze formularza danego typu (wybieranym po `Code`), a nie w kolumnie bazy
 - Student (tylko autor) dodaje pliki przy złożeniu wniosku (status `Submitted`) i w
   `NeedsCorrection`. W trakcie weryfikacji zestaw plików się nie zmienia.
 - Zbędny plik student archiwizuje w tych samych statusach — plik nie jest kasowany.
+  W pozostałych statusach zestaw plików jest zamrożony; pliki wycofanego wniosku zostają.
 - Formaty: PDF, DOCX, JPG, PNG; maks. 10 MB na plik. HEIC i WebP są odrzucane (nieobsługiwane
   przez Gotenberg). Typ pliku sprawdzany po zawartości, nie tylko po rozszerzeniu.
 - Maksymalna liczba aktywnych załączników zależy od typu podania (`MaxAttachments`).

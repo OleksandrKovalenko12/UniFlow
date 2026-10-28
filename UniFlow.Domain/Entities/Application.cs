@@ -5,6 +5,7 @@ namespace UniFlow.Domain.Entities;
 public class Application
 {
     private readonly List<StatusHistoryEntry> _statusHistory = new();
+    private readonly List<Attachment> _attachments = new();
 
     public Guid Id { get; private set; }
     public string Number { get; private set; } = null!;
@@ -23,6 +24,7 @@ public class Application
     public uint RowVersion { get; private set; }
 
     public IReadOnlyCollection<StatusHistoryEntry> StatusHistory => _statusHistory;
+    public IReadOnlyCollection<Attachment> Attachments => _attachments;
 
     public Application(string number, string applicantId, Enrollment enrollment,
         ApplicationType applicationType, string formData, DateTime now)
@@ -172,6 +174,57 @@ public class Application
         EnsureApplicant(actor);
 
         ChangeStatus(ApplicationStatus.Withdrawn, actor, now, comment: null, isInternal: false);
+    }
+
+    //Attachments
+    public Attachment AddAttachment(Actor actor, StoredFile file, DateTime now)
+    {
+        EnsureStatus(ApplicationStatus.Submitted, ApplicationStatus.NeedsCorrection);
+        EnsureApplicant(actor);
+
+        var activeUploads = _attachments.Count(a =>
+            a.Kind == AttachmentKind.StudentUpload && !a.IsArchived);
+
+        if (activeUploads >= MaxAttachments)
+            throw new InvalidOperationException(
+                $"This application allows at most {MaxAttachments} attachments.");
+
+        var attachment = new Attachment(AttachmentKind.StudentUpload, file, actor.Id, now);
+        _attachments.Add(attachment);
+        UpdatedAt = now;
+
+        return attachment;
+    }
+
+    public void ArchiveAttachment(Actor actor, Guid attachmentId, DateTime now)
+    {
+        EnsureStatus(ApplicationStatus.Submitted, ApplicationStatus.NeedsCorrection);
+        EnsureApplicant(actor);
+
+        var attachment = _attachments.SingleOrDefault(a => a.Id == attachmentId)
+            ?? throw new InvalidOperationException("Attachment not found in this application.");
+
+        if (attachment.Kind != AttachmentKind.StudentUpload)
+            throw new InvalidOperationException("Only student uploads can be archived.");
+
+        attachment.Archive(now);
+        UpdatedAt = now;
+    }
+
+    public Attachment AttachGeneratedDocument(StoredFile file, DateTime now)
+    {
+        EnsureStatus(ApplicationStatus.Submitted, ApplicationStatus.Resubmitted);
+
+        var document = new Attachment(AttachmentKind.GeneratedDocument, file, ApplicantId, now);
+
+        var previous = _attachments.SingleOrDefault(a =>
+            a.Kind == AttachmentKind.GeneratedDocument && !a.IsArchived);
+        previous?.Archive(now);
+
+        _attachments.Add(document);
+        UpdatedAt = now;
+
+        return document;
     }
 
     //Validation and helpers

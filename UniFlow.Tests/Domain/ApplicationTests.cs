@@ -26,6 +26,12 @@ public class ApplicationTests
         new("UF/2026/0001", applicantId, enrollment ?? CreateEnrollment(), type ?? CreateType(),
             "{}", Now);
 
+    //Files
+    private static readonly StoredFile Pdf =
+        new("akt.pdf", "application/pdf", "files/a.pdf", null, 1000);
+    private static readonly StoredFile Image =
+        new("skan.jpg", "image/jpeg", "files/b.jpg", "files/b.pdf", 2000);
+
     //Actors
     private static readonly Actor Student = new(StudentId, ActorRole.Student);
     private static readonly Actor OtherStudent = new("student-2", ActorRole.Student);
@@ -437,5 +443,248 @@ public class ApplicationTests
             ApplicationStatus.ForwardedToDean,
             ApplicationStatus.Approved
         }, statuses);
+    }
+
+    //Attachments: AddAttachment
+    [Theory]
+    [InlineData(ApplicationStatus.Submitted)]
+    [InlineData(ApplicationStatus.NeedsCorrection)]
+    public void AddAttachment_InAllowedStatus_AddsAttachment(ApplicationStatus status)
+    {
+        var app = CreateInStatus(status);
+
+        var attachment = app.AddAttachment(Student, Image, Now);
+
+        Assert.Same(attachment, Assert.Single(app.Attachments));
+    }
+
+    [Theory]
+    [InlineData(ApplicationStatus.UnderReview)]
+    [InlineData(ApplicationStatus.Resubmitted)]
+    [InlineData(ApplicationStatus.ForwardedToDean)]
+    [InlineData(ApplicationStatus.Approved)]
+    [InlineData(ApplicationStatus.Rejected)]
+    [InlineData(ApplicationStatus.Withdrawn)]
+    public void AddAttachment_InOtherStatus_Throws(ApplicationStatus status)
+    {
+        var app = CreateInStatus(status);
+
+        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(Student, Pdf, Now));
+    }
+
+    [Fact]
+    public void AddAttachment_OtherStudent_Throws()
+    {
+        var app = Submit();
+
+        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(OtherStudent, Pdf, Now));
+    }
+
+    [Fact]
+    public void AddAttachment_StaffMember_Throws()
+    {
+        var app = Submit();
+
+        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(DeanOffice, Pdf, Now));
+    }
+
+    [Fact]
+    public void AddAttachment_LimitReached_Throws()
+    {
+        var app = Submit(type: CreateType(maxAttachments: 2));
+        app.AddAttachment(Student, Pdf, Now);
+        app.AddAttachment(Student, Image, Now);
+
+        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(Student, Pdf, Now));
+    }
+
+    [Fact]
+    public void AddAttachment_ZeroLimit_Throws()
+    {
+        var app = Submit(type: CreateType(maxAttachments: 0));
+
+        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(Student, Pdf, Now));
+    }
+
+    [Fact]
+    public void AddAttachment_ArchivedDoesNotCountToLimit()
+    {
+        var app = Submit(type: CreateType(maxAttachments: 1));
+        var first = app.AddAttachment(Student, Pdf, Now);
+        app.ArchiveAttachment(Student, first.Id, Now);
+
+        app.AddAttachment(Student, Image, Now);
+
+        Assert.Equal(2, app.Attachments.Count);
+    }
+
+    [Fact]
+    public void AddAttachment_GeneratedDocumentDoesNotCountToLimit()
+    {
+        var app = Submit(type: CreateType(maxAttachments: 1));
+        app.AttachGeneratedDocument(Pdf, Now);
+
+        app.AddAttachment(Student, Image, Now);
+
+        Assert.Equal(2, app.Attachments.Count);
+    }
+
+    [Fact]
+    public void AddAttachment_UpdatesUpdatedAt()
+    {
+        var app = Submit();
+        var later = Now.AddHours(2);
+
+        app.AddAttachment(Student, Pdf, later);
+
+        Assert.Equal(later, app.UpdatedAt);
+    }
+
+    //Attachments: ArchiveAttachment
+
+    [Fact]
+    public void ArchiveAttachment_Valid_ArchivesButKeepsFile()
+    {
+        var app = Submit();
+        var attachment = app.AddAttachment(Student, Pdf, Now);
+        var later = Now.AddHours(1);
+
+        app.ArchiveAttachment(Student, attachment.Id, later);
+
+        Assert.True(attachment.IsArchived);
+        Assert.Equal(later, attachment.ArchivedAt);
+        Assert.Single(app.Attachments);   // archived, not deleted
+    }
+
+    [Fact]
+    public void ArchiveAttachment_UnknownId_Throws()
+    {
+        var app = Submit();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            app.ArchiveAttachment(Student, Guid.NewGuid(), Now));
+    }
+
+    [Fact]
+    public void ArchiveAttachment_AttachmentOfOtherApplication_Throws()
+    {
+        var otherApp = Submit();
+        var foreignAttachment = otherApp.AddAttachment(Student, Pdf, Now);
+        var app = Submit();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            app.ArchiveAttachment(Student, foreignAttachment.Id, Now));
+        Assert.False(foreignAttachment.IsArchived);
+    }
+
+    [Fact]
+    public void ArchiveAttachment_GeneratedDocument_Throws()
+    {
+        var app = Submit();
+        var document = app.AttachGeneratedDocument(Pdf, Now);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            app.ArchiveAttachment(Student, document.Id, Now));
+        Assert.False(document.IsArchived);
+    }
+
+    [Fact]
+    public void ArchiveAttachment_AlreadyArchived_Throws()
+    {
+        var app = Submit();
+        var attachment = app.AddAttachment(Student, Pdf, Now);
+        app.ArchiveAttachment(Student, attachment.Id, Now);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            app.ArchiveAttachment(Student, attachment.Id, Now));
+    }
+
+    [Fact]
+    public void ArchiveAttachment_OtherStudent_Throws()
+    {
+        var app = Submit();
+        var attachment = app.AddAttachment(Student, Pdf, Now);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            app.ArchiveAttachment(OtherStudent, attachment.Id, Now));
+    }
+
+    [Fact]
+    public void ArchiveAttachment_DuringReview_Throws()
+    {
+        var app = Submit();
+        var attachment = app.AddAttachment(Student, Pdf, Now);
+        app.TakeForReview(DeanOffice, Now);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            app.ArchiveAttachment(Student, attachment.Id, Now));
+        Assert.False(attachment.IsArchived);
+    }
+
+    //Attachments: AttachGeneratedDocument
+
+    [Fact]
+    public void AttachGeneratedDocument_First_AddsActiveDocument()
+    {
+        var app = Submit();
+
+        var document = app.AttachGeneratedDocument(Pdf, Now);
+
+        Assert.Same(document, Assert.Single(app.Attachments));
+        Assert.Equal(AttachmentKind.GeneratedDocument, document.Kind);
+        Assert.Equal(StudentId, document.UploadedById);
+        Assert.False(document.IsArchived);
+    }
+
+    [Fact]
+    public void AttachGeneratedDocument_Again_ArchivesPrevious()
+    {
+        var app = Submit();
+        var first = app.AttachGeneratedDocument(Pdf, Now);
+
+        var second = app.AttachGeneratedDocument(Pdf, Now.AddHours(1));
+
+        Assert.True(first.IsArchived);
+        Assert.False(second.IsArchived);
+        Assert.Single(app.Attachments, a =>
+            a.Kind == AttachmentKind.GeneratedDocument && !a.IsArchived);
+    }
+
+    [Fact]
+    public void AttachGeneratedDocument_InvalidFile_KeepsPreviousActive()
+    {
+        var app = Submit();
+        var first = app.AttachGeneratedDocument(Pdf, Now);
+
+        Assert.Throws<ArgumentException>(() => app.AttachGeneratedDocument(Image, Now));
+
+        Assert.False(first.IsArchived);
+        Assert.Single(app.Attachments);
+    }
+
+    [Theory]
+    [InlineData(ApplicationStatus.Submitted)]
+    [InlineData(ApplicationStatus.Resubmitted)]
+    public void AttachGeneratedDocument_InAllowedStatus_AddsDocument(ApplicationStatus status)
+    {
+        var app = CreateInStatus(status);
+
+        app.AttachGeneratedDocument(Pdf, Now);
+
+        Assert.Single(app.Attachments);
+    }
+
+    [Theory]
+    [InlineData(ApplicationStatus.UnderReview)]
+    [InlineData(ApplicationStatus.NeedsCorrection)]
+    [InlineData(ApplicationStatus.ForwardedToDean)]
+    [InlineData(ApplicationStatus.Approved)]
+    [InlineData(ApplicationStatus.Rejected)]
+    [InlineData(ApplicationStatus.Withdrawn)]
+    public void AttachGeneratedDocument_InOtherStatus_Throws(ApplicationStatus status)
+    {
+        var app = CreateInStatus(status);
+
+        Assert.Throws<InvalidOperationException>(() => app.AttachGeneratedDocument(Pdf, Now));
     }
 }
