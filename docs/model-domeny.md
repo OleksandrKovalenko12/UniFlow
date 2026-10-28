@@ -57,6 +57,7 @@ classDiagram
         +string Name
         +string Description
         +bool RequiresDeanDecision
+        +int MaxAttachments
         +bool IsActive
     }
 
@@ -68,6 +69,7 @@ classDiagram
         +int ApplicationTypeId
         +ApplicationStatus Status
         +bool RequiresDeanDecision
+        +int MaxAttachments
         +string FormData
         +string AssignedToId
         +DateTime CreatedAt
@@ -81,6 +83,9 @@ classDiagram
         +Reject(actor, comment, now)
         +ReturnToDeanOffice(actor, internalComment, now)
         +Withdraw(actor, now)
+        +AddAttachment(...)
+        +ArchiveAttachment(actor, attachmentId, now)
+        +AttachGeneratedDocument(...)
     }
 
     class Attachment {
@@ -248,6 +253,17 @@ statusu — nie potrzeba osobnego pola.
 Reguły „czy załącznik jest wymagany” zależą od wartości pól (urlop zdrowotny), więc są w
 walidatorze formularza danego typu (wybieranym po `Code`), a nie w kolumnie bazy.
 
+### Załączniki
+
+- Student (tylko autor) dodaje pliki przy złożeniu wniosku (status `Submitted`) i w
+  `NeedsCorrection`. W trakcie weryfikacji zestaw plików się nie zmienia.
+- Zbędny plik student archiwizuje w tych samych statusach — plik nie jest kasowany.
+- Formaty: PDF, DOCX, JPG, PNG; maks. 10 MB na plik. HEIC i WebP są odrzucane (nieobsługiwane
+  przez Gotenberg). Typ pliku sprawdzany po zawartości, nie tylko po rozszerzeniu.
+- Maksymalna liczba aktywnych załączników zależy od typu podania (`MaxAttachments`).
+- Oficjalny PDF wniosku (`GeneratedDocument`) powstaje przy złożeniu i przy `Resubmit`;
+  poprzednia wersja jest archiwizowana. Nie wlicza się do limitu.
+
 ### Dane identyfikacyjne vs kontaktowe
 
 | Dane | Zmiana | Pole |
@@ -288,6 +304,8 @@ Danych kontaktowych nie da się zweryfikować dokumentem i nie służą do celó
 | `ApplicationType.Code` | Stały identyfikator techniczny — wybór formularza, walidatora i szablonu PDF. `Name` może się zmienić. |
 | `ApplicationType.RequiresDeanDecision` | Krótka ścieżka (decyzja dziekanatu) vs długa (decyzja prodziekana) — jedna maszyna stanów parametryzowana typem. |
 | `Application.RequiresDeanDecision` | Kopia flagi z typu w chwili złożenia — wnioski w toku kończą ścieżką z regulaminu, według którego je złożono („prawo nie działa wstecz”). Maszyna stanów sprawdza tę kopię, nie typ. |
+| `ApplicationType.MaxAttachments` | Różne podania wymagają różnej liczby dokumentów. Ustalany razem z typem (seed), niezmienny — typy podań definiuje programista. |
+| `Application.MaxAttachments` | Kopia limitu z chwili złożenia — wniosek sam pilnuje swoich reguł, bez wczytywania typu. |
 | `ApplicationUser.IsActive` | Dezaktywacja zamiast usuwania — historia i audyt muszą wskazywać na istniejących użytkowników. |
 | `ApplicationUser.FirstName/LastName` | W `User`, nie w `StudentProfile` — pracownicy też mają imię i nazwisko. |
 | `StudentProfile.AlbumNumber` | Jeden numer albumu na studenta na uczelni (niezależnie od liczby kierunków). |
