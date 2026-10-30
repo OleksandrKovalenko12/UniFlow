@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UniFlow.Domain\UniFlow.Domain.csproj" />
+    <ProjectReference Include="..\UniFlow.Shared\UniFlow.Shared.csproj" />
   </ItemGroup>
 
 </Project>

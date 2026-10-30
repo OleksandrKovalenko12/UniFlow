@@ -1,5 +1,9 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using UniFlow.Infrastructure.Identity;
 using UniFlow.Infrastructure.Persistence;
+using UniFlow.Infrastructure.Persistence.Seed;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +16,24 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<UniFlowDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
+builder.Services
+    .AddIdentityCore<ApplicationUser>()
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<UniFlowDbContext>();
+
+builder.Services.AddScoped<DevelopmentSeeder>();
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    var seedPassword = app.Configuration["Seed:Password"]
+        ?? throw new InvalidOperationException("Missing 'Seed:Password' in configuration.");
+
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentSeeder>();
+    await seeder.SeedAsync(seedPassword);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
