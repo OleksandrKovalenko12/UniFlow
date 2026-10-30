@@ -91,7 +91,8 @@ public class Attachment
     internal void Archive(DateTime now)
     {
         if (IsArchived)
-            throw new InvalidOperationException("Attachment is already archived.");
+            throw new DomainException(DomainErrorCode.AttachmentAlreadyArchived,
+            "Attachment is already archived.");
         if (now.Kind != DateTimeKind.Utc)
             throw new ArgumentException("Time must be in UTC.", nameof(now));
 

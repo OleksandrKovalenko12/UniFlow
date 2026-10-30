@@ -37,13 +37,15 @@ public class Application
         ArgumentNullException.ThrowIfNull(applicationType);
 
         if (enrollment.StudentId != applicantId)
-            throw new InvalidOperationException("A student can submit applications " +
-                "only within their own enrollment.");
+            throw new DomainException(DomainErrorCode.NotOwnEnrollment,
+                "A student can submit applications only within their own enrollment.");
 
         if (!enrollment.IsActive)
-            throw new InvalidOperationException("Enrollment must be active.");
+            throw new DomainException(DomainErrorCode.EnrollmentInactive,
+                "Enrollment must be active.");
         if (!applicationType.IsActive)
-            throw new InvalidOperationException("Application type must be active.");
+            throw new DomainException(DomainErrorCode.ApplicationTypeInactive,
+                "Application type must be active.");
 
         Id = Guid.CreateVersion7();
 
@@ -89,7 +91,8 @@ public class Application
         {
             EnsureRole(actor, ActorRole.DeanOffice);
             if (RequiresDeanDecision)
-                throw new InvalidOperationException("This application must be decided by the vice-dean.");
+                throw new DomainException(DomainErrorCode.DeanDecisionRequired,
+                    "This application must be decided by the vice-dean.");
         }
         else if (Status == ApplicationStatus.ForwardedToDean)
         {
@@ -97,7 +100,8 @@ public class Application
         }
         else
         {
-            throw new InvalidOperationException($"Cannot approve an application in status {Status}.");
+            throw new DomainException(DomainErrorCode.InvalidStatus,
+               $"Cannot approve an application in status {Status}.");
         }
 
         ChangeStatus(ApplicationStatus.Approved, actor, now, comment: null, isInternal: false);
@@ -130,8 +134,8 @@ public class Application
         EnsureRole(actor, ActorRole.DeanOffice);
 
         if (!RequiresDeanDecision)
-            throw new InvalidOperationException("This application is decided by the dean's " +
-                "office and cannot be forwarded.");
+            throw new DomainException(DomainErrorCode.DeanDecisionNotRequired,
+                "This application is decided by the dean's office and cannot be forwarded.");
 
         ChangeStatus(ApplicationStatus.ForwardedToDean, actor, now, comment: internalNote,
             isInternal: !string.IsNullOrWhiteSpace(internalNote));
@@ -152,7 +156,8 @@ public class Application
         }
         else
         {
-            throw new InvalidOperationException($"Cannot reject an application in status {Status}.");
+            throw new DomainException(DomainErrorCode.InvalidStatus,
+                $"Cannot reject an application in status {Status}.");
         }
 
         ChangeStatus(ApplicationStatus.Rejected, actor, now, comment, isInternal: false);
@@ -186,7 +191,7 @@ public class Application
             a.Kind == AttachmentKind.StudentUpload && !a.IsArchived);
 
         if (activeUploads >= MaxAttachments)
-            throw new InvalidOperationException(
+            throw new DomainException(DomainErrorCode.AttachmentLimitReached,
                 $"This application allows at most {MaxAttachments} attachments.");
 
         var attachment = new Attachment(AttachmentKind.StudentUpload, file, actor.Id, now);
@@ -202,10 +207,12 @@ public class Application
         EnsureApplicant(actor);
 
         var attachment = _attachments.SingleOrDefault(a => a.Id == attachmentId)
-            ?? throw new InvalidOperationException("Attachment not found in this application.");
+            ?? throw new DomainException(DomainErrorCode.AttachmentNotFound,
+                "Attachment not found in this application.");
 
         if (attachment.Kind != AttachmentKind.StudentUpload)
-            throw new InvalidOperationException("Only student uploads can be archived.");
+            throw new DomainException(DomainErrorCode.AttachmentNotArchivable,
+                "Only student uploads can be archived.");
 
         attachment.Archive(now);
         UpdatedAt = now;
@@ -231,8 +238,8 @@ public class Application
     private void EnsureStatus(params ApplicationStatus[] allowed)
     {
         if (!allowed.Contains(Status))
-            throw new InvalidOperationException($"Operation not allowed in status {Status}. Allowed: " +
-                $"{string.Join(", ", allowed)}");
+            throw new DomainException(DomainErrorCode.InvalidStatus,
+                $"Operation not allowed in status {Status}. Allowed: {string.Join(", ", allowed)}");
     }
 
     private void EnsureRole(Actor actor, ActorRole required)
@@ -240,9 +247,11 @@ public class Application
         ArgumentNullException.ThrowIfNull(actor);
 
         if (actor.Role != required)
-            throw new InvalidOperationException($"Only {required} can perform this operation.");
-        if (required != ActorRole.Student && actor.Id == ApplicantId)     
-            throw new InvalidOperationException("Staff members cannot process their own applications.");
+            throw new DomainException(DomainErrorCode.RoleNotAllowed,
+                $"Only {required} can perform this operation.");
+        if (required != ActorRole.Student && actor.Id == ApplicantId)
+            throw new DomainException(DomainErrorCode.ConflictOfInterest,
+                "Staff members cannot process their own applications.");
     }
 
     private void EnsureApplicant(Actor actor)
@@ -250,7 +259,8 @@ public class Application
         EnsureRole(actor, ActorRole.Student);
 
         if (actor.Id != ApplicantId)
-            throw new InvalidOperationException("Only the applicant can perform this operation.");
+            throw new DomainException(DomainErrorCode.NotApplicant,
+                "Only the applicant can perform this operation.");
     }
 
     private static void RequireComment(string? comment)

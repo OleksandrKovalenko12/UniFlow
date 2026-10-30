@@ -137,8 +137,9 @@ public class ApplicationTests
     {
         var enrollmentOfOtherStudent = CreateEnrollment("student-2");
 
-        Assert.Throws<InvalidOperationException>(
-            () => Submit(enrollment: enrollmentOfOtherStudent, applicantId: StudentId));
+        var ex = Assert.Throws<DomainException>(() => 
+            Submit(enrollment: enrollmentOfOtherStudent, applicantId: StudentId));
+        Assert.Equal(DomainErrorCode.NotOwnEnrollment, ex.Code);
     }
 
     [Fact]
@@ -147,7 +148,8 @@ public class ApplicationTests
         var enrollment = CreateEnrollment();
         enrollment.Deactivate();
 
-        Assert.Throws<InvalidOperationException>(() => Submit(enrollment: enrollment));
+        var ex = Assert.Throws<DomainException>(() => Submit(enrollment: enrollment));
+        Assert.Equal(DomainErrorCode.EnrollmentInactive, ex.Code);
     }
 
     [Fact]
@@ -156,7 +158,8 @@ public class ApplicationTests
         var type = CreateType();
         type.Deactivate();
 
-        Assert.Throws<InvalidOperationException>(() => Submit(type: type));
+        var ex = Assert.Throws<DomainException>(() => Submit(type: type));
+        Assert.Equal(DomainErrorCode.ApplicationTypeInactive, ex.Code);
     }
 
     //Data validation
@@ -322,7 +325,8 @@ public class ApplicationTests
     {
         var app = CreateInStatus(ApplicationStatus.UnderReview, requiresDeanDecision: true);
 
-        Assert.Throws<InvalidOperationException>(() => app.Approve(DeanOffice, Now));
+        var ex = Assert.Throws<DomainException>(() => app.Approve(DeanOffice, Now));
+        Assert.Equal(DomainErrorCode.DeanDecisionRequired, ex.Code);
     }
 
     [Fact]
@@ -330,7 +334,8 @@ public class ApplicationTests
     {
         var app = CreateInStatus(ApplicationStatus.UnderReview, requiresDeanDecision: false);
 
-        Assert.Throws<InvalidOperationException>(() => app.ForwardToDean(DeanOffice, null, Now));
+        var ex = Assert.Throws<DomainException>(() => app.ForwardToDean(DeanOffice, null, Now));
+        Assert.Equal(DomainErrorCode.DeanDecisionNotRequired, ex.Code);
     }
 
     [Fact]
@@ -338,7 +343,7 @@ public class ApplicationTests
     {
         var app = CreateInStatus(ApplicationStatus.ForwardedToDean);
 
-        Assert.Throws<InvalidOperationException>(() => app.Approve(Student, Now));
+        Assert.Throws<DomainException>(() => app.Approve(Student, Now));
     }
 
     [Fact]
@@ -346,7 +351,7 @@ public class ApplicationTests
     {
         var app = CreateInStatus(ApplicationStatus.Submitted);
 
-        Assert.Throws<InvalidOperationException>(() => app.Approve(ViceDean, Now));
+        Assert.Throws<DomainException>(() => app.Approve(ViceDean, Now));
     }
 
     [Fact]
@@ -354,7 +359,7 @@ public class ApplicationTests
     {
         var app = CreateInStatus(ApplicationStatus.NeedsCorrection);
 
-        Assert.Throws<InvalidOperationException>(() => app.Resubmit(OtherStudent, "{}", Now));
+        Assert.Throws<DomainException>(() => app.Resubmit(OtherStudent, "{}", Now));
     }
 
     [Fact]
@@ -362,7 +367,7 @@ public class ApplicationTests
     {
         var app = CreateInStatus(ApplicationStatus.Submitted);
 
-        Assert.Throws<InvalidOperationException>(() => app.Withdraw(OtherStudent, Now));
+        Assert.Throws<DomainException>(() => app.Withdraw(OtherStudent, Now));
     }
 
     [Fact]
@@ -371,7 +376,8 @@ public class ApplicationTests
         var app = CreateInStatus(ApplicationStatus.Submitted);
         var staffWhoIsApplicant = new Actor(StudentId, ActorRole.DeanOffice);
 
-        Assert.Throws<InvalidOperationException>(() => app.TakeForReview(staffWhoIsApplicant, Now));
+        var ex = Assert.Throws<DomainException>(() => app.TakeForReview(staffWhoIsApplicant, Now));
+        Assert.Equal(DomainErrorCode.ConflictOfInterest, ex.Code);
     }
 
     [Theory]
@@ -383,7 +389,7 @@ public class ApplicationTests
     {
         var app = CreateInStatus(from);
 
-        Assert.Throws<InvalidOperationException>(() => app.Withdraw(Student, Now));
+        Assert.Throws<DomainException>(() => app.Withdraw(Student, Now));
     }
 
     [Theory]
@@ -394,7 +400,7 @@ public class ApplicationTests
     {
         var app = CreateInStatus(final);
 
-        Assert.Throws<InvalidOperationException>(() => app.TakeForReview(DeanOffice, Now));
+        Assert.Throws<DomainException>(() => app.TakeForReview(DeanOffice, Now));
     }
 
     //Comments tests
@@ -469,7 +475,7 @@ public class ApplicationTests
     {
         var app = CreateInStatus(status);
 
-        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(Student, Pdf, Now));
+        Assert.Throws<DomainException>(() => app.AddAttachment(Student, Pdf, Now));
     }
 
     [Fact]
@@ -477,7 +483,8 @@ public class ApplicationTests
     {
         var app = Submit();
 
-        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(OtherStudent, Pdf, Now));
+        var ex = Assert.Throws<DomainException>(() => app.AddAttachment(OtherStudent, Pdf, Now));
+        Assert.Equal(DomainErrorCode.NotApplicant, ex.Code);
     }
 
     [Fact]
@@ -485,7 +492,8 @@ public class ApplicationTests
     {
         var app = Submit();
 
-        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(DeanOffice, Pdf, Now));
+        var ex = Assert.Throws<DomainException>(() => app.AddAttachment(DeanOffice, Pdf, Now));
+        Assert.Equal(DomainErrorCode.RoleNotAllowed, ex.Code);
     }
 
     [Fact]
@@ -495,7 +503,8 @@ public class ApplicationTests
         app.AddAttachment(Student, Pdf, Now);
         app.AddAttachment(Student, Image, Now);
 
-        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(Student, Pdf, Now));
+        var ex = Assert.Throws<DomainException>(() => app.AddAttachment(Student, Pdf, Now));
+        Assert.Equal(DomainErrorCode.AttachmentLimitReached, ex.Code);
     }
 
     [Fact]
@@ -503,7 +512,7 @@ public class ApplicationTests
     {
         var app = Submit(type: CreateType(maxAttachments: 0));
 
-        Assert.Throws<InvalidOperationException>(() => app.AddAttachment(Student, Pdf, Now));
+        Assert.Throws<DomainException>(() => app.AddAttachment(Student, Pdf, Now));
     }
 
     [Fact]
@@ -561,7 +570,7 @@ public class ApplicationTests
     {
         var app = Submit();
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<DomainException>(() =>
             app.ArchiveAttachment(Student, Guid.NewGuid(), Now));
     }
 
@@ -572,8 +581,9 @@ public class ApplicationTests
         var foreignAttachment = otherApp.AddAttachment(Student, Pdf, Now);
         var app = Submit();
 
-        Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<DomainException>(() =>
             app.ArchiveAttachment(Student, foreignAttachment.Id, Now));
+        Assert.Equal(DomainErrorCode.AttachmentNotFound, ex.Code);
         Assert.False(foreignAttachment.IsArchived);
     }
 
@@ -583,8 +593,9 @@ public class ApplicationTests
         var app = Submit();
         var document = app.AttachGeneratedDocument(Pdf, Now);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<DomainException>(() =>
             app.ArchiveAttachment(Student, document.Id, Now));
+        Assert.Equal(DomainErrorCode.AttachmentNotArchivable, ex.Code);
         Assert.False(document.IsArchived);
     }
 
@@ -595,8 +606,9 @@ public class ApplicationTests
         var attachment = app.AddAttachment(Student, Pdf, Now);
         app.ArchiveAttachment(Student, attachment.Id, Now);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<DomainException>(() =>
             app.ArchiveAttachment(Student, attachment.Id, Now));
+        Assert.Equal(DomainErrorCode.AttachmentAlreadyArchived, ex.Code);
     }
 
     [Fact]
@@ -605,7 +617,7 @@ public class ApplicationTests
         var app = Submit();
         var attachment = app.AddAttachment(Student, Pdf, Now);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<DomainException>(() =>
             app.ArchiveAttachment(OtherStudent, attachment.Id, Now));
     }
 
@@ -616,7 +628,7 @@ public class ApplicationTests
         var attachment = app.AddAttachment(Student, Pdf, Now);
         app.TakeForReview(DeanOffice, Now);
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<DomainException>(() =>
             app.ArchiveAttachment(Student, attachment.Id, Now));
         Assert.False(attachment.IsArchived);
     }
@@ -685,6 +697,6 @@ public class ApplicationTests
     {
         var app = CreateInStatus(status);
 
-        Assert.Throws<InvalidOperationException>(() => app.AttachGeneratedDocument(Pdf, Now));
+        Assert.Throws<DomainException>(() => app.AttachGeneratedDocument(Pdf, Now));
     }
 }

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using UniFlow.Domain;
 using UniFlow.Domain.Entities;
 using UniFlow.Domain.Enums;
 
@@ -73,7 +71,7 @@ public class EnrollmentTests
         var enrollment = CreateEnrollment();
         enrollment.Deactivate();
 
-        Assert.Throws<InvalidOperationException>(() => enrollment.ChangeSemester(2));
+        Assert.Throws<DomainException>(() => enrollment.ChangeSemester(2));
     }
 
     [Fact]
@@ -82,7 +80,7 @@ public class EnrollmentTests
         var enrollment = CreateEnrollment();
         enrollment.Deactivate();
 
-        Assert.Throws<InvalidOperationException>(() => enrollment.ChangeStudyMode(StudyMode.PartTime));
+        Assert.Throws<DomainException>(() => enrollment.ChangeStudyMode(StudyMode.PartTime));
     }
 
     [Fact]
@@ -91,7 +89,7 @@ public class EnrollmentTests
         var enrollment = CreateEnrollment();
         enrollment.Deactivate();
 
-        Assert.Throws<InvalidOperationException>(() => enrollment.Deactivate());
+        Assert.Throws<DomainException>(() => enrollment.Deactivate());
     }
 
     [Fact]
@@ -111,6 +109,6 @@ public class EnrollmentTests
     {
         var enrollment = CreateEnrollment();
 
-        Assert.Throws<InvalidOperationException>(() => enrollment.Reactivate(1));
+        Assert.Throws<DomainException>(() => enrollment.Reactivate(1));
     }
 }

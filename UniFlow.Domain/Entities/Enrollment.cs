@@ -53,14 +53,16 @@ public class Enrollment
     public void Deactivate()
     {
         if (!IsActive)
-            throw new InvalidOperationException("Enrollment is already inactive");
+            throw new DomainException(DomainErrorCode.EnrollmentAlreadyInactive,
+                "Enrollment is already inactive.");
 
         IsActive = false;
     }
     public void Reactivate(int semester)
     {
         if (IsActive)
-            throw new InvalidOperationException("Enrollment is already active.");
+            throw new DomainException(DomainErrorCode.EnrollmentAlreadyActive,
+                "Enrollment is already active.");
 
         Semester = ValidateSemester(semester, FieldOfStudy.Level);
         IsActive = true;
@@ -69,7 +71,8 @@ public class Enrollment
     private void EnsureActive()
     {
         if (!IsActive)
-            throw new InvalidOperationException("Cannot modify an inactive enrollment.");
+            throw new DomainException(DomainErrorCode.EnrollmentInactive,
+                "Cannot modify an inactive enrollment.");
     }
 
     private static int GetMaxSemester(StudyLevel level) => level switch
