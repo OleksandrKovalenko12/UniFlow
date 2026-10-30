@@ -12,6 +12,11 @@ public class UniFlowDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Faculty> Faculties => Set<Faculty>();
     public DbSet<FieldOfStudy> FieldsOfStudy => Set<FieldOfStudy>();
     public DbSet<ApplicationType> ApplicationTypes => Set<ApplicationType>();
+    public DbSet<StaffAssignment> StaffAssignments => Set<StaffAssignment>();
+    public DbSet<StudentProfile> StudentProfiles => Set<StudentProfile>();
+    public DbSet<Enrollment> Enrollments => Set<Enrollment>();
+    public DbSet<Application> Applications => Set<Application>();
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
