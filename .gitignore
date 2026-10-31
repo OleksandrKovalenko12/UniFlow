@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Uploaded files (local storage)
+UniFlow.Api/storage/
+
 # User-specific files
 *.rsuser
 *.suo

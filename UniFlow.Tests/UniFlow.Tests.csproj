@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UniFlow.Domain\UniFlow.Domain.csproj" />
+    <ProjectReference Include="..\UniFlow.Infrastructure\UniFlow.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

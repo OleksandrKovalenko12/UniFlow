@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using UniFlow.Infrastructure.Identity;
 using UniFlow.Infrastructure.Persistence;
+using UniFlow.Infrastructure.Storage;
 using UniFlow.Infrastructure.Persistence.Seed;
 
 
@@ -22,6 +23,11 @@ builder.Services
     .AddEntityFrameworkStores<UniFlowDbContext>();
 
 builder.Services.AddScoped<DevelopmentSeeder>();
+
+var storageRoot = builder.Configuration["Storage:RootPath"]
+    ?? throw new InvalidOperationException("Storage:RootPath is not configured.");
+builder.Services.AddSingleton<IFileStorage>(
+    new LocalFileStorage(Path.Combine(builder.Environment.ContentRootPath, storageRoot)));
 
 var app = builder.Build();
 
