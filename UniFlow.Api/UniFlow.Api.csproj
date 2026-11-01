@@ -23,6 +23,7 @@
     <ProjectReference Include="..\UniFlow.Client\UniFlow.Client.csproj" />
     <ProjectReference Include="..\UniFlow.Infrastructure\UniFlow.Infrastructure.csproj" />
     <ProjectReference Include="..\UniFlow.Shared\UniFlow.Shared.csproj" />
+    <ProjectReference Include="..\UniFlow.Documents\UniFlow.Documents.csproj" />
   </ItemGroup>
 
 </Project>
