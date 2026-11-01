@@ -12,8 +12,10 @@ public class Attachment
     [
         PdfContentType,
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.oasis.opendocument.text",
         "image/jpeg",
         "image/png",
+        "image/webp",
     ];
 
     public Guid Id { get; private set; }

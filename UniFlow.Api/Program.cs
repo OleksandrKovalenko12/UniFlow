@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UniFlow.Infrastructure.Identity;
 using UniFlow.Infrastructure.Persistence;
 using UniFlow.Infrastructure.Storage;
+using UniFlow.Infrastructure.Pdf;
 using UniFlow.Infrastructure.Persistence.Seed;
 
 
@@ -28,6 +29,14 @@ var storageRoot = builder.Configuration["Storage:RootPath"]
     ?? throw new InvalidOperationException("Storage:RootPath is not configured.");
 builder.Services.AddSingleton<IFileStorage>(
     new LocalFileStorage(Path.Combine(builder.Environment.ContentRootPath, storageRoot)));
+
+var gotenbergUrl = builder.Configuration["Gotenberg:BaseUrl"]
+    ?? throw new InvalidOperationException("Gotenberg:BaseUrl is not configured.");
+builder.Services.AddHttpClient<IPdfConverter, GotenbergPdfConverter>(client =>
+{
+    client.BaseAddress = new Uri(gotenbergUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
 
 var app = builder.Build();
 

@@ -58,8 +58,20 @@ public class AttachmentTests
     //Content type
 
     [Theory]
-    [InlineData("image/heic")]
+    [InlineData("application/vnd.openxmlformats-officedocument.wordprocessingml.document")]
+    [InlineData("application/vnd.oasis.opendocument.text")]
+    [InlineData("image/jpeg")]
+    [InlineData("image/png")]
     [InlineData("image/webp")]
+    public void Constructor_SupportedNonPdfContentType_IsAccepted(string contentType)
+    {
+        var attachment = Submit().AddAttachment(Student, Image with { ContentType = contentType }, Now);
+
+        Assert.Equal(contentType, attachment.OriginalContentType);
+    }
+
+    [Theory]
+    [InlineData("image/heic")]
     [InlineData("image/gif")]
     [InlineData("text/plain")]
     public void Constructor_UnsupportedContentType_Throws(string contentType)

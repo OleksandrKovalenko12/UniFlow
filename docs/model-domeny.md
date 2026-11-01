@@ -259,8 +259,9 @@ walidatorze formularza danego typu (wybieranym po `Code`), a nie w kolumnie bazy
   `NeedsCorrection`. W trakcie weryfikacji zestaw plików się nie zmienia.
 - Zbędny plik student archiwizuje w tych samych statusach — plik nie jest kasowany.
   W pozostałych statusach zestaw plików jest zamrożony; pliki wycofanego wniosku zostają.
-- Formaty: PDF, DOCX, JPG, PNG; maks. 10 MB na plik. HEIC i WebP są odrzucane (nieobsługiwane
-  przez Gotenberg). Typ pliku sprawdzany po zawartości, nie tylko po rozszerzeniu.
+- Formaty: PDF, DOCX, ODT, JPG, PNG, WebP; maks. 10 MB na plik. Dokumenty konwertowane do
+  PDF przez LibreOffice, obrazy przez Chromium (strona A4). HEIC jest odrzucany (Chromium go
+  nie wyświetla). Typ pliku sprawdzany po zawartości, nie tylko po rozszerzeniu.
 - Maksymalna liczba aktywnych załączników zależy od typu podania (`MaxAttachments`).
 - Oficjalny PDF wniosku (`GeneratedDocument`) powstaje przy złożeniu i przy `Resubmit`;
   poprzednia wersja jest archiwizowana. Nie wlicza się do limitu.
