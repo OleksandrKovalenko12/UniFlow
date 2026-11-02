@@ -1,0 +1,16 @@
+﻿<table class="student-data">
+    <tbody>
+        <tr><th>Imię i nazwisko</th><td>@Header.StudentFullName</td></tr>
+        <tr><th>Nr albumu</th><td>@Header.AlbumNumber</td></tr>
+        <tr><th>Nazwa wydziału</th><td>@Header.FacultyName</td></tr>
+        <tr><th>Kierunek</th><td>@Header.FieldOfStudy</td></tr>
+        <tr><th>Forma i stopień studiów</th><td>@Header.StudyForm</td></tr>
+        <tr><th>Semestr</th><td>@Header.Semester</td></tr>
+        <tr><th>Rok akademicki</th><td>@Header.AcademicYear</td></tr>
+    </tbody>
+</table>
+
+@code {
+    [Parameter, EditorRequired]
+    public ApplicationHeader Header { get; set; } = default!;
+}

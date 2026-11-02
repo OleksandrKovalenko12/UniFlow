@@ -1,0 +1,41 @@
+﻿@implements IDocumentTemplate<GroupChangeDocument>
+
+<ApplicationLayout Header="Model.Header" Title="Podanie o zmianę grupy">
+    @if (Model.Form.Scope == GroupChangeScope.General)
+    {
+        <p>
+            Zwracam się z uprzejmą prośbą o zmianę grupy @GroupTypeText.Adjective(Model.Form.GroupType)
+            z grupy nr @Model.Form.CurrentGroup na grupę nr @Model.Form.RequestedGroup
+            ze wszystkich przedmiotów w bieżącym semestrze.
+        </p>
+    }
+    else
+    {
+        <p>Zwracam się z uprzejmą prośbą o zmianę grupy z następujących przedmiotów w bieżącym semestrze:</p>
+
+        <table class="subjects">
+            <thead>
+                <tr><th>Przedmiot</th><th>Rodzaj zajęć</th><th>Grupa obecna</th><th>Grupa wnioskowana</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var subject in Model.Form.Subjects)
+                {
+                    <tr>
+                        <td>@subject.Subject</td>
+                        <td>@GroupTypeText.Name(subject.GroupType)</td>
+                        <td>@subject.CurrentGroup</td>
+                        <td>@subject.RequestedGroup</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <p><strong>Uzasadnienie</strong></p>
+    <p class="justification">@Model.Form.Justification</p>
+</ApplicationLayout>
+
+@code {
+    [Parameter, EditorRequired]
+    public GroupChangeDocument Model { get; set; } = default!;
+}

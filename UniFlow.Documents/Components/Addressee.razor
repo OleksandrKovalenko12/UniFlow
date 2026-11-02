@@ -1,0 +1,9 @@
+﻿<div class="addressee">
+    <strong>Prodziekan</strong>
+    @FacultyName
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string FacultyName { get; set; } = default!;
+}

@@ -1,0 +1,65 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8" />
+    <title>@Title</title>
+    <style>
+            body {
+                margin: 0;
+                font-family: "Liberation Sans", Arial, sans-serif;
+                font-size: 11pt;
+                line-height: 1.5;
+                color: #000;
+            }
+
+            .document-date { margin: 0; text-align: right; }
+
+            .student-data { margin-top: 1em; border-collapse: collapse; }
+            .student-data th { padding: 0 2em 0 0; font-weight: normal; text-align: left; vertical-align: top; }
+            .student-data td { padding: 0; }
+
+            .addressee { margin: 3em 0 0 50%; }
+            .addressee strong { display: block; }
+
+            .document-title { margin: 3em 0 1.5em; font-size: 12pt; text-align: center; }
+
+            .content { text-align: justify; }
+            .content p { margin: 0 0 0.75em; }
+            .justification { white-space: pre-line; }
+
+            .subjects { width: 100%; margin: 0.5em 0 1em; border-collapse: collapse; }
+            .subjects th, .subjects td { padding: 0.25em 0.5em; border: 1px solid #000; text-align: left; }
+
+            .signature { margin: 3em 0 0 50%; text-align: center; }
+
+            .submission-info {
+                margin-top: 3em;
+                padding-top: 0.5em;
+                border-top: 1px solid #000;
+                font-size: 8pt;
+                color: #333;
+            }
+    </style>
+</head>
+<body>
+    @ChildContent
+
+    <footer class="submission-info">
+        Dokument złożony elektronicznie w systemie UniFlow przez zalogowanego użytkownika:
+        @Header.StudentFullName (nr albumu @Header.AlbumNumber),
+        @Header.SubmittedAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture).
+        Nr wniosku: @Header.ApplicationNumber.
+    </footer>
+</body>
+</html>
+
+@code {
+    [Parameter, EditorRequired]
+    public ApplicationHeader Header { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

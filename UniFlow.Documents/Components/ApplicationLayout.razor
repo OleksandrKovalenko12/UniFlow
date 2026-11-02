@@ -1,0 +1,23 @@
+﻿<DocumentPage Header="Header" Title="@Title">
+    <DocumentDate Date="Header.SubmittedAt" />
+    <StudentDataBlock Header="Header" />
+    <Addressee FacultyName="@Header.FacultyName" />
+    <DocumentTitle Text="@Title" />
+
+    <div class="content">
+        @ChildContent
+    </div>
+
+    <p class="signature">@Header.StudentFullName</p>
+</DocumentPage>
+
+@code {
+    [Parameter, EditorRequired]
+    public ApplicationHeader Header { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

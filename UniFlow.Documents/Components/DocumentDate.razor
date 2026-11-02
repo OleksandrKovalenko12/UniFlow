@@ -1,0 +1,6 @@
+﻿<p class="document-date">dnia @Date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) r.</p>
+
+@code {
+    [Parameter, EditorRequired]
+    public DateTime Date { get; set; }
+}
