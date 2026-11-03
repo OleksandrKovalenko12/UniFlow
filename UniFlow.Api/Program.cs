@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using UniFlow.Infrastructure.Identity;
 using UniFlow.Infrastructure.Persistence;
 using UniFlow.Infrastructure.Storage;
 using UniFlow.Infrastructure.Pdf;
 using UniFlow.Infrastructure.Persistence.Seed;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,9 +21,48 @@ builder.Services.AddDbContext<UniFlowDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
 builder.Services
-    .AddIdentityCore<ApplicationUser>()
+    .AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<UniFlowDbContext>();
+    .AddEntityFrameworkStores<UniFlowDbContext>()
+    .AddSignInManager();
+
+builder.Services
+    .AddAuthentication(IdentityConstants.ApplicationScheme)
+    .AddIdentityCookies();
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.Name = "UniFlow.Auth";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.ExpireTimeSpan = TimeSpan.FromHours(1);
+    options.SlidingExpiration = true;
+
+    // API: status codes instead of redirects to a login page
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+});
+
+// How often the cookie is checked against the user's security stamp (e.g. after deactivation)
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = TimeSpan.FromMinutes(5));
+
+// Secure by default: every endpoint requires login unless marked [AllowAnonymous]
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
 builder.Services.AddScoped<DevelopmentSeeder>();
 
@@ -53,18 +94,19 @@ if (app.Environment.IsDevelopment())
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
     app.UseWebAssemblyDebugging();
 }
 
 app.UseHttpsRedirection();
 
-app.MapStaticAssets();
+app.MapStaticAssets().AllowAnonymous();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Run();
