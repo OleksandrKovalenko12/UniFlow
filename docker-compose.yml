@@ -21,6 +21,11 @@ services:
     image: gotenberg/gotenberg:8
     container_name: uniflow-gotenberg
     restart: unless-stopped
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+      - --chromium-deny-private-ips=true
+      - --chromium-deny-public-ips=true
     ports:
       - "127.0.0.1:3000:3000"
 
