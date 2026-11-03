@@ -17,7 +17,9 @@ public sealed class GotenbergPdfConverter : IPdfConverter
 
     private const string PaperWidth = "21cm";
     private const string PaperHeight = "29.7cm";
-    private const string Margin = "1cm";
+    private const string AttachmentMargin = "1cm";
+    private const string DocumentMargin = "2cm";
+    private const string DocumentLeftMargin = "2.5cm";
 
     private readonly HttpClient _httpClient;
 
@@ -48,6 +50,18 @@ public sealed class GotenbergPdfConverter : IPdfConverter
         {
             return await SendAsync(route, form, cancellationToken);
         }
+    }
+
+    public async Task<byte[]> ConvertHtmlToPdfAsync(string html,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(html);
+
+        using var form = new MultipartFormDataContent();
+        form.Add(new StringContent(html, Encoding.UTF8, "text/html"), "files", "index.html");
+        AddPageLayout(form, DocumentMargin, DocumentMargin, DocumentLeftMargin, DocumentMargin);
+
+        return await SendAsync(ChromiumHtmlRoute, form, cancellationToken);
     }
 
     private async Task<byte[]> SendAsync(string route, MultipartFormDataContent form,
@@ -111,13 +125,20 @@ public sealed class GotenbergPdfConverter : IPdfConverter
         var form = new MultipartFormDataContent();
         form.Add(new StringContent(html, Encoding.UTF8, "text/html"), "files", "index.html");
         form.Add(CreateFileContent(content, contentType), "files", fileName);
-        form.Add(new StringContent(PaperWidth), "paperWidth");
-        form.Add(new StringContent(PaperHeight), "paperHeight");
-
-        foreach (var side in new[] { "marginTop", "marginBottom", "marginLeft", "marginRight" })
-            form.Add(new StringContent(Margin), side);
+        AddPageLayout(form, AttachmentMargin, AttachmentMargin, AttachmentMargin, AttachmentMargin);
 
         return form;
+    }
+
+    private static void AddPageLayout(MultipartFormDataContent form,
+        string top, string bottom, string left, string right)
+    {
+        form.Add(new StringContent(PaperWidth), "paperWidth");
+        form.Add(new StringContent(PaperHeight), "paperHeight");
+        form.Add(new StringContent(top), "marginTop");
+        form.Add(new StringContent(bottom), "marginBottom");
+        form.Add(new StringContent(left), "marginLeft");
+        form.Add(new StringContent(right), "marginRight");
     }
 
     private static StreamContent CreateFileContent(Stream content, string contentType)

@@ -4,4 +4,7 @@ public interface IPdfConverter
 {
     Task<byte[]> ConvertToPdfAsync(Stream content, string contentType,
         CancellationToken cancellationToken = default);
+
+    Task<byte[]> ConvertHtmlToPdfAsync(string html,
+        CancellationToken cancellationToken = default);
 }

@@ -87,6 +87,75 @@ public class GotenbergPdfConverterTests
             Assert.Contains($"name={side}\r\n\r\n1cm", body);
     }
 
+    //HTML documents
+
+    [Fact]
+    public async Task ConvertHtml_PostsIndexHtmlToChromium()
+    {
+        var handler = PdfResponse();
+
+        var result = await CreateConverter(handler).ConvertHtmlToPdfAsync("<p>Wniosek</p>");
+
+        Assert.Equal(Pdf, result);
+        Assert.Equal(HttpMethod.Post, handler.Request!.Method);
+        Assert.Equal(new Uri(BaseAddress, "forms/chromium/convert/html"), handler.Request.RequestUri);
+        Assert.Contains("filename=index.html", handler.RequestBody);
+        Assert.Contains("Content-Type: text/html; charset=utf-8", handler.RequestBody);
+        Assert.Contains("<p>Wniosek</p>", handler.RequestBody);
+    }
+
+    [Fact]
+    public async Task ConvertHtml_SendsA4PaperAndDocumentMargins()
+    {
+        var handler = PdfResponse();
+
+        await CreateConverter(handler).ConvertHtmlToPdfAsync("<p>Wniosek</p>");
+
+        var body = handler.RequestBody!;
+        Assert.Contains("name=paperWidth\r\n\r\n21cm", body);
+        Assert.Contains("name=paperHeight\r\n\r\n29.7cm", body);
+        Assert.Contains("name=marginTop\r\n\r\n2cm", body);
+        Assert.Contains("name=marginBottom\r\n\r\n2cm", body);
+        Assert.Contains("name=marginLeft\r\n\r\n2.5cm", body);
+        Assert.Contains("name=marginRight\r\n\r\n2cm", body);
+    }
+
+    [Fact]
+    public async Task ConvertHtml_KeepsPolishCharacters()
+    {
+        var handler = PdfResponse();
+
+        await CreateConverter(handler).ConvertHtmlToPdfAsync("<p>Zażółć gęślą jaźń</p>");
+
+        Assert.Contains("<p>Zażółć gęślą jaźń</p>", handler.RequestBody);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task ConvertHtml_EmptyHtml_Throws(string html)
+    {
+        var handler = PdfResponse();
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => CreateConverter(handler).ConvertHtmlToPdfAsync(html));
+
+        Assert.Equal("html", ex.ParamName);
+        Assert.Null(handler.Request);
+    }
+
+    [Fact]
+    public async Task ConvertHtml_NullHtml_Throws()
+    {
+        var handler = PdfResponse();
+
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => CreateConverter(handler).ConvertHtmlToPdfAsync(null!));
+
+        Assert.Equal("html", ex.ParamName);
+        Assert.Null(handler.Request);
+    }
+
     //Invalid input
 
     [Theory]
