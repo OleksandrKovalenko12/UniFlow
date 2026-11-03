@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\UniFlow.Api\UniFlow.Api.csproj" />
     <ProjectReference Include="..\UniFlow.Domain\UniFlow.Domain.csproj" />
     <ProjectReference Include="..\UniFlow.Infrastructure\UniFlow.Infrastructure.csproj" />
     <ProjectReference Include="..\UniFlow.Documents\UniFlow.Documents.csproj" />
