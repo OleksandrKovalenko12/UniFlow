@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using UniFlow.Infrastructure.Numbering;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using UniFlow.Domain.Entities;
 using UniFlow.Infrastructure.Identity;
@@ -17,6 +18,7 @@ public class UniFlowDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Application> Applications => Set<Application>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<ApplicationNumberCounter> ApplicationNumberCounters => Set<ApplicationNumberCounter>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

@@ -605,6 +605,19 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("UniFlow.Infrastructure.Numbering.ApplicationNumberCounter", b =>
+                {
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Year");
+
+                    b.ToTable("ApplicationNumberCounters");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
