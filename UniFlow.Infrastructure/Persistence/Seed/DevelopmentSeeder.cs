@@ -108,9 +108,9 @@ public class DevelopmentSeeder
                 "zmianę, np. odpis aktu małżeństwa lub decyzję o zmianie nazwiska.",
                 requiresDeanDecision: false, maxAttachments: 2),
             new ApplicationType("GROUP_CHANGE", "Zmiana grupy zajęciowej",
-                "Prośba o przeniesienie do innej grupy zajęciowej z wybranego przedmiotu. " +
-                "Podaj przedmiot, obecną i oczekiwaną grupę oraz uzasadnienie. Możesz dołączyć " +
-                "np. zaświadczenie od pracodawcy.",
+                "Prośba o przeniesienie do innej grupy ze wszystkich przedmiotów albo z wybranych " +
+                "przedmiotów. Podaj obecną i wnioskowaną grupę oraz uzasadnienie. Możesz " +
+                "dołączyć np. zaświadczenie od pracodawcy.",
                 requiresDeanDecision: true, maxAttachments: 2),
             new ApplicationType("DEAN_LEAVE", "Urlop dziekański",
                 "Wniosek o urlop od zajęć: zdrowotny, okolicznościowy lub wychowawczy. Przy " +
