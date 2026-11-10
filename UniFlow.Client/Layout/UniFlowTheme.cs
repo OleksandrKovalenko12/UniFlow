@@ -1,0 +1,29 @@
+﻿using MudBlazor;
+
+namespace UniFlow.Client.Layout;
+
+public static class UniFlowTheme
+{
+    private const string Burgundy = "#7B1E3B";
+    public static readonly MudTheme Theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = Burgundy,
+            AppbarBackground = Burgundy,
+            Background = "#F5F5F5"
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "8px"
+        },
+        Typography = new Typography
+        {
+            // Inter is served from wwwroot/fonts: nothing is downloaded from external servers
+            Default = new DefaultTypography
+            {
+                FontFamily = ["Inter", "Segoe UI", "Arial", "sans-serif"]
+            }
+        }
+    };
+}
