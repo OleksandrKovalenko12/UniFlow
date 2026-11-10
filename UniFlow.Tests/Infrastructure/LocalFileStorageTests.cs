@@ -241,6 +241,28 @@ public sealed class LocalFileStorageTests : IDisposable
     }
 
     [Fact]
+    public async Task Delete_LastFileInFolder_RemovesFolder()
+    {
+        var path = await SaveAsync();
+
+        _storage.Delete(path);
+
+        Assert.False(Directory.Exists(FullPath(Folder)));
+    }
+
+    [Fact]
+    public async Task Delete_OtherFileInFolder_KeepsFolderAndFile()
+    {
+        var deleted = await SaveAsync();
+        var kept = await SaveAsync();
+
+        _storage.Delete(deleted);
+
+        Assert.True(File.Exists(FullPath(kept)));
+    }
+
+
+    [Fact]
     public void Delete_MissingFile_DoesNotThrow()
     {
         var ex = Record.Exception(() => _storage.Delete("applications/missing/x.pdf"));

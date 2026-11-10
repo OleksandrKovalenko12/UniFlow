@@ -57,8 +57,26 @@ public sealed class LocalFileStorage : IFileStorage
     {
         var fullPath = GetSafeFullPath(relativePath, nameof(relativePath));
 
-        if (File.Exists(fullPath))
-            File.Delete(fullPath);
+        if (!File.Exists(fullPath))
+            return;
+
+        File.Delete(fullPath);
+        RemoveFolderIfEmpty(Path.GetDirectoryName(fullPath)!);
+    }
+
+    private void RemoveFolderIfEmpty(string folder)
+    {
+        if (folder == _root)
+            return;
+
+        try
+        {
+            // Not recursive: a folder that still holds files is refused and stays
+            Directory.Delete(folder);
+        }
+        catch (IOException)
+        {
+        }
     }
 
     private string GetSafeFullPath(string relativePath, string paramName)
