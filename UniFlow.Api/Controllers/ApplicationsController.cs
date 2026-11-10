@@ -11,6 +11,7 @@ using UniFlow.Shared.Applications;
 using UniFlow.Shared.ApplicationTypes;
 using UniFlow.Shared.Forms;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace UniFlow.Api.Controllers;
 
@@ -18,6 +19,7 @@ namespace UniFlow.Api.Controllers;
 [Authorize(Roles = RoleNames.Student)]
 public sealed class ApplicationsController : ControllerBase
 {
+    public const string SubmissionRateLimit = "submissions";
     private readonly ApplicationSubmissionService _submission;
     private readonly DocumentRenderer _renderer;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -32,6 +34,7 @@ public sealed class ApplicationsController : ControllerBase
 
     // The form has already been validated by [ApiController]
     [HttpPost("api/enrollments/{enrollmentId:int}/applications/group-change")]
+    [EnableRateLimiting(SubmissionRateLimit)]
     public async Task<ActionResult<SubmittedApplication>> SubmitGroupChange(int enrollmentId,
         [FromHeader(Name = SubmissionHeaders.IdempotencyKey), Required] Guid? submissionKey,
         GroupChangeForm form, CancellationToken cancellationToken)

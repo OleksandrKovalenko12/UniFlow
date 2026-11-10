@@ -10,6 +10,10 @@ using UniFlow.Infrastructure.Persistence.Seed;
 using UniFlow.Infrastructure.Numbering;
 using UniFlow.Api.Applications;
 using UniFlow.Documents.Rendering;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using UniFlow.Api.Controllers;
 
 
 
@@ -76,6 +80,21 @@ builder.Services.AddScoped<IApplicationNumberGenerator, ApplicationNumberGenerat
 builder.Services.AddScoped<ApplicationSubmissionService>();
 builder.Services.AddSingleton<DocumentRenderer>();
 
+// Per account
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(ApplicationsController.SubmissionRateLimit, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier)!,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromHours(1)
+            }));
+});
+
+
 var storageRoot = builder.Configuration["Storage:RootPath"]
     ?? throw new InvalidOperationException("Storage:RootPath is not configured.");
 builder.Services.AddSingleton<IFileStorage>(
@@ -115,6 +134,7 @@ app.MapStaticAssets().AllowAnonymous();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 
