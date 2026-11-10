@@ -8,6 +8,8 @@ using UniFlow.Infrastructure.Pdf;
 using UniFlow.Infrastructure.Persistence;
 using UniFlow.Infrastructure.Storage;
 using UniFlow.Shared.Applications;
+using Npgsql;
+using UniFlow.Infrastructure.Persistence.Configurations;
 
 namespace UniFlow.Api.Applications;
 
@@ -28,10 +30,15 @@ public sealed class ApplicationSubmissionService
         _storage = storage;
     }
 
-    public async Task<SubmittedApplication> SubmitAsync(string userId, int enrollmentId,
-        string typeCode, string formData, Func<ApplicationHeader, Task<string>> renderHtml,
+    public async Task<SubmittedApplication> SubmitAsync(string userId, Guid submissionKey, 
+        int enrollmentId, string typeCode, string formData, Func<ApplicationHeader, Task<string>> renderHtml,
         CancellationToken cancellationToken)
     {
+        // A repeated submission gets the first result and takes no new number
+        var alreadySubmitted = await FindSubmittedAsync(userId, submissionKey, cancellationToken);
+        if (alreadySubmitted is not null)
+            return alreadySubmitted;
+
         // One reading of the clock: the number, the document and the database must agree
         var now = DateTime.UtcNow;
 
@@ -43,7 +50,7 @@ public sealed class ApplicationSubmissionService
         var type = await _db.ApplicationTypes.SingleAsync(t => t.Code == typeCode, cancellationToken);
 
         // Before taking a number - a rejected submission must not waste one
-        Application.EnsureCanBeSubmitted(userId, enrollment, type);
+        Application.EnsureCanBeSubmitted(userId, submissionKey, enrollment, type);
 
         var student = await _db.Users
             .Where(u => u.Id == userId)
@@ -57,7 +64,7 @@ public sealed class ApplicationSubmissionService
 
         var number = await _numbers.NextAsync(now, cancellationToken);
 
-        var application = new Application(number, userId, enrollment, type, formData, now);
+        var application = new Application(number, userId, submissionKey, enrollment, type, formData, now);
 
         var header = ApplicationHeaderBuilder.Build(number, now, student.FirstName, student.LastName,
             albumNumber, enrollment);
@@ -79,6 +86,14 @@ public sealed class ApplicationSubmissionService
             // Application, status history and attachment: all or nothing
             await _db.SaveChangesAsync(cancellationToken);
         }
+        catch (DbUpdateException exception) when (IsDuplicateSubmission(exception))
+        {
+            // Two identical requests at the same moment: the other one has already won
+            _storage.Delete(path);
+
+            return await FindSubmittedAsync(userId, submissionKey, cancellationToken)
+                ?? throw new InvalidOperationException("The winning submission was not found.");
+        }
         catch
         {
             // The database transaction does not cover the disk
@@ -86,6 +101,21 @@ public sealed class ApplicationSubmissionService
             throw;
         }
 
+
         return new SubmittedApplication(application.Id, application.Number);
     }
+
+    private Task<SubmittedApplication?> FindSubmittedAsync(string userId, Guid submissionKey,
+    CancellationToken cancellationToken) =>
+    _db.Applications
+        .Where(a => a.ApplicantId == userId && a.SubmissionKey == submissionKey)
+        .Select(a => new SubmittedApplication(a.Id, a.Number))
+        .SingleOrDefaultAsync(cancellationToken);
+
+    private static bool IsDuplicateSubmission(DbUpdateException exception) =>
+        exception.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: ApplicationConfiguration.SubmissionKeyIndex
+        };
 }

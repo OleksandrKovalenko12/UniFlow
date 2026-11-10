@@ -23,7 +23,7 @@ public class ApplicationTests
         Enrollment? enrollment = null,
         ApplicationType? type = null,
         string applicantId = StudentId) =>
-        new("UF/2026/0001", applicantId, enrollment ?? CreateEnrollment(), type ?? CreateType(),
+        new("UF/2026/0001", applicantId, Guid.NewGuid(), enrollment ?? CreateEnrollment(), type ?? CreateType(),
             "{}", Now);
 
     //Files
@@ -170,7 +170,7 @@ public class ApplicationTests
     public void Constructor_EmptyFormData_Throws(string? formData)
     {
         Assert.ThrowsAny<ArgumentException>(
-            () => new Application("UF/2026/0001", StudentId, CreateEnrollment(), CreateType(),
+            () => new Application("UF/2026/0001", StudentId, Guid.NewGuid(), CreateEnrollment(), CreateType(),
                 formData!, Now));
     }
 
@@ -180,7 +180,7 @@ public class ApplicationTests
         var localTime = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Local);
 
         Assert.Throws<ArgumentException>(
-            () => new Application("UF/2026/0001", StudentId, CreateEnrollment(), CreateType(),
+            () => new Application("UF/2026/0001", StudentId, Guid.NewGuid(), CreateEnrollment(), CreateType(),
                 "{}", localTime));
     }
 

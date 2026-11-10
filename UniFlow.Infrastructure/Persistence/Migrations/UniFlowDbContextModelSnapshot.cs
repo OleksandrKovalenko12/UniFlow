@@ -199,12 +199,13 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<Guid>("SubmissionKey")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ApplicantId");
 
                     b.HasIndex("ApplicationTypeId");
 
@@ -216,6 +217,10 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("ApplicantId", "SubmissionKey")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Applications_ApplicantId_SubmissionKey");
 
                     b.ToTable("Applications");
                 });

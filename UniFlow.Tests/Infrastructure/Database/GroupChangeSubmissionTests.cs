@@ -76,7 +76,8 @@ public sealed class GroupChangeSubmissionTests : IAsyncLifetime
         return (user.Id, enrollment.Id);
     }
 
-    private Task<HttpResponseMessage> SubmitAsync(string userId, int enrollmentId, object form)
+    private Task<HttpResponseMessage> SubmitAsync(string userId, int enrollmentId, object form,
+        Guid? submissionKey = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post,
             $"/api/enrollments/{enrollmentId}/applications/group-change")
@@ -84,6 +85,7 @@ public sealed class GroupChangeSubmissionTests : IAsyncLifetime
             Content = JsonContent.Create(form)
         };
         request.Headers.Add(TestAuthHandler.UserHeader, userId);
+        request.Headers.Add(SubmissionHeaders.IdempotencyKey, (submissionKey ?? Guid.NewGuid()).ToString());
 
         return _client.SendAsync(request);
     }
@@ -178,4 +180,40 @@ public sealed class GroupChangeSubmissionTests : IAsyncLifetime
         Assert.Equal(0, await ApplicationCountAsync(userId));
         Assert.Equal(0, StoredFileCount());
     }
+
+    [Fact]
+    public async Task Submit_SameKeyTwice_ReturnsFirstApplication()
+    {
+        var (userId, enrollmentId) = await CreateStudentAsync();
+        var key = Guid.NewGuid();
+
+        var first = await SubmitAsync(userId, enrollmentId, ValidForm, key);
+        var numberAfterFirst = await LastNumberAsync();
+        var second = await SubmitAsync(userId, enrollmentId, ValidForm, key);
+
+        Assert.Equal(await first.Content.ReadFromJsonAsync<SubmittedApplication>(),
+            await second.Content.ReadFromJsonAsync<SubmittedApplication>());
+        Assert.Equal(numberAfterFirst, await LastNumberAsync());
+        Assert.Equal(1, await ApplicationCountAsync(userId));
+        Assert.Equal(1, StoredFileCount());
+    }
+
+    [Fact]
+    public async Task Submit_SameKeyAtOnce_CreatesOneApplication()
+    {
+        var (userId, enrollmentId) = await CreateStudentAsync();
+        var key = Guid.NewGuid();
+        _factory.Pdf.Delay = TimeSpan.FromMilliseconds(300);
+
+        var responses = await Task.WhenAll(
+            SubmitAsync(userId, enrollmentId, ValidForm, key),
+            SubmitAsync(userId, enrollmentId, ValidForm, key));
+
+        Assert.All(responses, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        Assert.Equal(await responses[0].Content.ReadFromJsonAsync<SubmittedApplication>(),
+            await responses[1].Content.ReadFromJsonAsync<SubmittedApplication>());
+        Assert.Equal(1, await ApplicationCountAsync(userId));
+        Assert.Equal(1, StoredFileCount());
+    }
+
 }

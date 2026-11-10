@@ -7,6 +7,8 @@ namespace UniFlow.Infrastructure.Persistence.Configurations;
 
 public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
 {
+    public const string SubmissionKeyIndex = "IX_Applications_ApplicantId_SubmissionKey";
+
     public void Configure(EntityTypeBuilder<Application> builder)
     {
         builder.Property(a => a.Id).ValueGeneratedNever();
@@ -18,6 +20,11 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
         builder.Property(a => a.RowVersion).IsRowVersion();
 
         builder.HasIndex(a => a.Status);
+
+        // The same submission sent twice cannot create two applications
+        builder.HasIndex(a => new { a.ApplicantId, a.SubmissionKey })
+            .IsUnique()
+            .HasDatabaseName(SubmissionKeyIndex);
 
         builder.HasOne<ApplicationUser>()
             .WithMany()

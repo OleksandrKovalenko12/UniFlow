@@ -22,7 +22,7 @@ public class AttachmentTests
         var enrollment = new Enrollment(StudentId, field, 3, StudyMode.FullTime);
         var type = new ApplicationType("GROUP_CHANGE", "Zmiana grupy", "Opis typu.", true, 5);
 
-        return new Application("UF/2026/0001", StudentId, enrollment, type, "{}", Now);
+        return new Application("UF/2026/0001", StudentId, Guid.NewGuid(), enrollment, type, "{}", Now);
     }
 
     //Valid data

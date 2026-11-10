@@ -10,6 +10,7 @@ using UniFlow.Shared;
 using UniFlow.Shared.Applications;
 using UniFlow.Shared.ApplicationTypes;
 using UniFlow.Shared.Forms;
+using System.ComponentModel.DataAnnotations;
 
 namespace UniFlow.Api.Controllers;
 
@@ -32,12 +33,14 @@ public sealed class ApplicationsController : ControllerBase
     // The form has already been validated by [ApiController]
     [HttpPost("api/enrollments/{enrollmentId:int}/applications/group-change")]
     public async Task<ActionResult<SubmittedApplication>> SubmitGroupChange(int enrollmentId,
+        [FromHeader(Name = SubmissionHeaders.IdempotencyKey), Required] Guid? submissionKey,
         GroupChangeForm form, CancellationToken cancellationToken)
     {
         form.Normalize();
 
         var submitted = await _submission.SubmitAsync(
             _userManager.GetUserId(User)!,
+            submissionKey!.Value,
             enrollmentId,
             ApplicationTypeCodes.GroupChange,
             FormJson.Serialize(form),

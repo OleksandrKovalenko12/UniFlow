@@ -58,13 +58,20 @@ public sealed class FakePdfConverter : IPdfConverter
 {
     public bool Fail { get; set; }
 
+    // Keeps requests inside the submission long enough for them to overlap
+    public TimeSpan Delay { get; set; }
     public Task<byte[]> ConvertToPdfAsync(Stream content, string contentType,
         CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-    public Task<byte[]> ConvertHtmlToPdfAsync(string html, CancellationToken cancellationToken = default) =>
-        Fail
-            ? throw new PdfConversionException("Gotenberg is down.")
-            : Task.FromResult("%PDF-test"u8.ToArray());
+    public async Task<byte[]> ConvertHtmlToPdfAsync(string html, CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(Delay, cancellationToken);
+
+        if (Fail)
+            throw new PdfConversionException("Gotenberg is down.");
+
+        return "%PDF-test"u8.ToArray();
+    }
 }
 
 // Logs in the user named in the request header, as a student

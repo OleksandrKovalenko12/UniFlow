@@ -10,6 +10,7 @@ public class Application
     public Guid Id { get; private set; }
     public string Number { get; private set; } = null!;
     public string ApplicantId { get; private set; } = null!;
+    public Guid SubmissionKey { get; private set; }
     public int EnrollmentId { get; private set; }
     public Enrollment Enrollment { get; private set; } = null!;
     public int ApplicationTypeId { get; private set; }
@@ -26,19 +27,20 @@ public class Application
     public IReadOnlyCollection<StatusHistoryEntry> StatusHistory => _statusHistory;
     public IReadOnlyCollection<Attachment> Attachments => _attachments;
 
-    public Application(string number, string applicantId, Enrollment enrollment,
+    public Application(string number, string applicantId, Guid submissionKey, Enrollment enrollment,
         ApplicationType applicationType, string formData, DateTime now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(number);
         ArgumentException.ThrowIfNullOrWhiteSpace(formData);
 
-        EnsureCanBeSubmitted(applicantId, enrollment, applicationType);
+        EnsureCanBeSubmitted(applicantId, submissionKey, enrollment, applicationType);
 
 
         Id = Guid.CreateVersion7();
 
         Number = number;
         ApplicantId = applicantId;
+        SubmissionKey = submissionKey;
         FormData = formData;
         Enrollment = enrollment;
         EnrollmentId = enrollment.Id;
@@ -63,10 +65,13 @@ public class Application
     private Application() { }
 
     // Called before taking a number, so a rejected submission does not waste one
-    public static void EnsureCanBeSubmitted(string applicantId, Enrollment enrollment,
-        ApplicationType applicationType)
+    public static void EnsureCanBeSubmitted(string applicantId, Guid submissionKey, 
+        Enrollment enrollment, ApplicationType applicationType)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(applicantId);
+        if (submissionKey == Guid.Empty)
+            throw new ArgumentException("Submission key is required.", nameof(submissionKey));
+
         ArgumentNullException.ThrowIfNull(enrollment);
         ArgumentNullException.ThrowIfNull(applicationType);
 
