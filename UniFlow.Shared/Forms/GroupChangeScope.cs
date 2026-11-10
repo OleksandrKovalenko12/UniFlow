@@ -1,5 +1,9 @@
-﻿namespace UniFlow.Shared.Forms;
+﻿using System.Text.Json.Serialization;
 
+
+namespace UniFlow.Shared.Forms;
+
+[JsonConverter(typeof(JsonStringEnumConverter<GroupChangeScope>))]
 public enum GroupChangeScope
 {
     General = 1,

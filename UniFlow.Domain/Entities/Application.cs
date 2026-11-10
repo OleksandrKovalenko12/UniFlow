@@ -30,22 +30,10 @@ public class Application
         ApplicationType applicationType, string formData, DateTime now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(number);
-        ArgumentException.ThrowIfNullOrWhiteSpace(applicantId);
         ArgumentException.ThrowIfNullOrWhiteSpace(formData);
 
-        ArgumentNullException.ThrowIfNull(enrollment);
-        ArgumentNullException.ThrowIfNull(applicationType);
+        EnsureCanBeSubmitted(applicantId, enrollment, applicationType);
 
-        if (enrollment.StudentId != applicantId)
-            throw new DomainException(DomainErrorCode.NotOwnEnrollment,
-                "A student can submit applications only within their own enrollment.");
-
-        if (!enrollment.IsActive)
-            throw new DomainException(DomainErrorCode.EnrollmentInactive,
-                "Enrollment must be active.");
-        if (!applicationType.IsActive)
-            throw new DomainException(DomainErrorCode.ApplicationTypeInactive,
-                "Application type must be active.");
 
         Id = Guid.CreateVersion7();
 
@@ -73,6 +61,27 @@ public class Application
     }
 
     private Application() { }
+
+    // Called before taking a number, so a rejected submission does not waste one
+    public static void EnsureCanBeSubmitted(string applicantId, Enrollment enrollment,
+        ApplicationType applicationType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicantId);
+        ArgumentNullException.ThrowIfNull(enrollment);
+        ArgumentNullException.ThrowIfNull(applicationType);
+
+        if (enrollment.StudentId != applicantId)
+            throw new DomainException(DomainErrorCode.NotOwnEnrollment,
+                "A student can submit applications only within their own enrollment.");
+
+        if (!enrollment.IsActive)
+            throw new DomainException(DomainErrorCode.EnrollmentInactive,
+                "Enrollment must be active.");
+
+        if (!applicationType.IsActive)
+            throw new DomainException(DomainErrorCode.ApplicationTypeInactive,
+                "Application type must be active.");
+    }
 
     //State machine
     public void TakeForReview(Actor actor, DateTime now)

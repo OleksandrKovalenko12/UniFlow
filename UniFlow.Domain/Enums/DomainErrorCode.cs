@@ -26,4 +26,5 @@ public enum DomainErrorCode
     // Enrollment
     EnrollmentAlreadyInactive = 14,
     EnrollmentAlreadyActive = 15,
+    EnrollmentNotFound = 16,
 }

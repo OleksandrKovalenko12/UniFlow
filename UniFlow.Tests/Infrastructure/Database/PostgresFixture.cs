@@ -21,6 +21,7 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();
 
+    public string ConnectionString => _container.GetConnectionString();
     // DbContext is not thread-safe - every parallel task needs its own
     public UniFlowDbContext CreateContext() =>
         new(new DbContextOptionsBuilder<UniFlowDbContext>()

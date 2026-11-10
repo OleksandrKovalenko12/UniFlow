@@ -8,6 +8,8 @@ using UniFlow.Infrastructure.Storage;
 using UniFlow.Infrastructure.Pdf;
 using UniFlow.Infrastructure.Persistence.Seed;
 using UniFlow.Infrastructure.Numbering;
+using UniFlow.Api.Applications;
+using UniFlow.Documents.Rendering;
 
 
 
@@ -70,6 +72,9 @@ builder.Services.AddAuthorizationBuilder()
 
 builder.Services.AddScoped<DevelopmentSeeder>();
 builder.Services.AddScoped<IApplicationNumberGenerator, ApplicationNumberGenerator>();
+
+builder.Services.AddScoped<ApplicationSubmissionService>();
+builder.Services.AddSingleton<DocumentRenderer>();
 
 var storageRoot = builder.Configuration["Storage:RootPath"]
     ?? throw new InvalidOperationException("Storage:RootPath is not configured.");
