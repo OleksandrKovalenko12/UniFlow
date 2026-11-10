@@ -1,0 +1,67 @@
+﻿@page "/login"
+@layout LoginLayout
+@inject CookieAuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Logowanie - UniFlow</PageTitle>
+
+<MudText Typo="Typo.h5" HtmlTag="h1">Zaloguj się</MudText>
+<MudText Class="mt-1 mb-6 mud-text-secondary">Podaj e-mail i hasło do systemu UniFlow.</MudText>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+}
+
+<EditForm Model="_model" OnValidSubmit="SubmitAsync">
+    <DataAnnotationsValidator />
+
+    <label class="field-label" for="login-email">E-mail</label>
+    <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" InputId="login-email"
+                  InputType="InputType.Email" Variant="Variant.Outlined" Margin="Margin.Dense"
+                  Class="mt-0 mb-4" />
+
+    <label class="field-label" for="login-password">Hasło</label>
+    <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" InputId="login-password"
+                  InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense"
+                  Class="mt-0 mb-6" />
+
+    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+               Size="Size.Large" FullWidth="true" DropShadow="false" Disabled="_sending">
+        @(_sending ? "Logowanie..." : "Zaloguj się")
+    </MudButton>
+</EditForm>
+
+@code {
+    private readonly LoginRequest _model = new();
+    private string? _error;
+    private bool _sending;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+            Navigation.NavigateTo("new", replace: true);
+    }
+
+    private async Task SubmitAsync()
+    {
+        _sending = true;
+        _error = null;
+
+        var result = await AuthState.LoginAsync(_model);
+
+        _sending = false;
+
+        if (result == LoginResult.Success)
+        {
+            Navigation.NavigateTo("new", replace: true);
+            return;
+        }
+
+        _model.Password = "";
+        _error = result == LoginResult.InvalidCredentials
+            ? "Nieprawidłowy e-mail lub hasło."
+            : "Nie udało się połączyć z serwerem. Spróbuj ponownie za chwilę.";
+    }
+}

@@ -1,18 +1,23 @@
 ﻿@inherits LayoutComponentBase
 
-<MudThemeProvider Theme="UniFlowTheme.Theme" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
-
 <MudLayout>
-    <MudAppBar Elevation="1">
+    <MudAppBar Elevation="0">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        aria-label="Menu" OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6" Class="ml-2">UniFlow</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MudText Typo="Typo.body2">@context.User.Identity?.Name</MudText>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="login" Color="Color.Inherit">Zaloguj się</MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always">
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always"
+               Class="border-r border-solid mud-border-lines-default">
         <MudNavMenu>
             <MudNavLink Href="new" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.NoteAdd">
                 Nowy wniosek

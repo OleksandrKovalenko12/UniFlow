@@ -6,6 +6,98 @@
     font-display: swap;
 }
 
+h1:focus {
+    outline: none;
+}
+
+/* Login page: burgundy panel with waves on the left, form on white on the right */
+.login-page {
+    display: flex;
+    min-height: 100vh;
+}
+
+.login-panel {
+    flex: 0 0 42%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 48px;
+    color: #fff;
+    /* The documents in login-waves.svg are filled with the same burgundy to hide the waves behind them */
+    background: var(--mud-palette-primary) url("../images/login-waves.svg") center bottom / cover no-repeat;
+}
+
+.login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.login-brand-name {
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.login-tagline {
+    max-width: 360px;
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.login-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    background: #fff url("../images/login-status-map.svg") center / cover no-repeat;
+}
+
+.login-content {
+    width: 100%;
+    max-width: 380px;
+}
+
+/* Phone (below MudBlazor's "md" breakpoint): the panel becomes a short header above the form */
+@media (max-width: 959.98px) {
+    .login-page {
+        flex-direction: column;
+    }
+
+    .login-panel {
+        flex: none;
+        min-height: 150px;
+        padding: 24px;
+        background-image: url("../images/login-waves-mobile.svg");
+        background-size: 100% 100%;
+    }
+
+    .login-brand-name {
+        font-size: 1.5rem;
+    }
+
+    .login-tagline {
+        display: none;
+    }
+
+    .login-main {
+        align-items: flex-start;
+        padding: 32px 24px;
+        background-image: none;
+    }
+}
+
+/* Label above a text field (instead of MudBlazor's label inside the field) */
+.field-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--mud-palette-text-primary);
+}
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }
