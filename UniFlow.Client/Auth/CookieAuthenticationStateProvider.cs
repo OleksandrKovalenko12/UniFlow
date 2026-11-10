@@ -47,6 +47,22 @@ public sealed class CookieAuthenticationStateProvider : AuthenticationStateProvi
         }
     }
 
+    // Returns false when the server could not be reached and the cookie may still be valid
+    public async Task<bool> LogoutAsync()
+    {
+        try
+        {
+            using var response = await _http.PostAsync("api/auth/logout", content: null);
+
+            // 401: the session had already expired, so the user is logged out anyway
+            return response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Unauthorized;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+    }
+
     private async Task<AuthenticationState> LoadStateAsync()
     {
         try

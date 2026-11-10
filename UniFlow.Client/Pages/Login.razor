@@ -23,8 +23,12 @@
 
     <label class="field-label" for="login-password">Hasło</label>
     <MudTextField @bind-Value="_model.Password" For="@(() => _model.Password)" InputId="login-password"
-                  InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense"
-                  Class="mt-0 mb-6" />
+                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mt-0 mb-6"
+                  Adornment="Adornment.End"
+                  AdornmentIcon="@(_showPassword ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)"
+                  AdornmentAriaLabel="@(_showPassword ? "Ukryj hasło" : "Pokaż hasło")"
+                  OnAdornmentClick="TogglePassword" />
 
     <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
                Size="Size.Large" FullWidth="true" DropShadow="false" Disabled="_sending">
@@ -36,6 +40,7 @@
     private readonly LoginRequest _model = new();
     private string? _error;
     private bool _sending;
+    private bool _showPassword;
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,6 +52,7 @@
     private async Task SubmitAsync()
     {
         _sending = true;
+        _showPassword = false;
         _error = null;
 
         var result = await AuthState.LoginAsync(_model);
@@ -64,4 +70,6 @@
             ? "Nieprawidłowy e-mail lub hasło."
             : "Nie udało się połączyć z serwerem. Spróbuj ponownie za chwilę.";
     }
+
+    private void TogglePassword() => _showPassword = !_showPassword;
 }

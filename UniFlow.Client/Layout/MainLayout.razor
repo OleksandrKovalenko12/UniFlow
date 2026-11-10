@@ -1,4 +1,7 @@
 ﻿@inherits LayoutComponentBase
+@inject CookieAuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 
 <MudLayout>
     <MudAppBar Elevation="0">
@@ -8,7 +11,19 @@
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <MudText Typo="Typo.body2">@context.User.Identity?.Name</MudText>
+                <MudMenu Label="@context.User.Identity?.Name" Color="Color.Inherit"
+                         StartIcon="@Icons.Material.Outlined.AccountCircle"
+                         EndIcon="@Icons.Material.Filled.ArrowDropDown"
+                         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                         AriaLabel="Menu użytkownika">
+                    <MudText Typo="Typo.body2" Class="px-4 py-2 mud-text-secondary">
+                        @context.User.FindFirst(ClaimTypes.Email)?.Value
+                    </MudText>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Logout" OnClick="LogoutAsync">
+                        Wyloguj
+                    </MudMenuItem>
+                </MudMenu>
             </Authorized>
             <NotAuthorized>
                 <MudButton Href="login" Color="Color.Inherit">Zaloguj się</MudButton>
@@ -36,4 +51,16 @@
     private bool _drawerOpen = true;
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private async Task LogoutAsync()
+    {
+        if (!await AuthState.LogoutAsync())
+        {
+            Snackbar.Add("Nie udało się wylogować. Spróbuj ponownie za chwilę.", Severity.Error);
+            return;
+        }
+
+        // Full page reload: clears everything the app kept in memory about the previous user
+        Navigation.NavigateTo("login", forceLoad: true);
+    }
 }
