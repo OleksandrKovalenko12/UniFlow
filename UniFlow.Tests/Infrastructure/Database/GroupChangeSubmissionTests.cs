@@ -168,6 +168,51 @@ public sealed class GroupChangeSubmissionTests : IAsyncLifetime
         Assert.Equal(0, await ApplicationCountAsync(userId));
     }
 
+    private Task<HttpResponseMessage> GetDocumentAsync(string userId, Guid applicationId, string query = "")
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/applications/{applicationId}/document{query}");
+        request.Headers.Add(TestAuthHandler.UserHeader, userId);
+
+        return _client.SendAsync(request);
+    }
+
+    private async Task<SubmittedApplication> SubmitValidAsync(string userId, int enrollmentId)
+    {
+        var response = await SubmitAsync(userId, enrollmentId, ValidForm);
+        return (await response.Content.ReadFromJsonAsync<SubmittedApplication>())!;
+    }
+
+    [Theory]
+    [InlineData("", "attachment")]
+    [InlineData("?inline=true", "inline")]
+    public async Task GetDocument_Author_ReceivesPdf(string query, string expectedDisposition)
+    {
+        var (userId, enrollmentId) = await CreateStudentAsync();
+        var submitted = await SubmitValidAsync(userId, enrollmentId);
+
+        var response = await GetDocumentAsync(userId, submitted.Id, query);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/pdf", response.Content.Headers.ContentType!.MediaType);
+        Assert.Equal(expectedDisposition, response.Content.Headers.ContentDisposition!.DispositionType);
+        Assert.Contains(submitted.Number.Replace('/', '-'), response.Content.Headers.ContentDisposition.FileName);
+        Assert.True(response.Headers.CacheControl!.NoStore);
+        Assert.Equal("%PDF-test"u8.ToArray(), await response.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task GetDocument_OtherStudent_IsNotFound()
+    {
+        var (authorId, enrollmentId) = await CreateStudentAsync();
+        var (otherId, _) = await CreateStudentAsync();
+        var submitted = await SubmitValidAsync(authorId, enrollmentId);
+
+        var response = await GetDocumentAsync(otherId, submitted.Id);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+
     [Fact]
     public async Task Submit_PdfServiceDown_SavesNothing()
     {
