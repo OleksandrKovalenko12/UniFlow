@@ -75,6 +75,14 @@ public class ErrorMappingTests
     }
 
     [Fact]
+    public void Map_InvalidFileException_Returns400WithItsCode()
+    {
+        Assert.Equal((StatusCodes.Status400BadRequest, ErrorMapping.UnsupportedFileType),
+            ErrorMapping.Map(new InvalidFileException(ErrorMapping.UnsupportedFileType, "Bad file.")));
+    }
+
+
+    [Fact]
     public void Map_ArgumentExceptions_Return400()
     {
         var expected = (StatusCodes.Status400BadRequest, ErrorMapping.InvalidArgument);

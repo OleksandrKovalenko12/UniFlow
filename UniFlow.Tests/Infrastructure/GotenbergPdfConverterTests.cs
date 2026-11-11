@@ -217,6 +217,23 @@ public class GotenbergPdfConverterTests
         Assert.Contains("conversion failed", ex.Message);
     }
 
+    // Gotenberg answered, so the file may be broken; 503 means it was busy
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, true)]
+    [InlineData(HttpStatusCode.InternalServerError, true)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, false)]
+    public async Task Convert_GotenbergReturnsError_SetsFileRejected(HttpStatusCode status,
+        bool fileRejected)
+    {
+        var handler = new FakeHandler(status, new StringContent("conversion failed"));
+
+        var ex = await Assert.ThrowsAsync<PdfConversionException>(
+            () => CreateConverter(handler).ConvertToPdfAsync(FileContent(), DocxContentType));
+
+        Assert.Equal(fileRejected, ex.FileRejected);
+    }
+
+
     [Fact]
     public async Task Convert_GotenbergUnreachable_ThrowsPdfConversionException()
     {
@@ -226,6 +243,7 @@ public class GotenbergPdfConverterTests
             () => CreateConverter(handler).ConvertToPdfAsync(FileContent(), DocxContentType));
 
         Assert.IsType<HttpRequestException>(ex.InnerException);
+        Assert.False(ex.FileRejected);
     }
 
     [Fact]

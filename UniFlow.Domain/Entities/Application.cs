@@ -196,7 +196,8 @@ public class Application
     }
 
     //Attachments
-    public Attachment AddAttachment(Actor actor, StoredFile file, DateTime now)
+    // Called by the Api before the file is saved and converted - that takes seconds
+    public void EnsureCanAddAttachment(Actor actor)
     {
         EnsureStatus(ApplicationStatus.Submitted, ApplicationStatus.NeedsCorrection);
         EnsureApplicant(actor);
@@ -207,6 +208,10 @@ public class Application
         if (activeUploads >= MaxAttachments)
             throw new DomainException(DomainErrorCode.AttachmentLimitReached,
                 $"This application allows at most {MaxAttachments} attachments.");
+    }
+    public Attachment AddAttachment(Actor actor, StoredFile file, DateTime now)
+    {
+        EnsureCanAddAttachment(actor);
 
         var attachment = new Attachment(AttachmentKind.StudentUpload, file, actor.Id, now);
         _attachments.Add(attachment);

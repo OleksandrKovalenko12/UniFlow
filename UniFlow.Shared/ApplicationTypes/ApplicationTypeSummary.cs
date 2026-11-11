@@ -4,4 +4,5 @@ public sealed record ApplicationTypeSummary(
     int Id,
     string Code,
     string Name,
-    string Description);
+    string Description,
+    int MaxAttachments);

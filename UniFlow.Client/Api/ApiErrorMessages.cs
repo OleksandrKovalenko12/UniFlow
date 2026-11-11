@@ -14,11 +14,14 @@ public static class ApiErrorMessages
     private static readonly Dictionary<string, string> ByCode = new()
     {
         ["ConcurrencyConflict"] = "Wniosek został w międzyczasie zmieniony. Odśwież stronę.",
-        ["PdfServiceUnavailable"] =
-            "Usługa generowania dokumentów jest chwilowo niedostępna, spróbuj za chwilę.",
+        ["PdfServiceUnavailable"] = "Usługa generowania dokumentów jest chwilowo niedostępna, spróbuj za chwilę.",
         ["EnrollmentNotFound"] = "Nie znaleziono wybranych studiów.",
         ["EnrollmentInactive"] = "Wybrane studia nie są już aktywne.",
-        ["ApplicationTypeInactive"] = "Tego rodzaju wniosku nie można już złożyć."
+        ["ApplicationTypeInactive"] = "Tego rodzaju wniosku nie można już złożyć.",
+        ["AttachmentLimitReached"] = "Osiągnięto limit załączników dla tego wniosku.",
+        ["UnsupportedFileType"] = "Ten rodzaj pliku nie jest obsługiwany. Dozwolone: PDF, DOCX, ODT, JPG, PNG, WebP.",
+        ["InvalidFileSize"] = "Plik jest pusty albo większy niż 10 MB.",
+        ["FileConversionFailed"] = "Nie udało się przetworzyć pliku. Sprawdź, czy otwiera się poprawnie, albo zapisz go jako PDF."
     };
 
     public static string For(HttpStatusCode status, string? code, bool hasFieldErrors)

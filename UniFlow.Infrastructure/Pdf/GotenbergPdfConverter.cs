@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Text;
+using System.Net;
 
 namespace UniFlow.Infrastructure.Pdf;
 
@@ -87,8 +88,11 @@ public sealed class GotenbergPdfConverter : IPdfConverter
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync(cancellationToken);
+
+                // 503 is Gotenberg being busy or timing out, not a verdict on the file
                 throw new PdfConversionException(
-                    $"Gotenberg returned {(int)response.StatusCode}: {error}");
+                    $"Gotenberg returned {(int)response.StatusCode}: {error}",
+                    fileRejected: response.StatusCode != HttpStatusCode.ServiceUnavailable);
             }
 
             return await response.Content.ReadAsByteArrayAsync(cancellationToken);

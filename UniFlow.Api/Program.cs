@@ -78,6 +78,7 @@ builder.Services.AddScoped<DevelopmentSeeder>();
 builder.Services.AddScoped<IApplicationNumberGenerator, ApplicationNumberGenerator>();
 
 builder.Services.AddScoped<ApplicationSubmissionService>();
+builder.Services.AddScoped<AttachmentUploadService>();
 builder.Services.AddSingleton<DocumentRenderer>();
 
 // Per account
@@ -90,6 +91,16 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromHours(1)
+            }));
+
+    // Rejected files do not count towards the attachment limit, so uploads need their own
+    options.AddPolicy(ApplicationsController.UploadRateLimit, context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier)!,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
                 Window = TimeSpan.FromHours(1)
             }));
 });

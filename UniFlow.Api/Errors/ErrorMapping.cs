@@ -13,10 +13,16 @@ public static class ErrorMapping
     public const string PdfServiceUnavailable = "PdfServiceUnavailable";
     public const string ServerError = "ServerError";
 
+    // Attachments - the file itself is the problem
+    public const string UnsupportedFileType = "UnsupportedFileType";
+    public const string InvalidFileSize = "InvalidFileSize";
+    public const string FileConversionFailed = "FileConversionFailed";
+
     public static (int Status, string Code) Map(Exception exception) => exception switch
     {
         DomainException domain => (StatusFor(domain.Code), domain.Code.ToString()),
         DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, ConcurrencyConflict),
+        InvalidFileException file => (StatusCodes.Status400BadRequest, file.Code),
         PdfConversionException => (StatusCodes.Status503ServiceUnavailable, PdfServiceUnavailable),
         ArgumentException => (StatusCodes.Status400BadRequest, InvalidArgument),
         _ => (StatusCodes.Status500InternalServerError, ServerError)

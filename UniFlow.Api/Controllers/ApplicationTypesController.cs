@@ -24,6 +24,6 @@ public sealed class ApplicationTypesController : ControllerBase
         await _db.ApplicationTypes
             .Where(t => t.IsActive)
             .OrderBy(t => t.Name)
-            .Select(t => new ApplicationTypeSummary(t.Id, t.Code, t.Name, t.Description))
+             .Select(t => new ApplicationTypeSummary(t.Id, t.Code, t.Name, t.Description, t.MaxAttachments))
             .ToListAsync(cancellationToken);
 }
