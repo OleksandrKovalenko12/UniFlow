@@ -1,5 +1,6 @@
 ﻿@page "/login"
 @layout LoginLayout
+@attribute [AllowAnonymous]
 @inject CookieAuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
 
@@ -37,16 +38,23 @@
 </EditForm>
 
 @code {
+    private const string DefaultPage = "/new";
     private readonly LoginRequest _model = new();
     private string? _error;
     private bool _sending;
     private bool _showPassword;
 
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    // Where to go after login: the requested page, but only if it is inside this application
+    private string TargetPage => LocalUrl.IsLocal(ReturnUrl) ? ReturnUrl! : DefaultPage;
+
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthState.GetAuthenticationStateAsync();
         if (state.User.Identity?.IsAuthenticated == true)
-            Navigation.NavigateTo("new", replace: true);
+            Navigation.NavigateTo(TargetPage, replace: true);
     }
 
     private async Task SubmitAsync()
@@ -61,7 +69,7 @@
 
         if (result == LoginResult.Success)
         {
-            Navigation.NavigateTo("new", replace: true);
+            Navigation.NavigateTo(TargetPage, replace: true);
             return;
         }
 

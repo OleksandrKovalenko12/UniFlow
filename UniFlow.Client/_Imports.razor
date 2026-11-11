@@ -13,3 +13,7 @@
 @using UniFlow.Shared.Auth
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using UniFlow.Shared
+@* Every page requires login unless it is marked [AllowAnonymous] *@
+@attribute [Authorize]
