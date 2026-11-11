@@ -4,6 +4,7 @@ using UniFlow.Client;
 using MudBlazor.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using UniFlow.Client.Auth;
+using UniFlow.Client.Api;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -17,5 +18,6 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<CookieAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
     sp.GetRequiredService<CookieAuthenticationStateProvider>());
+builder.Services.AddScoped<ApiClient>();
 
 await builder.Build().RunAsync();

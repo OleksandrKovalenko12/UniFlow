@@ -1,10 +1,61 @@
 ﻿@page "/new"
 @attribute [Authorize(Roles = RoleNames.Student)]
+@inject ApiClient Api
 
 <PageTitle>Nowy wniosek - UniFlow</PageTitle>
 
 <MudText Typo="Typo.h5" HtmlTag="h1" GutterBottom="true">Nowy wniosek</MudText>
+<MudText Class="mb-6 mud-text-secondary">Wybierz rodzaj wniosku, który chcesz złożyć.</MudText>
 
-<MudPaper Class="pa-4" Elevation="0" Outlined="true">
-    <MudText>Tu pojawi się lista podań do złożenia.</MudText>
-</MudPaper>
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync">Spróbuj ponownie</MudButton>
+}
+else if (_types is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_types.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Obecnie nie można złożyć żadnego wniosku.</MudAlert>
+}
+else
+{
+    <MudGrid>
+        @foreach (var type in _types)
+        {
+            <MudItem xs="12" sm="6" lg="4">
+                <MudPaper Class="pa-4" Elevation="0" Outlined="true" Style="height: 100%">
+                    <MudText Typo="Typo.h6" GutterBottom="true">@type.Name</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@type.Description</MudText>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    // The server lists every active type; only those with a ready form are shown
+    private static readonly HashSet<string> TypesWithForm = [ApplicationTypeCodes.GroupChange];
+
+    private IReadOnlyList<ApplicationTypeSummary>? _types;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        _types = null;
+
+        var result = await Api.GetApplicationTypesAsync();
+        if (!result.IsSuccess)
+        {
+            _error = result.Error.Message;
+            return;
+        }
+
+        _types = result.Value.Where(t => TypesWithForm.Contains(t.Code)).ToList();
+    }
+}
