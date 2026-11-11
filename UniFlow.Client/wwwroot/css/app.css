@@ -27,15 +27,11 @@ h1:focus {
     background: var(--mud-palette-primary) url("../images/login-waves.svg") center bottom / cover no-repeat;
 }
 
-.login-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.login-brand-name {
-    font-size: 2rem;
-    font-weight: 600;
+.login-logo {
+    display: block;
+    align-self: flex-start;
+    width: auto;
+    height: 56px;
 }
 
 .login-tagline {
@@ -74,8 +70,8 @@ h1:focus {
         background-size: 100% 100%;
     }
 
-    .login-brand-name {
-        font-size: 1.5rem;
+    .login-logo {
+        height: 36px;
     }
 
     .login-tagline {
@@ -87,6 +83,12 @@ h1:focus {
         padding: 32px 24px;
         background-image: none;
     }
+}
+
+.appbar-logo {
+    display: block;
+    height: 26px;
+    margin-left: 8px;
 }
 
 /* Label above a text field (instead of MudBlazor's label inside the field) */
