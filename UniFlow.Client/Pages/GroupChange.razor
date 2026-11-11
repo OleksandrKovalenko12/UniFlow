@@ -219,6 +219,14 @@ else
                       ErrorText="@_errors.For(nameof(GroupChangeForm.Justification))" />
     </MudPaper>
 
+    
+    @if (_maxAttachments > 0)
+    {
+        <AttachmentPicker Files="_files" MaxFiles="_maxAttachments"
+                          Hint="Opcjonalnie, np. zaświadczenie od pracodawcy."
+                          OnChanged="OnFieldChanged" />
+    }
+
     @if (_submitError is not null)
     {
         <MudAlert Severity="Severity.Error" Class="mb-4">@_submitError</MudAlert>
@@ -255,6 +263,10 @@ else
     // No scope chosen at the start; one empty row is ready for the "Subjects" scope
     private readonly GroupChangeForm _form = new() { Subjects = [new SubjectGroupChange()] };
     private readonly FormErrors _errors = new();
+    
+    // Sent one by one after the application is submitted 
+    private readonly List<PickedFile> _files = [];
+    private int _maxAttachments;
 
     // After the first "Złóż wniosek" every change is checked at once
     private bool _attempted;
@@ -282,6 +294,17 @@ else
         }
 
         _enrollments = result.Value;
+        
+        // How many files this type allows - an administrator can change it
+        var types = await Api.GetApplicationTypesAsync();
+        if (!types.IsSuccess)
+        {
+            _error = types.Error.Message;
+            return;
+        }
+
+        _maxAttachments = types.Value
+            .FirstOrDefault(t => t.Code == ApplicationTypeCodes.GroupChange)?.MaxAttachments ?? 0;
     }
 
     // Runs after loading and again when "Zmień" puts another id in the address

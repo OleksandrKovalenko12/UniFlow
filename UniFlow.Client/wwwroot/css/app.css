@@ -126,6 +126,27 @@ h1:focus {
     }
 }
 
+/* One chosen file in the attachments card; a long name is cut with "..." */
+.attachment-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.attachment-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.attachment-size {
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
 /* Label above a text field (instead of MudBlazor's label inside the field) */
 .field-label {
     display: block;
