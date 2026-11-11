@@ -31,12 +31,189 @@ else
         }
     </MudPaper>
 
-    <MudPaper Class="pa-4" Elevation="0" Outlined="true">
-        <MudText Class="mud-text-secondary">Tu pojawią się pola formularza.</MudText>
+    @* Scope *@
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <MudText Typo="Typo.h6" GutterBottom="true">Zakres zmiany</MudText>
+        <MudRadioGroup T="GroupChangeScope" @bind-Value="_form.Scope" @bind-Value:after="OnFieldChanged"
+                       Error="_errors.Has(nameof(GroupChangeForm.Scope))"
+                       ErrorText="@_errors.For(nameof(GroupChangeForm.Scope))">
+            <div class="d-flex flex-column">
+                <MudRadio Value="GroupChangeScope.General" Color="Color.Primary">
+                    Wszystkie przedmioty danego rodzaju zajęć, np. grupa dziekańska albo wszystkie laboratoria
+                </MudRadio>
+                <MudRadio Value="GroupChangeScope.Subjects" Color="Color.Primary">
+                    Wybrane przedmioty
+                </MudRadio>
+            </div>
+        </MudRadioGroup>
     </MudPaper>
+
+    @* Scope = General *@
+    @if (_form.Scope == GroupChangeScope.General)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" GutterBottom="true">Grupa</MudText>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="4">
+                    <label class="field-label" for="general-type">Rodzaj grupy</label>
+                    <MudSelect T="GroupType" @bind-Value="_form.GroupType" @bind-Value:after="OnFieldChanged"
+                               InputId="general-type" Variant="Variant.Outlined" Margin="Margin.Dense"
+                               ToStringFunc="GroupTypeLabel" Placeholder="Wybierz"
+                               Error="_errors.Has(nameof(GroupChangeForm.GroupType))"
+                               ErrorText="@_errors.For(nameof(GroupChangeForm.GroupType))">
+                        @foreach (var type in AllGroupTypes)
+                        {
+                            <MudSelectItem Value="type" />
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6" md="4">
+                    <label class="field-label" for="general-current">Obecna<br class="phone-break" /> grupa</label>
+                    <MudTextField @bind-Value="_form.CurrentGroup" @bind-Value:after="OnFieldChanged"
+                                  InputId="general-current" Placeholder="np. 3"
+                                  MaxLength="GroupChangeForm.MaxGroupLength"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Error="_errors.Has(nameof(GroupChangeForm.CurrentGroup))"
+                                  ErrorText="@_errors.For(nameof(GroupChangeForm.CurrentGroup))" />
+                </MudItem>
+                <MudItem xs="6" md="4">
+                    <label class="field-label" for="general-requested">Wnioskowana<br class="phone-break" /> grupa</label>
+                    <MudTextField @bind-Value="_form.RequestedGroup" @bind-Value:after="OnFieldChanged"
+                                  InputId="general-requested" Placeholder="np. 5"
+                                  MaxLength="GroupChangeForm.MaxGroupLength"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  Error="_errors.Has(nameof(GroupChangeForm.RequestedGroup))"
+                                  ErrorText="@_errors.For(nameof(GroupChangeForm.RequestedGroup))" />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+
+    @* Scope = Subjects *@
+    @if (_form.Scope == GroupChangeScope.Subjects)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" GutterBottom="true">Przedmioty</MudText>
+
+            @for (var i = 0; i < _form.Subjects.Count; i++)
+            {
+                // A copy for the lambdas below - "i" itself changes while the loop runs
+                var index = i;
+                var row = _form.Subjects[index];
+                var prefix = $"{nameof(GroupChangeForm.Subjects)}[{index}].";
+
+                <div class="subject-row">
+                    <div class="d-flex align-center mb-2">
+                        <MudText Typo="Typo.subtitle2" Class="flex-grow-1">Przedmiot @(index + 1)</MudText>
+                        @if (_form.Subjects.Count > 1)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
+                                           aria-label="@($"Usuń przedmiot {index + 1}")"
+                                           OnClick="() => RemoveSubject(index)" />
+                        }
+                    </div>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" md="5">
+                            <label class="field-label" for="subject-@index">Nazwa przedmiotu</label>
+                            <MudTextField @bind-Value="row.Subject" @bind-Value:after="OnFieldChanged"
+                                          InputId="@($"subject-{index}")" Placeholder="np. Bazy danych"
+                                          MaxLength="GroupChangeForm.MaxSubjectLength"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Error="_errors.Has(prefix + nameof(row.Subject))"
+                                          ErrorText="@_errors.For(prefix + nameof(row.Subject))" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <label class="field-label" for="subject-type-@index">Rodzaj zajęć</label>
+                            <MudSelect T="GroupType" @bind-Value="row.GroupType" @bind-Value:after="OnFieldChanged"
+                                       InputId="@($"subject-type-{index}")"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense"
+                                       ToStringFunc="GroupTypeLabel" Placeholder="Wybierz"
+                                       Error="_errors.Has(prefix + nameof(row.GroupType))"
+                                       ErrorText="@_errors.For(prefix + nameof(row.GroupType))">
+                                @foreach (var type in SubjectGroupTypes)
+                                {
+                                    <MudSelectItem Value="type" />
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="6" md="2">
+                            <label class="field-label" for="subject-current-@index">Obecna<br class="phone-break" /> grupa</label>
+                            <MudTextField @bind-Value="row.CurrentGroup" @bind-Value:after="OnFieldChanged"
+                                          InputId="@($"subject-current-{index}")" Placeholder="np. 2"
+                                          MaxLength="GroupChangeForm.MaxGroupLength"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Error="_errors.Has(prefix + nameof(row.CurrentGroup))"
+                                          ErrorText="@_errors.For(prefix + nameof(row.CurrentGroup))" />
+                        </MudItem>
+                        <MudItem xs="6" md="2">
+                            <label class="field-label" for="subject-requested-@index">Wnioskowana<br class="phone-break" /> grupa</label>
+                            <MudTextField @bind-Value="row.RequestedGroup" @bind-Value:after="OnFieldChanged"
+                                          InputId="@($"subject-requested-{index}")" Placeholder="np. 4"
+                                          MaxLength="GroupChangeForm.MaxGroupLength"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Error="_errors.Has(prefix + nameof(row.RequestedGroup))"
+                                          ErrorText="@_errors.For(prefix + nameof(row.RequestedGroup))" />
+                        </MudItem>
+                    </MudGrid>
+                </div>
+            }
+
+            @if (_errors.Has(nameof(GroupChangeForm.Subjects)))
+            {
+                <MudText Typo="Typo.body2" Color="Color.Error" Class="mb-2">
+                    @_errors.For(nameof(GroupChangeForm.Subjects))
+                </MudText>
+            }
+
+            @if (_form.Subjects.Count < GroupChangeForm.MaxSubjects)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add" OnClick="AddSubject">
+                    Dodaj przedmiot
+                </MudButton>
+            }
+        </MudPaper>
+    }
+
+    @* Justification *@
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <label class="field-label" for="justification">Uzasadnienie</label>
+        <MudTextField @bind-Value="_form.Justification" @bind-Value:after="OnFieldChanged"
+                      InputId="justification" Lines="5" Immediate="true"
+                      Placeholder="Napisz, dlaczego prosisz o zmianę grupy."
+                      Counter="GroupChangeForm.MaxJustificationLength"
+                      MaxLength="GroupChangeForm.MaxJustificationLength"
+                      Variant="Variant.Outlined"
+                      Error="_errors.Has(nameof(GroupChangeForm.Justification))"
+                      ErrorText="@_errors.For(nameof(GroupChangeForm.Justification))" />
+    </MudPaper>
+
+    @if (_errors.Any)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">Popraw zaznaczone pola formularza.</MudAlert>
+    }
+    else if (_checkedOk)
+    {
+        @* Temporary: sending comes in the next step *@
+        <MudAlert Severity="Severity.Success" Class="mb-4">Formularz jest poprawny. Wysyłanie dodamy w następnym kroku.</MudAlert>
+    }
+
+    <div class="d-flex justify-end">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Size="Size.Large"
+                   OnClick="Submit">
+            Złóż wniosek
+        </MudButton>
+    </div>
 }
 
 @code {
+    private static readonly GroupType[] AllGroupTypes =
+        [GroupType.Dean, GroupType.Exercises, GroupType.Laboratory, GroupType.Project];
+
+    // A dean group is changed with the general scope, so a row does not offer it
+    private static readonly GroupType[] SubjectGroupTypes =
+        [GroupType.Exercises, GroupType.Laboratory, GroupType.Project];
+
     [Parameter]
     public int EnrollmentId { get; set; }
 
@@ -44,6 +221,14 @@ else
     private IReadOnlyList<EnrollmentSummary>? _enrollments;
     private EnrollmentSummary? _enrollment;
     private string? _error;
+
+    // No scope chosen at the start; one empty row is ready for the "Subjects" scope
+    private readonly GroupChangeForm _form = new() { Subjects = [new SubjectGroupChange()] };
+    private readonly FormErrors _errors = new();
+
+    // After the first "Złóż wniosek" every change is checked at once
+    private bool _attempted;
+    private bool _checkedOk;
 
     protected override async Task OnInitializedAsync()
     {
@@ -74,5 +259,40 @@ else
 
         if (enrollmentId is not null && enrollmentId != EnrollmentId)
             Navigation.NavigateTo($"new/group-change/{enrollmentId}");
+    }
+
+    // "grupa dziekańska" -> "Grupa dziekańska"; nothing chosen yet (0) -> empty field
+    private static string GroupTypeLabel(GroupType type)
+    {
+        if (!Enum.IsDefined(type))
+            return "";
+
+        var name = GroupTypeText.Name(type);
+        return char.ToUpper(name[0]) + name[1..];
+    }
+
+    private void OnFieldChanged()
+    {
+        _checkedOk = false;
+        if (_attempted)
+            _errors.Validate(_form);
+    }
+
+    private void AddSubject()
+    {
+        _form.Subjects.Add(new SubjectGroupChange());
+        OnFieldChanged();
+    }
+
+    private void RemoveSubject(int index)
+    {
+        _form.Subjects.RemoveAt(index);
+        OnFieldChanged();
+    }
+
+    private void Submit()
+    {
+        _attempted = true;
+        _checkedOk = _errors.Validate(_form);
     }
 }

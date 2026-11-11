@@ -11,18 +11,29 @@
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
-                <MudMenu Label="@context.User.Identity?.Name" Color="Color.Inherit"
-                         StartIcon="@Icons.Material.Outlined.AccountCircle"
-                         EndIcon="@Icons.Material.Filled.ArrowDropDown"
-                         AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
-                         AriaLabel="Menu użytkownika">
-                    <MudText Typo="Typo.body2" Class="px-4 py-2 mud-text-secondary">
-                        @context.User.FindFirst(ClaimTypes.Email)?.Value
-                    </MudText>
-                    <MudDivider />
-                    <MudMenuItem Icon="@Icons.Material.Outlined.Logout" OnClick="LogoutAsync">
-                        Wyloguj
-                    </MudMenuItem>
+                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                         AriaLabel="Menu użytkownika" Class="ml-4">
+                    <ActivatorContent Context="menu">
+                        <MudButton Color="Color.Inherit" EndIcon="@Icons.Material.Filled.ArrowDropDown"
+                                   OnClick="menu.ToggleAsync">
+                            <MudAvatar Size="Size.Small" Class="user-avatar">
+                                @Initials(context.User.Identity?.Name)
+                            </MudAvatar>
+                            <span class="user-name">@context.User.Identity?.Name</span>
+                        </MudButton>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <div class="px-4 py-2">
+                            <MudText Typo="Typo.body1"><b>@context.User.Identity?.Name</b></MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                @context.User.FindFirst(ClaimTypes.Email)?.Value
+                            </MudText>
+                        </div>
+                        <MudDivider />
+                        <MudMenuItem Icon="@Icons.Material.Outlined.Logout" OnClick="LogoutAsync">
+                            Wyloguj
+                        </MudMenuItem>
+                    </ChildContent>
                 </MudMenu>
             </Authorized>
             <NotAuthorized>
@@ -53,6 +64,13 @@
     private bool _drawerOpen = true;
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+        
+    // "Jan Zieliński" -> "JZ"
+    private static string Initials(string? name) =>
+        string.Concat((name ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2)
+            .Select(part => char.ToUpper(part[0])));
+
 
     private async Task LogoutAsync()
     {

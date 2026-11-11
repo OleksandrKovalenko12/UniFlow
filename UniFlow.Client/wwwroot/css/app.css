@@ -91,6 +91,41 @@ h1:focus {
     margin-left: 8px;
 }
 
+/* One row of the subjects list in the group change form */
+.subject-row {
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: var(--mud-default-borderradius);
+}
+
+/* Line break used only on phones (see the media query below) */
+.phone-break {
+    display: none;
+}
+
+/* User menu in the app bar: initials in a circle, the name only on wider screens */
+.user-avatar {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.user-name {
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+@media (max-width: 599.98px) {
+    .user-name {
+        display: none;
+    }
+    .phone-break {
+        display: inline;
+    }
+}
+
 /* Label above a text field (instead of MudBlazor's label inside the field) */
 .field-label {
     display: block;
