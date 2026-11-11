@@ -1,6 +1,8 @@
 ﻿@page "/new"
 @attribute [Authorize(Roles = RoleNames.Student)]
 @inject ApiClient Api
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
 
 <PageTitle>Nowy wniosek - UniFlow</PageTitle>
 
@@ -22,13 +24,22 @@ else if (_types.Count == 0)
 }
 else
 {
+    @if (_startMessage is not null)
+    {
+        <MudAlert Severity="_startSeverity" Class="mb-4">@_startMessage</MudAlert>
+    }
+
     <MudGrid>
         @foreach (var type in _types)
         {
             <MudItem xs="12" sm="6" lg="4">
-                <MudPaper Class="pa-4" Elevation="0" Outlined="true" Style="height: 100%">
+                <MudPaper Class="pa-4 d-flex flex-column" Elevation="0" Outlined="true" Style="height: 100%">
                     <MudText Typo="Typo.h6" GutterBottom="true">@type.Name</MudText>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@type.Description</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">@type.Description</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-auto align-self-start"
+                               Disabled="_starting" OnClick="() => StartAsync(type)">
+                        Wypełnij wniosek
+                    </MudButton>
                 </MudPaper>
             </MudItem>
         }
@@ -36,11 +47,18 @@ else
 }
 
 @code {
-    // The server lists every active type; only those with a ready form are shown
-    private static readonly HashSet<string> TypesWithForm = [ApplicationTypeCodes.GroupChange];
+    // Types with a ready form and the page of that form; the server lists every active type
+    private static readonly Dictionary<string, string> FormPages = new()
+    {
+        [ApplicationTypeCodes.GroupChange] = "new/group-change"
+    };
 
     private IReadOnlyList<ApplicationTypeSummary>? _types;
     private string? _error;
+
+    private bool _starting;
+    private string? _startMessage;
+    private Severity _startSeverity;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -56,6 +74,44 @@ else
             return;
         }
 
-        _types = result.Value.Where(t => TypesWithForm.Contains(t.Code)).ToList();
+        _types = result.Value.Where(t => FormPages.ContainsKey(t.Code)).ToList();
+    }
+
+    // One study programme: straight to the form, more: the student chooses in a dialog
+    private async Task StartAsync(ApplicationTypeSummary type)
+    {
+        _starting = true;
+        _startMessage = null;
+
+        var result = await Api.GetMyEnrollmentsAsync();
+
+        _starting = false;
+
+        if (!result.IsSuccess)
+        {
+            ShowStartMessage(result.Error.Message, Severity.Error);
+            return;
+        }
+
+        var enrollments = result.Value;
+        if (enrollments.Count == 0)
+        {
+            ShowStartMessage("Nie masz aktywnych studiów, więc nie możesz złożyć wniosku. " +
+                "Jeśli to pomyłka, skontaktuj się z dziekanatem.", Severity.Warning);
+            return;
+        }
+
+        var enrollmentId = enrollments.Count == 1
+            ? enrollments[0].Id
+            : await ChooseEnrollmentDialog.ShowAsync(Dialogs, enrollments);
+
+        if (enrollmentId is not null)
+            Navigation.NavigateTo($"{FormPages[type.Code]}/{enrollmentId}");
+    }
+
+    private void ShowStartMessage(string message, Severity severity)
+    {
+        _startMessage = message;
+        _startSeverity = severity;
     }
 }

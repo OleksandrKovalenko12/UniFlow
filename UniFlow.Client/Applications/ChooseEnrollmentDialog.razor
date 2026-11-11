@@ -1,0 +1,61 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-4 mud-text-secondary">Masz kilka kierunków. Którego dotyczy wniosek?</MudText>
+
+        <MudRadioGroup T="int" @bind-Value="_selectedId">
+            @foreach (var enrollment in Enrollments)
+            {
+                <MudRadio Value="enrollment.Id" Color="Color.Primary" Class="mb-2">
+                    <div>
+                        <MudText><b>@enrollment.FieldOfStudyName</b>, @EnrollmentLabels.Details(enrollment)</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@EnrollmentLabels.Faculty(enrollment)</MudText>
+                    </div>
+                </MudRadio>
+            }
+        </MudRadioGroup>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Anuluj</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                   Disabled="_selectedId == 0" OnClick="Confirm">
+            Dalej
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public IReadOnlyList<EnrollmentSummary> Enrollments { get; set; } = [];
+
+    [Parameter]
+    public int? SelectedId { get; set; }
+
+    // 0 = nothing chosen yet (database ids start at 1)
+    private int _selectedId;
+
+    protected override void OnInitialized() => _selectedId = SelectedId ?? 0;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(_selectedId));
+
+    // Opens the dialog and returns the chosen enrollment id, or null when it was cancelled
+    public static async Task<int?> ShowAsync(IDialogService dialogs,
+        IReadOnlyList<EnrollmentSummary> enrollments, int? selectedId = null)
+    {
+        var parameters = new DialogParameters<ChooseEnrollmentDialog>
+        {
+            { d => d.Enrollments, enrollments },
+            { d => d.SelectedId, selectedId }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = await dialogs.ShowAsync<ChooseEnrollmentDialog>("Wybierz studia", parameters, options);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false, Data: int id } ? id : null;
+    }
+}

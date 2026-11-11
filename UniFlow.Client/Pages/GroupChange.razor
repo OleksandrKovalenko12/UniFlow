@@ -1,0 +1,78 @@
+﻿@page "/new/group-change/{EnrollmentId:int}"
+@attribute [Authorize(Roles = RoleNames.Student)]
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
+
+<PageTitle>Zmiana grupy zajęciowej - UniFlow</PageTitle>
+
+<MudText Typo="Typo.h5" HtmlTag="h1" GutterBottom="true">Zmiana grupy zajęciowej</MudText>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="new">Wróć do listy wniosków</MudButton>
+}
+else if (_enrollment is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4 mb-4 d-flex align-center gap-4" Elevation="0" Outlined="true">
+        <div class="flex-grow-1">
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Studia</MudText>
+            <MudText><b>@_enrollment.FieldOfStudyName</b>, @EnrollmentLabels.Details(_enrollment)</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@EnrollmentLabels.Faculty(_enrollment)</MudText>
+        </div>
+        @if (_enrollments?.Count > 1)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ChangeEnrollmentAsync">Zmień</MudButton>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="0" Outlined="true">
+        <MudText Class="mud-text-secondary">Tu pojawią się pola formularza.</MudText>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public int EnrollmentId { get; set; }
+
+    // null = not loaded yet
+    private IReadOnlyList<EnrollmentSummary>? _enrollments;
+    private EnrollmentSummary? _enrollment;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetMyEnrollmentsAsync();
+        if (!result.IsSuccess)
+        {
+            _error = result.Error.Message;
+            return;
+        }
+
+        _enrollments = result.Value;
+    }
+
+    // Runs after loading and again when "Zmień" puts another id in the address
+    protected override void OnParametersSet()
+    {
+        if (_enrollments is null)
+            return;
+
+        // Only the student's own studies are on the list, so a foreign id is simply not found
+        _enrollment = _enrollments.FirstOrDefault(e => e.Id == EnrollmentId);
+        _error = _enrollment is null ? "Nie znaleziono wybranych studiów." : null;
+    }
+
+    private async Task ChangeEnrollmentAsync()
+    {
+        var enrollmentId = await ChooseEnrollmentDialog.ShowAsync(Dialogs, _enrollments!, EnrollmentId);
+
+        if (enrollmentId is not null && enrollmentId != EnrollmentId)
+            Navigation.NavigateTo($"new/group-change/{enrollmentId}");
+    }
+}

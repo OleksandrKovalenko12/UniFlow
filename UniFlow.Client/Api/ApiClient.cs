@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using UniFlow.Shared.ApplicationTypes;
+using UniFlow.Shared.Enrollments;
 
 namespace UniFlow.Client.Api;
 
@@ -23,6 +24,9 @@ public sealed class ApiClient
 
     public Task<ApiResult<IReadOnlyList<ApplicationTypeSummary>>> GetApplicationTypesAsync() =>
         SendAsync<IReadOnlyList<ApplicationTypeSummary>>(() => _http.GetAsync("api/application-types"));
+
+    public Task<ApiResult<IReadOnlyList<EnrollmentSummary>>> GetMyEnrollmentsAsync() =>
+    SendAsync<IReadOnlyList<EnrollmentSummary>>(() => _http.GetAsync("api/enrollments/mine"));
 
     private async Task<ApiResult<T>> SendAsync<T>(Func<Task<HttpResponseMessage>> send)
     {
