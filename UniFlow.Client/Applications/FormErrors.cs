@@ -15,6 +15,10 @@ public sealed class FormErrors
     public string? For(string path) =>
         _errors.TryGetValue(path, out var messages) ? string.Join(" ", messages) : null;
 
+    // Errors sent by the server - the paths are the same, so they show under the same fields
+    public void Set(IReadOnlyDictionary<string, string[]> errors) =>
+        _errors = new Dictionary<string, string[]>(errors);
+
     // Runs the form's own rules - the same ones the server runs - and returns true when there are none
     public bool Validate(object model)
     {

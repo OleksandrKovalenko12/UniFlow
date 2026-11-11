@@ -6,6 +6,9 @@
 
 <PageTitle>Zmiana grupy zajęciowej - UniFlow</PageTitle>
 
+@* Asks before leaving a form that was filled in but not sent *@
+<NavigationLock OnBeforeInternalNavigation="ConfirmLeaveAsync" ConfirmExternalNavigation="HasUnsavedChanges" />
+
 <MudText Typo="Typo.h5" HtmlTag="h1" GutterBottom="true">Zmiana grupy zajęciowej</MudText>
 
 @if (_error is not null)
@@ -16,6 +19,34 @@
 else if (_enrollment is null)
 {
     <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_submitted is not null)
+{
+    <MudPaper Class="pa-6 d-flex flex-column align-center" Elevation="0" Outlined="true" Style="text-align: center">
+        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Color="Color.Success" Style="font-size: 3rem" />
+        <MudText Typo="Typo.h6" Class="mt-2">Wniosek złożony</MudText>
+        <MudText Class="mud-text-secondary mt-4">Numer wniosku</MudText>
+        <MudText Typo="Typo.h4" Class="mb-6"><b>@_submitted.Number</b></MudText>
+
+        <div class="d-flex flex-wrap justify-center gap-2 mb-4">
+            @* target="_blank" and download: the router lets these links through to the server *@
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                       StartIcon="@Icons.Material.Outlined.Visibility"
+                       Href="@ApiClient.DocumentUrl(_submitted.Id, inline: true)" Target="_blank">
+                Podgląd PDF
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Download"
+                       Href="@ApiClient.DocumentUrl(_submitted.Id, inline: false)" download="">
+                Pobierz
+            </MudButton>
+        </div>
+
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Dziekanat sprawdzi wniosek.</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="new" Class="mt-4">
+            Wróć do listy wniosków
+        </MudButton>
+    </MudPaper>
 }
 else
 {
@@ -188,20 +219,19 @@ else
                       ErrorText="@_errors.For(nameof(GroupChangeForm.Justification))" />
     </MudPaper>
 
-    @if (_errors.Any)
+    @if (_submitError is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_submitError</MudAlert>
+    }
+    else if (_errors.Any)
     {
         <MudAlert Severity="Severity.Error" Class="mb-4">Popraw zaznaczone pola formularza.</MudAlert>
-    }
-    else if (_checkedOk)
-    {
-        @* Temporary: sending comes in the next step *@
-        <MudAlert Severity="Severity.Success" Class="mb-4">Formularz jest poprawny. Wysyłanie dodamy w następnym kroku.</MudAlert>
     }
 
     <div class="d-flex justify-end">
         <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Size="Size.Large"
-                   OnClick="Submit">
-            Złóż wniosek
+                   Disabled="_sending" OnClick="SubmitAsync">
+            @(_sending ? "Wysyłanie..." : "Złóż wniosek")
         </MudButton>
     </div>
 }
@@ -228,7 +258,19 @@ else
 
     // After the first "Złóż wniosek" every change is checked at once
     private bool _attempted;
-    private bool _checkedOk;
+    // Something was typed and not sent yet
+    private bool _dirty;
+
+    // One key per filled-in form: if the answer is lost and the student sends again,
+    // the server recognises the key and returns the application it already created
+    private Guid _submissionKey;
+    private int _keyEnrollmentId;
+
+    private bool _sending;
+    private string? _submitError;
+    private SubmittedApplication? _submitted;
+
+    private bool HasUnsavedChanges => _dirty && _submitted is null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -251,6 +293,13 @@ else
         // Only the student's own studies are on the list, so a foreign id is simply not found
         _enrollment = _enrollments.FirstOrDefault(e => e.Id == EnrollmentId);
         _error = _enrollment is null ? "Nie znaleziono wybranych studiów." : null;
+
+        // Other studies mean another application, so it gets its own key
+        if (EnrollmentId != _keyEnrollmentId)
+        {
+            _submissionKey = Guid.NewGuid();
+            _keyEnrollmentId = EnrollmentId;
+        }
     }
 
     private async Task ChangeEnrollmentAsync()
@@ -273,7 +322,8 @@ else
 
     private void OnFieldChanged()
     {
-        _checkedOk = false;
+        _dirty = true;
+        _submitError = null;
         if (_attempted)
             _errors.Validate(_form);
     }
@@ -290,9 +340,52 @@ else
         OnFieldChanged();
     }
 
-    private void Submit()
+        private async Task SubmitAsync()
     {
         _attempted = true;
-        _checkedOk = _errors.Validate(_form);
+        _submitError = null;
+
+        if (!_errors.Validate(_form))
+            return;
+
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Złożyć wniosek?",
+            $"Wniosek o zmianę grupy dla studiów: {_enrollment!.FieldOfStudyName}, " +
+            $"{_enrollment.StudyLevel}. Po złożeniu nie można go zmienić.",
+            yesText: "Złóż wniosek", cancelText: "Anuluj");
+
+        if (confirmed != true)
+            return;
+
+        _sending = true;
+        var result = await Api.SubmitGroupChangeAsync(EnrollmentId, _submissionKey, _form);
+        _sending = false;
+
+        if (result.IsSuccess)
+        {
+            _submitted = result.Value;
+            return;
+        }
+
+        // Field errors from the server land under the same fields as the browser's own
+        _errors.Set(result.Error.FieldErrors);
+        _submitError = result.Error.Message;
+    }
+
+    private async Task ConfirmLeaveAsync(LocationChangingContext context)
+    {
+        // "Zmień" only puts other studies in the address - the form stays filled in.
+        // TargetLocation can be relative ("new/group-change/3"), so it is made absolute first.
+        var target = Navigation.ToAbsoluteUri(context.TargetLocation).AbsolutePath;
+        if (!HasUnsavedChanges || target.StartsWith("/new/group-change/"))
+            return;
+
+        var leave = await Dialogs.ShowMessageBoxAsync(
+            "Opuścić formularz?",
+            "Wpisane dane nie zostały wysłane i zostaną utracone.",
+            yesText: "Opuść", cancelText: "Zostań");
+
+        if (leave != true)
+            context.PreventNavigation();
     }
 }

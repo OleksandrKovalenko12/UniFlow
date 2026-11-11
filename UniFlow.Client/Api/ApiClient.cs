@@ -4,6 +4,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using UniFlow.Shared.ApplicationTypes;
 using UniFlow.Shared.Enrollments;
+using UniFlow.Shared.Applications;
+using UniFlow.Shared.Forms;
 
 namespace UniFlow.Client.Api;
 
@@ -28,6 +30,22 @@ public sealed class ApiClient
     public Task<ApiResult<IReadOnlyList<EnrollmentSummary>>> GetMyEnrollmentsAsync() =>
     SendAsync<IReadOnlyList<EnrollmentSummary>>(() => _http.GetAsync("api/enrollments/mine"));
 
+    public Task<ApiResult<SubmittedApplication>> SubmitGroupChangeAsync(int enrollmentId,
+    Guid submissionKey, GroupChangeForm form) =>
+    SendAsync<SubmittedApplication>(() =>
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"api/enrollments/{enrollmentId}/applications/group-change")
+        {
+            Content = JsonContent.Create(form)
+        };
+        request.Headers.Add(SubmissionHeaders.IdempotencyKey, submissionKey.ToString());
+        return _http.SendAsync(request);
+    });
+
+    // A link, not a request: the browser opens or saves the PDF itself (and sends the login cookie)
+    public static string DocumentUrl(Guid applicationId, bool inline) =>
+        $"api/applications/{applicationId}/document" + (inline ? "?inline=true" : "");
     private async Task<ApiResult<T>> SendAsync<T>(Func<Task<HttpResponseMessage>> send)
     {
         HttpResponseMessage response;
