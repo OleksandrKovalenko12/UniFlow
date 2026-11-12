@@ -1,0 +1,62 @@
+﻿<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-4">@Text.Text</MudText>
+
+        @if (Text.Comment != CommentKind.None)
+        {
+            <label class="field-label" for="decision-comment">@Text.CommentLabel</label>
+            <MudTextField @bind-Value="_comment" @bind-Value:after="ClearError" InputId="decision-comment"
+                          Lines="4" Immediate="true" Variant="Variant.Outlined"
+                          Counter="CommentRequest.MaxLength" MaxLength="CommentRequest.MaxLength"
+                          Error="_error is not null" ErrorText="@_error" />
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Anuluj</MudButton>
+        <MudButton Variant="Variant.Filled" Color="@ConfirmColor" DropShadow="false" OnClick="Confirm">
+            @Text.Confirm
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public DecisionText Text { get; set; } = null!;
+
+    private string _comment = "";
+    private string? _error;
+
+    // A red button only for rejecting - the one decision that ends the case badly
+    private Color ConfirmColor => Text.Color == Color.Error ? Color.Error : Color.Primary;
+
+    private void ClearError() => _error = null;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Confirm()
+    {
+        // The server checks it too; here the employee learns at once
+        if (Text.Comment == CommentKind.Required && string.IsNullOrWhiteSpace(_comment))
+        {
+            _error = "Wpisz komentarz.";
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(_comment.Trim()));
+    }
+
+    // The comment ("" when there is none), or null when the dialog was cancelled
+    public static async Task<string?> ShowAsync(IDialogService dialogs, DecisionText text)
+    {
+        var parameters = new DialogParameters<DecisionDialog> { { d => d.Text, text } };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = await dialogs.ShowAsync<DecisionDialog>(text.Title, parameters, options);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false, Data: string comment } ? comment : null;
+    }
+}

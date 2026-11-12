@@ -58,6 +58,22 @@ public sealed class ApiClient
     public Task<ApiResult<ApplicationDetails>> GetApplicationAsync(Guid id) =>
         SendAsync<ApplicationDetails>(() => _http.GetAsync($"api/applications/{id}"));
 
+    // A decision returns the application as it is now - the page shows it at once
+    public Task<ApiResult<ApplicationDetails>> DecideAsync(Guid applicationId, ReviewAction action,
+        string? comment) =>
+        SendAsync<ApplicationDetails>(() => _http.PostAsJsonAsync(
+            $"api/applications/{applicationId}/{DecisionPath(action)}", new { comment }));
+
+    private static string DecisionPath(ReviewAction action) => action switch
+    {
+        ReviewAction.Take => "take",
+        ReviewAction.RequestCorrection => "request-correction",
+        ReviewAction.ForwardToDean => "forward",
+        ReviewAction.Approve => "approve",
+        ReviewAction.Reject => "reject",
+        ReviewAction.ReturnToDeanOffice => "return",
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown action.")
+    };
 
     // One file per request; the server checks it, converts it to PDF and returns its id
     public Task<ApiResult<AttachmentSummary>> UploadAttachmentAsync(Guid applicationId,

@@ -23,7 +23,14 @@ else if (_details is null)
 }
 else
 {
-    <ApplicationView Details="_details" />
+    <ApplicationView Details="_details">
+        <Actions>
+            @if (_details.Actions.Count > 0)
+            {
+                <ReviewActionsPanel Details="_details" Decided="details => _details = details" />
+            }
+        </Actions>
+    </ApplicationView>
 }
 
 @code {

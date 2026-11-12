@@ -10,6 +10,8 @@ using UniFlow.Infrastructure.Persistence;
 using UniFlow.Shared;
 using UniFlow.Shared.Applications;
 using UniFlow.Shared.Review;
+using UniFlow.Domain;
+using UniFlow.Domain.Entities;
 
 namespace UniFlow.Api.Controllers;
 
@@ -23,13 +25,15 @@ public sealed class ReviewController : ControllerBase
 
     private readonly UniFlowDbContext _db;
     private readonly ApplicationAccess _access;
+    private readonly ApplicationDetailsQuery _details;
     private readonly UserManager<ApplicationUser> _userManager;
 
     public ReviewController(UniFlowDbContext db, ApplicationAccess access,
-        UserManager<ApplicationUser> userManager)
+        ApplicationDetailsQuery details, UserManager<ApplicationUser> userManager)
     {
         _db = db;
         _access = access;
+        _details = details;
         _userManager = userManager;
     }
 
@@ -101,6 +105,73 @@ public sealed class ReviewController : ControllerBase
 
         return new PagedList<ReviewListItem>(items, totalCount, page, PageSize);
     }
+
+    // Decisions: one endpoint per Domain method. Each returns the application as it is now,
+    // so the page shows the new status, history and buttons without asking again.
+
+    [HttpPost("/api/applications/{id:guid}/take")]
+    public Task<ActionResult<ApplicationDetails>> Take(Guid id, CancellationToken cancellationToken) =>
+        DecideAsync(id, (application, actor, now) => application.TakeForReview(actor, now),
+            cancellationToken);
+
+    [HttpPost("/api/applications/{id:guid}/request-correction")]
+    public Task<ActionResult<ApplicationDetails>> RequestCorrection(Guid id, CommentRequest request,
+        CancellationToken cancellationToken) =>
+        DecideAsync(id, (application, actor, now) =>
+            application.RequestCorrection(actor, request.Comment, now), cancellationToken);
+
+    [HttpPost("/api/applications/{id:guid}/forward")]
+    public Task<ActionResult<ApplicationDetails>> Forward(Guid id, NoteRequest request,
+        CancellationToken cancellationToken) =>
+        DecideAsync(id, (application, actor, now) =>
+            application.ForwardToDean(actor, request.Comment, now), cancellationToken);
+
+    [HttpPost("/api/applications/{id:guid}/approve")]
+    public Task<ActionResult<ApplicationDetails>> Approve(Guid id, CancellationToken cancellationToken) =>
+        DecideAsync(id, (application, actor, now) => application.Approve(actor, now),
+            cancellationToken);
+
+    [HttpPost("/api/applications/{id:guid}/reject")]
+    public Task<ActionResult<ApplicationDetails>> Reject(Guid id, CommentRequest request,
+        CancellationToken cancellationToken) =>
+        DecideAsync(id, (application, actor, now) =>
+            application.Reject(actor, request.Comment, now), cancellationToken);
+
+    [HttpPost("/api/applications/{id:guid}/return")]
+    public Task<ActionResult<ApplicationDetails>> Return(Guid id, CommentRequest request,
+        CancellationToken cancellationToken) =>
+        DecideAsync(id, (application, actor, now) =>
+            application.ReturnToDeanOffice(actor, request.Comment, now), cancellationToken);
+
+    // Found only among the employee's own faculties (never their own application), decided by
+    // Domain, saved with the row version check - two people clicking at once get 409
+    private async Task<ActionResult<ApplicationDetails>> DecideAsync(Guid id,
+        Action<Application, Actor, DateTime> decide, CancellationToken cancellationToken)
+    {
+        var userId = _userManager.GetUserId(User)!;
+
+        var application = await _access.VisibleToStaff(userId)
+            .SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+        if (application is null)
+            return NotFound();
+
+        // A case forwarded to the vice-dean is theirs; everything before belongs to the
+        // dean's office. The user must really have that role - Domain checks the rest.
+        var role = application.Status == ApplicationStatus.ForwardedToDean
+            ? ActorRole.ViceDean
+            : ActorRole.DeanOffice;
+
+        if (!User.IsInRole(role == ActorRole.ViceDean ? RoleNames.ViceDean : RoleNames.DeanOffice))
+            throw new DomainException(DomainErrorCode.RoleNotAllowed,
+                $"Only {role} can decide on this application now.");
+
+        decide(application, new Actor(userId, role), DateTime.UtcNow);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await _details.GetAsync(id, ApplicationViewer.Staff, User, cancellationToken);
+    }
+
 
     [HttpGet("counts")]
     public async Task<ReviewCounts> GetCounts(CancellationToken cancellationToken)

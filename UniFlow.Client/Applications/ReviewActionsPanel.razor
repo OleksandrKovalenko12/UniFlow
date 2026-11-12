@@ -1,0 +1,65 @@
+﻿@* The decisions the server allows for this employee and this status - nothing more *@
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.h6" GutterBottom="true">Decyzja</MudText>
+
+    <div class="d-flex flex-column gap-2">
+        @foreach (var action in Details.Actions)
+        {
+            var text = DecisionTexts.For(action);
+            <MudButton Variant="@(text.Filled ? Variant.Filled : Variant.Outlined)" Color="text.Color"
+                       DropShadow="false" FullWidth="true" Disabled="_sending"
+                       OnClick="() => DecideAsync(action)">
+                @text.Button
+            </MudButton>
+        }
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public ApplicationDetails Details { get; set; } = null!;
+
+    // The application after the decision: new status, history and buttons
+    [Parameter]
+    public EventCallback<ApplicationDetails> Decided { get; set; }
+
+    private bool _sending;
+    private string? _error;
+
+    private async Task DecideAsync(ReviewAction action)
+    {
+        _error = null;
+        var text = DecisionTexts.For(action);
+
+        // Taking a case changes nothing for the student, so it needs no confirmation
+        string? comment = "";
+        if (action != ReviewAction.Take)
+        {
+            comment = await DecisionDialog.ShowAsync(Dialogs, text);
+            if (comment is null)
+                return;
+        }
+
+        _sending = true;
+        var result = await Api.DecideAsync(Details.Id, action, comment);
+        _sending = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error.Message;
+            return;
+        }
+
+        Snackbar.Add(text.Done, Severity.Success);
+        await Decided.InvokeAsync(result.Value);
+    }
+}

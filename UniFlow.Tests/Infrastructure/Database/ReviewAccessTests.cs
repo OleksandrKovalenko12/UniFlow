@@ -119,6 +119,18 @@ public sealed class ReviewAccessTests : IAsyncLifetime
         return _client.SendAsync(request);
     }
 
+    private Task<HttpResponseMessage> PostAsync(string url, string userId, string roles,
+    object? body = null)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = JsonContent.Create(body ?? new { })
+        };
+        request.Headers.Add(TestAuthHandler.UserHeader, userId);
+        request.Headers.Add(TestAuthHandler.RolesHeader, roles);
+        return _client.SendAsync(request);
+    }
+
     private async Task<List<string>> ListNumbersAsync(string userId, string roles)
     {
         var response = await GetAsync("/api/review?tab=New", userId, roles);
@@ -168,6 +180,69 @@ public sealed class ReviewAccessTests : IAsyncLifetime
         var details = await (await GetAsync($"/api/applications/{submitted.Id}", studentWorker, roles))
             .Content.ReadFromJsonAsync<ApplicationDetails>();
         Assert.Empty(details!.Actions);
+    }
+
+    // The whole path of a group change: dean's office -> vice-dean -> approved
+    [Fact]
+    public async Task DeanOfficeForwards_ViceDeanApproves()
+    {
+        var faculty = await CreateFacultyAsync();
+        var submitted = await SubmitAsync(await CreateUserAsync(), faculty);
+        var employee = await CreateUserAsync(staffOf: faculty);
+        var viceDean = await CreateUserAsync(staffOf: faculty);
+        var url = $"/api/applications/{submitted.Id}";
+
+        Assert.Equal(HttpStatusCode.OK, (await PostAsync($"{url}/take", employee, DeanOffice)).StatusCode);
+
+        var forwarded = await (await PostAsync($"{url}/forward", employee, DeanOffice,
+            new { comment = "Proponuję zatwierdzić." })).Content.ReadFromJsonAsync<ApplicationDetails>();
+        Assert.Equal(ApplicationState.ForwardedToDean, forwarded!.Status);
+        Assert.True(forwarded.History[^1].IsInternal);
+
+        var approved = await (await PostAsync($"{url}/approve", viceDean, RoleNames.ViceDean))
+            .Content.ReadFromJsonAsync<ApplicationDetails>();
+        Assert.Equal(ApplicationState.Approved, approved!.Status);
+        Assert.Empty(approved.Actions);
+    }
+
+    // Once forwarded, the case belongs to the vice-dean
+    [Fact]
+    public async Task DeanOffice_CannotDecideAForwardedApplication()
+    {
+        var faculty = await CreateFacultyAsync();
+        var submitted = await SubmitAsync(await CreateUserAsync(), faculty);
+        var employee = await CreateUserAsync(staffOf: faculty);
+        var url = $"/api/applications/{submitted.Id}";
+        await PostAsync($"{url}/take", employee, DeanOffice);
+        await PostAsync($"{url}/forward", employee, DeanOffice);
+
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await PostAsync($"{url}/approve", employee, DeanOffice)).StatusCode);
+    }
+
+    [Fact]
+    public async Task RequestCorrection_WithoutComment_IsRejected()
+    {
+        var faculty = await CreateFacultyAsync();
+        var submitted = await SubmitAsync(await CreateUserAsync(), faculty);
+        var employee = await CreateUserAsync(staffOf: faculty);
+        var url = $"/api/applications/{submitted.Id}";
+        await PostAsync($"{url}/take", employee, DeanOffice);
+
+        var response = await PostAsync($"{url}/request-correction", employee, DeanOffice,
+            new { comment = "   " });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task StaffOfAnotherFaculty_CannotDecide()
+    {
+        var submitted = await SubmitAsync(await CreateUserAsync(), await CreateFacultyAsync());
+        var outsider = await CreateUserAsync(staffOf: await CreateFacultyAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await PostAsync($"/api/applications/{submitted.Id}/take", outsider, DeanOffice)).StatusCode);
     }
 
     [Fact]
