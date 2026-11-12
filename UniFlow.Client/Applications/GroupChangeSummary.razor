@@ -1,0 +1,56 @@
+﻿@* The group change form, read-only *@
+
+@if (Form.Scope == GroupChangeScope.General)
+{
+    <MudText Class="mb-2">Wszystkie przedmioty danego rodzaju zajęć</MudText>
+    <div class="summary-grid">
+        <span class="mud-text-secondary">Rodzaj grupy</span>
+        <span>@TypeLabel(Form.GroupType)</span>
+        <span class="mud-text-secondary">Obecna grupa</span>
+        <span>@Form.CurrentGroup</span>
+        <span class="mud-text-secondary">Wnioskowana grupa</span>
+        <span><b>@Form.RequestedGroup</b></span>
+    </div>
+}
+else
+{
+    <MudText Class="mb-2">Wybrane przedmioty</MudText>
+    <div class="table-scroll">
+        <MudSimpleTable Dense="true" Elevation="0" Outlined="true">
+            <thead>
+                <tr>
+                    <th>Przedmiot</th>
+                    <th>Rodzaj zajęć</th>
+                    <th>Obecna grupa</th>
+                    <th>Wnioskowana grupa</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Form.Subjects)
+                {
+                    <tr>
+                        <td>@row.Subject</td>
+                        <td>@TypeLabel(row.GroupType)</td>
+                        <td>@row.CurrentGroup</td>
+                        <td><b>@row.RequestedGroup</b></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </div>
+}
+
+<MudText Typo="Typo.subtitle2" Class="mt-4">Uzasadnienie</MudText>
+<MudText Class="pre-line">@Form.Justification</MudText>
+
+@code {
+    [Parameter, EditorRequired]
+    public GroupChangeForm Form { get; set; } = null!;
+
+    // "grupa dziekańska" -> "Grupa dziekańska"
+    private static string TypeLabel(GroupType type)
+    {
+        var name = GroupTypeText.Name(type);
+        return char.ToUpper(name[0]) + name[1..];
+    }
+}

@@ -6,12 +6,15 @@ public static class UniFlowTheme
 {
     private const string Burgundy = "#7B1E3B";
 
+
     public static readonly MudTheme Theme = new()
     {
         PaletteLight = new PaletteLight
         {
             Primary = Burgundy,
             AppbarBackground = Burgundy,
+            // "Przekazany prodziekanowi" - purple, apart from the other statuses
+            Tertiary = "#6A4C93",
             Background = "#F5F5F7"
         },
         LayoutProperties = new LayoutProperties

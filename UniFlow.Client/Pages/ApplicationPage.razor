@@ -1,0 +1,48 @@
+﻿@page "/applications/{Id:guid}"
+@attribute [Authorize(Roles = $"{RoleNames.Student},{RoleNames.DeanOffice},{RoleNames.ViceDean}")]
+@inject ApiClient Api
+
+<PageTitle>@(_details?.Number ?? "Wniosek") - UniFlow</PageTitle>
+
+<AuthorizeView Roles="@($"{RoleNames.DeanOffice},{RoleNames.ViceDean}")">
+    <Authorized>
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Href="review"
+                   Class="mb-2 ml-n2">
+            Wnioski do rozpatrzenia
+        </MudButton>
+    </Authorized>
+</AuthorizeView>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_details is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <ApplicationView Details="_details" />
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private ApplicationDetails? _details;
+    private string? _error;
+
+    // Runs again when a link leads from one application to another
+    protected override async Task OnParametersSetAsync()
+    {
+        _details = null;
+        _error = null;
+
+        var result = await Api.GetApplicationAsync(Id);
+        if (result.IsSuccess)
+            _details = result.Value;
+        else
+            _error = result.Error.Message;
+    }
+}

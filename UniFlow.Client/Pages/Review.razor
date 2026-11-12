@@ -1,0 +1,197 @@
+﻿@page "/review"
+@attribute [Authorize(Roles = $"{RoleNames.DeanOffice},{RoleNames.ViceDean}")]
+@inject ApiClient Api
+@inject NavigationManager Navigation
+@inject ReviewListState State
+
+<PageTitle>Wnioski do rozpatrzenia - UniFlow</PageTitle>
+
+<MudText Typo="Typo.h5" HtmlTag="h1" GutterBottom="true">Wnioski do rozpatrzenia</MudText>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+}
+
+@* Only the tab headers - one table below serves all of them *@
+<MudTabs ActivePanelIndex="(int)CurrentTab" ActivePanelIndexChanged="ChangeTabAsync"
+         Elevation="0" Class="mb-4" Border="true">
+    @foreach (var tab in Enum.GetValues<ReviewTab>())
+    {
+        <MudTabPanel Text="@TabText(tab)" />
+    }
+</MudTabs>
+
+<div class="d-flex flex-wrap gap-4 mb-4">
+    <MudTextField T="string" Value="State.Search" ValueChanged="SearchAsync" Immediate="true"
+                  DebounceInterval="400" Clearable="true" Placeholder="Szukaj: nazwisko lub nr albumu"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+                  aria-label="Szukaj wniosków po nazwisku lub numerze albumu" />
+    <MudSelect T="string" Value="State.Type" ValueChanged="FilterTypeAsync"
+               Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+               aria-label="Rodzaj wniosku">
+        <MudSelectItem Value="@("")">Wszystkie rodzaje</MudSelectItem>
+        @foreach (var type in _types)
+        {
+            <MudSelectItem Value="@type.Code">@type.Name</MudSelectItem>
+        }
+    </MudSelect>
+</div>
+
+<MudTable @ref="_table" T="ReviewListItem" ServerData="LoadAsync" RowsPerPage="ReviewPageSize"
+          Hover="true" Elevation="0" Outlined="true" Breakpoint="Breakpoint.Sm"
+          OnRowClick="args => Open(args.Item)" RowClass="cursor-pointer">
+    <HeaderContent>
+        <MudTh>Numer</MudTh>
+        <MudTh>Rodzaj</MudTh>
+        <MudTh>Student</MudTh>
+        <MudTh>Kierunek</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Złożono</MudTh>
+        <MudTh>Prowadzi</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        @* A real link too: keyboard users and "open in a new tab" *@
+        <MudTd DataLabel="Numer">
+            <MudLink Href="@($"applications/{context.Id}")"><b>@context.Number</b></MudLink>
+        </MudTd>
+        <MudTd DataLabel="Rodzaj">@context.TypeName</MudTd>
+        @* One block per cell: on a phone the cell is a row of a card, the second line stays below *@
+        <MudTd DataLabel="Student">
+            <div>
+                @context.StudentName
+                <div class="mud-text-secondary">@context.AlbumNumber</div>
+            </div>
+        </MudTd>
+        <MudTd DataLabel="Kierunek">
+            <div>
+                @context.FieldOfStudyName (@context.FacultyCode)
+                <div class="mud-text-secondary">@context.StudyLevel</div>
+            </div>
+        </MudTd>
+        <MudTd DataLabel="Status"><StatusChip Status="context.Status" /></MudTd>
+        <MudTd DataLabel="Złożono">@DateText.Format(context.SubmittedAt)</MudTd>
+        <MudTd DataLabel="Prowadzi">@(context.AssignedToName ?? "-")</MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="mud-text-secondary">Brak wniosków.</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Class="mud-text-secondary">Wczytywanie...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}-{last_item} z {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    // The server returns pages of this size (ReviewController.PageSize)
+    private const int ReviewPageSize = 25;
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private MudTable<ReviewListItem> _table = null!;
+    private IReadOnlyList<ApplicationTypeSummary> _types = [];
+    private ReviewCounts? _counts;
+    private string? _error;
+
+    private ReviewTab CurrentTab => State.Tab ?? ReviewTab.New;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A vice-dean works on what was passed to them, so that tab opens first
+        if (State.Tab is null)
+        {
+            var user = (await AuthState).User;
+            if (user.IsInRole(RoleNames.ViceDean) && !user.IsInRole(RoleNames.DeanOffice))
+                State.Tab = ReviewTab.AtViceDean;
+        }
+
+        var types = await Api.GetApplicationTypesAsync();
+        if (types.IsSuccess)
+            _types = types.Value;
+
+        await LoadCountsAsync();
+    }
+
+    private async Task<TableData<ReviewListItem>> LoadAsync(TableState state, CancellationToken token)
+    {
+        var result = await Api.GetReviewListAsync(CurrentTab, State.Search, State.Type, state.Page + 1);
+        if (!result.IsSuccess)
+        {
+            _error = result.Error.Message;
+            return new TableData<ReviewListItem> { Items = [], TotalItems = 0 };
+        }
+
+        _error = null;
+        return new TableData<ReviewListItem>
+        {
+            Items = result.Value.Items,
+            TotalItems = result.Value.TotalCount
+        };
+    }
+
+    private async Task LoadCountsAsync()
+    {
+        var counts = await Api.GetReviewCountsAsync();
+        if (counts.IsSuccess)
+            _counts = counts.Value;
+    }
+
+    private string TabText(ReviewTab tab)
+    {
+        var name = tab switch
+        {
+            ReviewTab.New => "Nowe",
+            ReviewTab.InReview => "W weryfikacji",
+            ReviewTab.WaitingForStudent => "Czekają na studenta",
+            ReviewTab.AtViceDean => "U prodziekana",
+            _ => "Zakończone"
+        };
+
+        // Closed cases only pile up - their number would not tell anything
+        var count = tab switch
+        {
+            ReviewTab.New => _counts?.New,
+            ReviewTab.InReview => _counts?.InReview,
+            ReviewTab.WaitingForStudent => _counts?.WaitingForStudent,
+            ReviewTab.AtViceDean => _counts?.AtViceDean,
+            _ => null
+        };
+
+        return count is > 0 ? $"{name} ({count})" : name;
+    }
+
+    private async Task ChangeTabAsync(int index)
+    {
+        State.Tab = (ReviewTab)index;
+        await ReloadAsync();
+    }
+
+    private async Task SearchAsync(string? search)
+    {
+        State.Search = search;
+        await ReloadAsync();
+    }
+
+    private async Task FilterTypeAsync(string type)
+    {
+        State.Type = type;
+        await ReloadAsync();
+    }
+
+    // Another tab or filter starts again from the first page
+    private async Task ReloadAsync()
+    {
+        _table.NavigateTo(Page.First);
+        await _table.ReloadServerData();
+    }
+
+    private void Open(ReviewListItem? item)
+    {
+        if (item is not null)
+            Navigation.NavigateTo($"applications/{item.Id}");
+    }
+}

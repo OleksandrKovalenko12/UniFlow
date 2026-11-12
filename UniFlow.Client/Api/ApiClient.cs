@@ -7,6 +7,7 @@ using UniFlow.Shared.Enrollments;
 using UniFlow.Shared.Applications;
 using UniFlow.Shared.Forms;
 using UniFlow.Client.Applications;
+using UniFlow.Shared.Review;
 
 namespace UniFlow.Client.Api;
 
@@ -43,6 +44,20 @@ public sealed class ApiClient
         request.Headers.Add(SubmissionHeaders.IdempotencyKey, submissionKey.ToString());
         return _http.SendAsync(request);
     });
+
+    public Task<ApiResult<PagedList<ReviewListItem>>> GetReviewListAsync(ReviewTab tab,
+    string? search, string? type, int page) =>
+    SendAsync<PagedList<ReviewListItem>>(() => _http.GetAsync(
+        $"api/review?tab={tab}&page={page}" +
+        (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}") +
+        (string.IsNullOrWhiteSpace(type) ? "" : $"&type={Uri.EscapeDataString(type)}")));
+
+    public Task<ApiResult<ReviewCounts>> GetReviewCountsAsync() =>
+        SendAsync<ReviewCounts>(() => _http.GetAsync("api/review/counts"));
+
+    public Task<ApiResult<ApplicationDetails>> GetApplicationAsync(Guid id) =>
+        SendAsync<ApplicationDetails>(() => _http.GetAsync($"api/applications/{id}"));
+
 
     // One file per request; the server checks it, converts it to PDF and returns its id
     public Task<ApiResult<AttachmentSummary>> UploadAttachmentAsync(Guid applicationId,

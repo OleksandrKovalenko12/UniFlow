@@ -160,6 +160,51 @@ h1:focus {
     height: 20px !important;
 }
 
+/* Tabs like buttons: normal letters, not UPPERCASE (the theme does it for buttons only) */
+.mud-tab {
+    text-transform: none;
+}
+
+/* Search and type filter above the dean's office list */
+.review-filter {
+    flex: 0 1 320px;
+}
+
+/* Label - value pairs on the application page */
+.summary-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+}
+
+/* A wide table scrolls sideways on a phone instead of breaking the page */
+.table-scroll {
+    overflow-x: auto;
+}
+
+/* Keeps the line breaks the student typed */
+.pre-line {
+    white-space: pre-line;
+}
+
+/* Removed files and older versions: still there, but clearly not current */
+.attachment-row.archived {
+    opacity: 0.6;
+}
+
+/* A comment in the history; an internal note stands out */
+.history-comment {
+    margin-top: 4px;
+    padding: 8px;
+    border-left: 3px solid var(--mud-palette-lines-default);
+    background: var(--mud-palette-background-gray);
+}
+
+    .history-comment.internal {
+        border-left-color: var(--mud-palette-tertiary);
+    }
+
+
 /* Label above a text field (instead of MudBlazor's label inside the field) */
 .field-label {
     display: block;

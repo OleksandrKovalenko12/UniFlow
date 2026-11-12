@@ -1,10 +1,11 @@
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using UniFlow.Client;
 using MudBlazor.Services;
-using Microsoft.AspNetCore.Components.Authorization;
-using UniFlow.Client.Auth;
+using UniFlow.Client;
 using UniFlow.Client.Api;
+using UniFlow.Client.Applications;
+using UniFlow.Client.Auth;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -19,5 +20,6 @@ builder.Services.AddScoped<CookieAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
     sp.GetRequiredService<CookieAuthenticationStateProvider>());
 builder.Services.AddScoped<ApiClient>();
+builder.Services.AddScoped<ReviewListState>();
 
 await builder.Build().RunAsync();

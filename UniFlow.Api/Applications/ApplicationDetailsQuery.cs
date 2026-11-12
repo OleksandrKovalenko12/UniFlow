@@ -95,7 +95,10 @@ public sealed class ApplicationDetailsQuery
             names.GetValueOrDefault(application.ApplicantId, ""),
             albumNumber ?? "",
             studies,
-            application.AssignedToId is null ? null : names.GetValueOrDefault(application.AssignedToId),
+            // Who handles the case is staff information - the student is not given names
+            staff && application.AssignedToId is not null
+                ? names.GetValueOrDefault(application.AssignedToId)
+                : null,
             application.FormData,
             attachments,
             history,

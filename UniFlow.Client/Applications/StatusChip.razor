@@ -1,0 +1,9 @@
+﻿<MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@StatusLabels.ColorOf(Status)"
+         Class="ma-0">
+    @StatusLabels.Name(Status)
+</MudChip>
+
+@code {
+    [Parameter, EditorRequired]
+    public ApplicationState Status { get; set; }
+}

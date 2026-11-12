@@ -1,0 +1,29 @@
+﻿@* One file of an application: always opened as PDF (the server converts the student's files) *@
+
+<div class="@(File.ArchivedAt is null ? "attachment-row" : "attachment-row archived")">
+    <MudIcon Icon="@(File.IsDocument ? Icons.Material.Outlined.Description : Icons.Material.Outlined.AttachFile)"
+             Size="Size.Small" Class="mud-text-secondary" />
+    <span class="attachment-name" title="@File.FileName">
+        @File.FileName
+        @if (File.ArchivedAt is not null)
+        {
+            <span class="mud-text-secondary"> · @(File.IsDocument ? "zastąpiony" : "usunięty") @DateText.Day(File.ArchivedAt.Value)</span>
+        }
+    </span>
+    @* target="_blank" and download: the router lets these links through to the server *@
+    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+               Href="@ApiClient.AttachmentUrl(ApplicationId, File.Id, inline: true)" Target="_blank">
+        Podgląd
+    </MudButton>
+    <MudIconButton Icon="@Icons.Material.Outlined.Download" Size="Size.Small"
+                   Href="@ApiClient.AttachmentUrl(ApplicationId, File.Id, inline: false)" download=""
+                   aria-label="@($"Pobierz {File.FileName}")" />
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public Guid ApplicationId { get; set; }
+
+    [Parameter, EditorRequired]
+    public AttachmentInfo File { get; set; } = null!;
+}

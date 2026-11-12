@@ -45,9 +45,14 @@
     <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always"
                Class="border-r border-solid mud-border-lines-default">
                 <MudNavMenu>
-            <AuthorizeView Roles="@RoleNames.Student">
-                <MudNavLink Href="new" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.NoteAdd">
-                    Nowy wniosek
+                    <AuthorizeView Roles="@($"{RoleNames.DeanOffice},{RoleNames.ViceDean}")">
+                        <MudNavLink Href="review" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Inbox">
+                            Wnioski do rozpatrzenia
+                        </MudNavLink>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="@RoleNames.Student">
+                        <MudNavLink Href="new" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.NoteAdd">
+                             Nowy wniosek
                 </MudNavLink>
             </AuthorizeView>
         </MudNavMenu>
