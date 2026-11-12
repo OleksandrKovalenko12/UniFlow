@@ -27,6 +27,12 @@ else if (_submitted is not null)
         <MudText Typo="Typo.h6" Class="mt-2">Wniosek złożony</MudText>
         <MudText Class="mud-text-secondary mt-4">Numer wniosku</MudText>
         <MudText Typo="Typo.h4" Class="mb-6"><b>@_submitted.Number</b></MudText>
+        
+        @if (_files.Count > 0)
+        {
+            <AttachmentUploads ApplicationId="_submitted.Id" Files="_files"
+                               UnfinishedChanged="unfinished => _uploadsUnfinished = unfinished" />
+        }
 
         <div class="d-flex flex-wrap justify-center gap-2 mb-4">
             @* target="_blank" and download: the router lets these links through to the server *@
@@ -282,7 +288,10 @@ else
     private string? _submitError;
     private SubmittedApplication? _submitted;
 
-    private bool HasUnsavedChanges => _dirty && _submitted is null;
+    private bool _uploadsUnfinished;
+
+    // Before submitting: anything typed; after: files that are not on the server yet
+    private bool HasUnsavedChanges => (_dirty && _submitted is null) || _uploadsUnfinished;
 
     protected override async Task OnInitializedAsync()
     {
@@ -374,7 +383,9 @@ else
         var confirmed = await Dialogs.ShowMessageBoxAsync(
             "Złożyć wniosek?",
             $"Wniosek o zmianę grupy dla studiów: {_enrollment!.FieldOfStudyName}, " +
-            $"{_enrollment.StudyLevel}. Po złożeniu nie można go zmienić.",
+            $"{_enrollment.StudyLevel}." +
+            (_files.Count > 0 ? $" Załączniki: {_files.Count}." : "") +
+            " Po złożeniu nie można go zmienić.",
             yesText: "Złóż wniosek", cancelText: "Anuluj");
 
         if (confirmed != true)
@@ -403,10 +414,15 @@ else
         if (!HasUnsavedChanges || target.StartsWith("/new/group-change/"))
             return;
 
-        var leave = await Dialogs.ShowMessageBoxAsync(
-            "Opuścić formularz?",
-            "Wpisane dane nie zostały wysłane i zostaną utracone.",
-            yesText: "Opuść", cancelText: "Zostań");
+        var leave = _submitted is null
+            ? await Dialogs.ShowMessageBoxAsync(
+                "Opuścić formularz?",
+                "Wpisane dane nie zostały wysłane i zostaną utracone.",
+                yesText: "Opuść", cancelText: "Zostań")
+            : await Dialogs.ShowMessageBoxAsync(
+                "Opuścić stronę?",
+                "Nie wszystkie załączniki zostały dodane do wniosku. Jeśli wyjdziesz, nie zostaną wysłane.",
+                yesText: "Opuść", cancelText: "Zostań");
 
         if (leave != true)
             context.PreventNavigation();

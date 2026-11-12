@@ -147,6 +147,19 @@ h1:focus {
     font-size: 0.875rem;
 }
 
+/* Files being sent on the "Wniosek złożony" screen */
+.attachment-uploads {
+    width: 100%;
+    max-width: 480px;
+    text-align: left;
+}
+
+/* The spinner next to a file being sent - the size of the icons around it */
+.upload-progress {
+    width: 20px !important;
+    height: 20px !important;
+}
+
 /* Label above a text field (instead of MudBlazor's label inside the field) */
 .field-label {
     display: block;

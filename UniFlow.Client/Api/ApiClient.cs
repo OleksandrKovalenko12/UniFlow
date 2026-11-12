@@ -6,6 +6,7 @@ using UniFlow.Shared.ApplicationTypes;
 using UniFlow.Shared.Enrollments;
 using UniFlow.Shared.Applications;
 using UniFlow.Shared.Forms;
+using UniFlow.Client.Applications;
 
 namespace UniFlow.Client.Api;
 
@@ -42,6 +43,22 @@ public sealed class ApiClient
         request.Headers.Add(SubmissionHeaders.IdempotencyKey, submissionKey.ToString());
         return _http.SendAsync(request);
     });
+
+    // One file per request; the server checks it, converts it to PDF and returns its id
+    public Task<ApiResult<AttachmentSummary>> UploadAttachmentAsync(Guid applicationId,
+        PickedFile file) =>
+        SendAsync<AttachmentSummary>(() =>
+        {
+            var content = new MultipartFormDataContent
+            {
+                { new ByteArrayContent(file.Content), "file", file.Name }
+            };
+            return _http.PostAsync($"api/applications/{applicationId}/attachments", content);
+        });
+
+    public static string AttachmentUrl(Guid applicationId, Guid attachmentId, bool inline) =>
+        $"api/applications/{applicationId}/attachments/{attachmentId}" +
+        (inline ? "?inline=true" : "");
 
     // A link, not a request: the browser opens or saves the PDF itself (and sends the login cookie)
     public static string DocumentUrl(Guid applicationId, bool inline) =>
