@@ -1,0 +1,120 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using UniFlow.Api.Applications;
+using UniFlow.Api.Texts;
+using UniFlow.Domain.Enums;
+using UniFlow.Infrastructure.Identity;
+using UniFlow.Infrastructure.Persistence;
+using UniFlow.Shared;
+using UniFlow.Shared.Applications;
+using UniFlow.Shared.Review;
+
+namespace UniFlow.Api.Controllers;
+
+// The dean's office and the vice-dean: applications of their own faculties
+[ApiController]
+[Route("api/review")]
+[Authorize(Roles = RoleNames.DeanOffice + "," + RoleNames.ViceDean)]
+public sealed class ReviewController : ControllerBase
+{
+    public const int PageSize = 25;
+
+    private readonly UniFlowDbContext _db;
+    private readonly ApplicationAccess _access;
+    private readonly UserManager<ApplicationUser> _userManager;
+
+    public ReviewController(UniFlowDbContext db, ApplicationAccess access,
+        UserManager<ApplicationUser> userManager)
+    {
+        _db = db;
+        _access = access;
+        _userManager = userManager;
+    }
+
+    [HttpGet]
+    public async Task<PagedList<ReviewListItem>> GetList(ReviewTab tab = ReviewTab.New,
+        string? search = null, string? type = null, int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        var statuses = ReviewRules.StatusesOf(tab);
+        var query = _access.VisibleToStaff(_userManager.GetUserId(User)!)
+            .Where(a => statuses.Contains(a.Status));
+
+        if (!string.IsNullOrWhiteSpace(type))
+            query = query.Where(a => a.ApplicationType.Code == type);
+
+        // Part of the name ("kowal", "jan ziel") or of the album number
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(a =>
+                _db.Users.Any(u => u.Id == a.ApplicantId
+                    && (u.FirstName + " " + u.LastName).ToLower().Contains(term))
+                || _db.StudentProfiles.Any(p => p.UserId == a.ApplicantId
+                    && p.AlbumNumber.Contains(term)));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // A queue: the oldest first, corrected applications before new ones.
+        // Closed cases are looked up, not worked through - the latest first.
+        query = tab switch
+        {
+            ReviewTab.New => query
+                .OrderByDescending(a => a.Status == ApplicationStatus.Resubmitted)
+                .ThenBy(a => a.CreatedAt),
+            ReviewTab.Closed => query.OrderByDescending(a => a.UpdatedAt),
+            _ => query.OrderBy(a => a.CreatedAt)
+        };
+
+        page = Math.Max(page, 1);
+
+        var rows = await query
+            .Skip((page - 1) * PageSize)
+            .Take(PageSize)
+            .Select(a => new
+            {
+                a.Id,
+                a.Number,
+                TypeName = a.ApplicationType.Name,
+                StudentName = _db.Users.Where(u => u.Id == a.ApplicantId)
+                    .Select(u => u.FirstName + " " + u.LastName).FirstOrDefault(),
+                AlbumNumber = _db.StudentProfiles.Where(p => p.UserId == a.ApplicantId)
+                    .Select(p => p.AlbumNumber).FirstOrDefault(),
+                FieldOfStudyName = a.Enrollment.FieldOfStudy.Name,
+                a.Enrollment.FieldOfStudy.Level,
+                FacultyCode = a.Enrollment.FieldOfStudy.Faculty.Code,
+                a.Status,
+                a.CreatedAt,
+                AssignedToName = _db.Users.Where(u => u.Id == a.AssignedToId)
+                    .Select(u => u.FirstName + " " + u.LastName).FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        var items = rows
+            .Select(r => new ReviewListItem(r.Id, r.Number, r.TypeName, r.StudentName ?? "",
+                r.AlbumNumber ?? "", r.FieldOfStudyName, StudyTexts.Level(r.Level), r.FacultyCode,
+                (ApplicationState)r.Status, r.CreatedAt, r.AssignedToName))
+            .ToList();
+
+        return new PagedList<ReviewListItem>(items, totalCount, page, PageSize);
+    }
+
+    [HttpGet("counts")]
+    public async Task<ReviewCounts> GetCounts(CancellationToken cancellationToken)
+    {
+        var byStatus = await _access.VisibleToStaff(_userManager.GetUserId(User)!)
+            .GroupBy(a => a.Status)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Status, x => x.Count, cancellationToken);
+
+        int CountOf(ReviewTab tab) =>
+            ReviewRules.StatusesOf(tab).Sum(status => byStatus.GetValueOrDefault(status));
+
+        return new ReviewCounts(CountOf(ReviewTab.New), CountOf(ReviewTab.InReview),
+            CountOf(ReviewTab.WaitingForStudent), CountOf(ReviewTab.AtViceDean),
+            CountOf(ReviewTab.Closed));
+    }
+}

@@ -74,11 +74,12 @@ public sealed class FakePdfConverter : IPdfConverter
     }
 }
 
-// Logs in the user named in the request header, as a student
+// Logs in the user named in the request header, as a student unless other roles are given
 public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public const string SchemeName = "Test";
     public const string UserHeader = "X-Test-User";
+    public const string RolesHeader = "X-Test-Roles";
 
     public TestAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger, UrlEncoder encoder) : base(options, logger, encoder) { }
@@ -88,10 +89,14 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
         if (!Request.Headers.TryGetValue(UserHeader, out var userId))
             return Task.FromResult(AuthenticateResult.NoResult());
 
+        var roles = Request.Headers.TryGetValue(RolesHeader, out var given)
+            ? given.ToString().Split(',')
+            : [RoleNames.Student];
+
         Claim[] claims =
         [
             new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Role, RoleNames.Student),
+            .. roles.Select(role => new Claim(ClaimTypes.Role, role)),
         ];
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));

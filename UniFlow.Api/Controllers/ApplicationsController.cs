@@ -21,12 +21,17 @@ using UniFlow.Infrastructure.Storage;
 
 namespace UniFlow.Api.Controllers;
 
+// Roles per endpoint: only a student submits, but staff of the faculty may read the case too
 [ApiController]
-[Authorize(Roles = RoleNames.Student)]
 public sealed class ApplicationsController : ControllerBase
 {
     public const string SubmissionRateLimit = "submissions";
     public const string UploadRateLimit = "uploads";
+    private const string Readers =
+        RoleNames.Student + "," + RoleNames.DeanOffice + "," + RoleNames.ViceDean;
+
+    private readonly ApplicationAccess _access;
+    private readonly ApplicationDetailsQuery _details;
     private readonly AttachmentUploadService _attachments;
     private readonly ApplicationSubmissionService _submission;
     private readonly DocumentRenderer _renderer;
@@ -36,8 +41,11 @@ public sealed class ApplicationsController : ControllerBase
 
     public ApplicationsController(ApplicationSubmissionService submission,
     AttachmentUploadService attachments, DocumentRenderer renderer,
-    UserManager<ApplicationUser> userManager, UniFlowDbContext db, IFileStorage storage)
+    UserManager<ApplicationUser> userManager, UniFlowDbContext db, IFileStorage storage,
+    ApplicationAccess access, ApplicationDetailsQuery details)
     {
+        _access = access;
+        _details = details;
         _submission = submission;
         _attachments = attachments;
         _renderer = renderer;
@@ -48,6 +56,7 @@ public sealed class ApplicationsController : ControllerBase
 
     // The form has already been validated by [ApiController]
     [HttpPost("api/enrollments/{enrollmentId:int}/applications/group-change")]
+    [Authorize(Roles = RoleNames.Student)]
     [EnableRateLimiting(SubmissionRateLimit)]
     public async Task<ActionResult<SubmittedApplication>> SubmitGroupChange(int enrollmentId,
         [FromHeader(Name = SubmissionHeaders.IdempotencyKey), Required] Guid? submissionKey,
@@ -68,16 +77,32 @@ public sealed class ApplicationsController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, submitted);
     }
 
-    // The owner is part of the query: someone else's application looks like a missing one
+    // Someone else's application looks like a missing one (404, not 403)
+    [HttpGet("api/applications/{id:guid}")]
+    [Authorize(Roles = Readers)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<ActionResult<ApplicationDetails>> GetDetails(Guid id,
+        CancellationToken cancellationToken)
+    {
+        var viewer = await _access.GetViewerAsync(id, User, cancellationToken);
+        if (viewer is null)
+            return NotFound();
+
+        return await _details.GetAsync(id, viewer.Value, User, cancellationToken);
+    }
+
+    // The current PDF of the application
     [HttpGet("api/applications/{id:guid}/document")]
+    [Authorize(Roles = Readers)]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> GetDocument(Guid id, bool inline,
         CancellationToken cancellationToken)
     {
-        var userId = _userManager.GetUserId(User);
+        if (await _access.GetViewerAsync(id, User, cancellationToken) is null)
+            return NotFound();
 
         var document = await _db.Applications
-            .Where(a => a.Id == id && a.ApplicantId == userId)
+            .Where(a => a.Id == id)
             .SelectMany(a => a.Attachments)
             .Where(at => at.Kind == AttachmentKind.GeneratedDocument && !at.IsArchived)
             .Select(at => new { at.StoragePath, at.OriginalFileName })
@@ -92,6 +117,7 @@ public sealed class ApplicationsController : ControllerBase
     // One file per request - the Client sends them one after another.
     // The size limit stops a too large upload before the whole file is received.
     [HttpPost("api/applications/{id:guid}/attachments")]
+    [Authorize(Roles = RoleNames.Student)]
     [EnableRateLimiting(UploadRateLimit)]
     [RequestSizeLimit(AttachmentRules.MaxSizeBytes + 1024 * 1024)]
     public async Task<ActionResult<AttachmentSummary>> AddAttachment(Guid id, IFormFile file,
@@ -104,18 +130,23 @@ public sealed class ApplicationsController : ControllerBase
     }
 
     // Always the PDF version: a file from a student is never opened in the browser as it is
+    // Staff may also open removed files and older versions of the application's PDF.
     [HttpGet("api/applications/{id:guid}/attachments/{attachmentId:guid}")]
+    [Authorize(Roles = Readers)]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> GetAttachment(Guid id, Guid attachmentId, bool inline,
         CancellationToken cancellationToken)
     {
-        var userId = _userManager.GetUserId(User);
+        var viewer = await _access.GetViewerAsync(id, User, cancellationToken);
+        if (viewer is null)
+            return NotFound();
+
+        var staff = viewer == ApplicationViewer.Staff;
 
         var attachment = await _db.Applications
-            .Where(a => a.Id == id && a.ApplicantId == userId)
+            .Where(a => a.Id == id)
             .SelectMany(a => a.Attachments)
-            .Where(at => at.Id == attachmentId && at.Kind == AttachmentKind.StudentUpload
-                && !at.IsArchived)
+            .Where(at => at.Id == attachmentId && (staff || !at.IsArchived))
             .Select(at => new { Path = at.PdfStoragePath ?? at.StoragePath, at.OriginalFileName })
             .SingleOrDefaultAsync(cancellationToken);
 

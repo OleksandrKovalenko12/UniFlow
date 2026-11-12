@@ -79,6 +79,8 @@ builder.Services.AddScoped<IApplicationNumberGenerator, ApplicationNumberGenerat
 
 builder.Services.AddScoped<ApplicationSubmissionService>();
 builder.Services.AddScoped<AttachmentUploadService>();
+builder.Services.AddScoped<ApplicationAccess>();
+builder.Services.AddScoped<ApplicationDetailsQuery>();
 builder.Services.AddSingleton<DocumentRenderer>();
 
 // Per account
