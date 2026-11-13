@@ -221,6 +221,24 @@ h1:focus {
         border-left: 4px solid var(--mud-palette-warning);
     }
 
+
+/* The header of a section that opens and closes (corrected applications in "Nowe") */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
 /* Label above a text field (instead of MudBlazor's label inside the field) */
 .field-label {
     display: block;

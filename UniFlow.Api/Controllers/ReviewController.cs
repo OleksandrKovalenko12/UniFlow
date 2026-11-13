@@ -37,24 +37,40 @@ public sealed class ReviewController : ControllerBase
         _userManager = userManager;
     }
 
+    // corrected: in the "Nowe" tab, true = only corrected applications (Złożony ponownie),
+    // false = only new ones (Złożony). assigned: AssignedFilter.Me, AssignedFilter.None or an
+    // employee's id.
     [HttpGet]
     public async Task<PagedList<ReviewListItem>> GetList(ReviewTab tab = ReviewTab.New,
-        string? search = null, string? type = null, int page = 1,
-        CancellationToken cancellationToken = default)
+        string? search = null, string? type = null, bool? corrected = null,
+        string? assigned = null, int page = 1, CancellationToken cancellationToken = default)
     {
+        var userId = _userManager.GetUserId(User)!;
         var statuses = ReviewRules.StatusesOf(tab);
-        var query = _access.VisibleToStaff(_userManager.GetUserId(User)!)
-            .Where(a => statuses.Contains(a.Status));
+        var query = _access.VisibleToStaff(User).Where(a => statuses.Contains(a.Status));
+
+        if (corrected is not null)
+            query = query.Where(a => (a.Status == ApplicationStatus.Resubmitted) == corrected);
 
         if (!string.IsNullOrWhiteSpace(type))
             query = query.Where(a => a.ApplicationType.Code == type);
 
-        // Part of the name ("kowal", "jan ziel") or of the album number
+        query = assigned switch
+        {
+            null or "" => query,
+            AssignedFilter.Me => query.Where(a => a.AssignedToId == userId),
+            AssignedFilter.None => query.Where(a => a.AssignedToId == null),
+            _ => query.Where(a => a.AssignedToId == assigned)
+        };
+
+        // Part of the student's name ("kowal", "jan ziel"), of the album number
+        // or of the application number ("0012", "UF/2026/0012")
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim().ToLower();
             query = query.Where(a =>
-                _db.Users.Any(u => u.Id == a.ApplicantId
+                a.Number.ToLower().Contains(term)
+                || _db.Users.Any(u => u.Id == a.ApplicantId
                     && (u.FirstName + " " + u.LastName).ToLower().Contains(term))
                 || _db.StudentProfiles.Any(p => p.UserId == a.ApplicantId
                     && p.AlbumNumber.Contains(term)));
@@ -93,14 +109,15 @@ public sealed class ReviewController : ControllerBase
                 a.Status,
                 a.CreatedAt,
                 AssignedToName = _db.Users.Where(u => u.Id == a.AssignedToId)
-                    .Select(u => u.FirstName + " " + u.LastName).FirstOrDefault()
+                    .Select(u => u.FirstName + " " + u.LastName).FirstOrDefault(),
+                AssignedToMe = a.AssignedToId == userId
             })
             .ToListAsync(cancellationToken);
 
         var items = rows
             .Select(r => new ReviewListItem(r.Id, r.Number, r.TypeName, r.StudentName ?? "",
                 r.AlbumNumber ?? "", r.FieldOfStudyName, StudyTexts.Level(r.Level), r.FacultyCode,
-                (ApplicationState)r.Status, r.CreatedAt, r.AssignedToName))
+                (ApplicationState)r.Status, r.CreatedAt, r.AssignedToName, r.AssignedToMe))
             .ToList();
 
         return new PagedList<ReviewListItem>(items, totalCount, page, PageSize);
@@ -150,7 +167,7 @@ public sealed class ReviewController : ControllerBase
     {
         var userId = _userManager.GetUserId(User)!;
 
-        var application = await _access.VisibleToStaff(userId)
+        var application = await _access.VisibleToStaff(User)
             .SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
 
         if (application is null)
@@ -172,11 +189,30 @@ public sealed class ReviewController : ControllerBase
         return await _details.GetAsync(id, ApplicationViewer.Staff, User, cancellationToken);
     }
 
+    // Colleagues from the dean's office of my faculties, for the "Prowadzi" filter (me excluded -
+    // "Ja" covers that)
+    [HttpGet("staff")]
+    public async Task<IReadOnlyList<StaffMember>> GetStaff(CancellationToken cancellationToken)
+    {
+        var userId = _userManager.GetUserId(User)!;
+
+        var myFaculties = _db.StaffAssignments.Where(s => s.UserId == userId).Select(s => s.FacultyId);
+        var deanOfficeRole = _db.Roles.Where(r => r.Name == RoleNames.DeanOffice).Select(r => r.Id);
+
+        return await _db.Users
+            .Where(u => u.Id != userId
+                && _db.StaffAssignments.Any(s => s.UserId == u.Id && myFaculties.Contains(s.FacultyId))
+                && _db.UserRoles.Any(ur => ur.UserId == u.Id && deanOfficeRole.Contains(ur.RoleId)))
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .Select(u => new StaffMember(u.Id, u.FirstName + " " + u.LastName))
+            .ToListAsync(cancellationToken);
+    }
 
     [HttpGet("counts")]
     public async Task<ReviewCounts> GetCounts(CancellationToken cancellationToken)
     {
-        var byStatus = await _access.VisibleToStaff(_userManager.GetUserId(User)!)
+        var byStatus = await _access.VisibleToStaff(User)
             .GroupBy(a => a.Status)
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Status, x => x.Count, cancellationToken);

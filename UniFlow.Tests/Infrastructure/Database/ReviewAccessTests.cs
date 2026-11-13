@@ -81,8 +81,10 @@ public sealed class ReviewAccessTests : IAsyncLifetime
         int enrollmentId;
         await using (var db = _postgres.CreateContext())
         {
-            var field = new FieldOfStudy("Informatyka", StudyLevel.FirstCycle,
-                db.Faculties.Attach(faculty).Entity);
+            // One field of study per faculty - a second application there uses the same one
+            var field = await db.FieldsOfStudy.FirstOrDefaultAsync(f => f.FacultyId == faculty.Id)
+                ?? new FieldOfStudy("Informatyka", StudyLevel.FirstCycle,
+                    db.Faculties.Attach(faculty).Entity);
             var enrollment = new Enrollment(userId, field, 3, StudyMode.FullTime);
             db.Enrollments.Add(enrollment);
             db.StudentProfiles.Add(new StudentProfile(userId,
@@ -245,8 +247,61 @@ public sealed class ReviewAccessTests : IAsyncLifetime
             (await PostAsync($"/api/applications/{submitted.Id}/take", outsider, DeanOffice)).StatusCode);
     }
 
-    // The student's own applications
+    // Filters of the dean's office list
 
+    [Fact]
+    public async Task List_AssignedToMe_ShowsOnlyMyCases()
+    {
+        var faculty = await CreateFacultyAsync();
+        var mine = await SubmitAsync(await CreateUserAsync(), faculty);
+        var colleagues = await SubmitAsync(await CreateUserAsync(), faculty);
+        var me = await CreateUserAsync(staffOf: faculty);
+        var colleague = await CreateUserAsync(staffOf: faculty);
+        await PostAsync($"/api/applications/{mine.Id}/take", me, DeanOffice);
+        await PostAsync($"/api/applications/{colleagues.Id}/take", colleague, DeanOffice);
+
+        var page = await (await GetAsync("/api/review?tab=InReview&assigned=me", me, DeanOffice))
+            .Content.ReadFromJsonAsync<PagedList<ReviewListItem>>();
+
+        var item = Assert.Single(page!.Items);
+        Assert.Equal(mine.Number, item.Number);
+        Assert.True(item.AssignedToMe);
+    }
+
+    [Fact]
+    public async Task List_SearchByApplicationNumber_FindsIt()
+    {
+        var faculty = await CreateFacultyAsync();
+        var submitted = await SubmitAsync(await CreateUserAsync(), faculty);
+        var employee = await CreateUserAsync(staffOf: faculty);
+
+        var page = await (await GetAsync(
+                $"/api/review?tab=New&search={Uri.EscapeDataString(submitted.Number)}", employee, DeanOffice))
+            .Content.ReadFromJsonAsync<PagedList<ReviewListItem>>();
+
+        Assert.Equal(submitted.Number, Assert.Single(page!.Items).Number);
+    }
+
+    // The vice-dean gets a case only once it has been forwarded to them
+    [Fact]
+    public async Task ViceDean_SeesOnlyForwardedApplications()
+    {
+        var faculty = await CreateFacultyAsync();
+        var submitted = await SubmitAsync(await CreateUserAsync(), faculty);
+        var employee = await CreateUserAsync(staffOf: faculty);
+        var viceDean = await CreateUserAsync(staffOf: faculty);
+        var details = $"/api/applications/{submitted.Id}";
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await GetAsync(details, viceDean, RoleNames.ViceDean)).StatusCode);
+
+        await PostAsync($"{details}/take", employee, DeanOffice);
+        await PostAsync($"{details}/forward", employee, DeanOffice);
+
+        Assert.Equal(HttpStatusCode.OK, (await GetAsync(details, viceDean, RoleNames.ViceDean)).StatusCode);
+    }
+
+    // The student's own applications
     [Fact]
     public async Task Mine_ListsOnlyTheStudentsOwnApplications()
     {

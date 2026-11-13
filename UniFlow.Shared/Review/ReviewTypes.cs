@@ -37,7 +37,18 @@ public sealed record ReviewListItem(
     string FacultyCode,
     ApplicationState Status,
     DateTime SubmittedAt,
-    string? AssignedToName);
+    string? AssignedToName,
+    bool AssignedToMe);
+
+// An employee of the dean's office of my faculties - for the "Prowadzi" filter
+public sealed record StaffMember(string Id, string Name);
+
+// The "Prowadzi" filter: Me and None are fixed values, anything else is an employee's id
+public static class AssignedFilter
+{
+    public const string Me = "me";
+    public const string None = "none";
+}
 
 // Numbers next to the tab names
 public sealed record ReviewCounts(int New, int InReview, int WaitingForStudent, int AtViceDean,

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UniFlow.Domain.Entities;
 using UniFlow.Infrastructure.Persistence;
 using UniFlow.Shared;
+using UniFlow.Domain.Enums;
 
 namespace UniFlow.Api.Applications;
 
@@ -26,12 +27,20 @@ public sealed class ApplicationAccess
     public static bool IsStaff(ClaimsPrincipal user) =>
         user.IsInRole(RoleNames.DeanOffice) || user.IsInRole(RoleNames.ViceDean);
 
-    // Applications of the faculties the employee works for - never their own,
-    // because they could not decide on them anyway (conflict of interest)
-    public IQueryable<Application> VisibleToStaff(string userId) =>
-        _db.Applications.Where(a => a.ApplicantId != userId
+    // Applications of the faculties the employee works for - never their own, because they
+    // could not decide on them anyway (conflict of interest). A vice-dean gets only the cases
+    // that were forwarded to them: they need no student data before that (least privilege).
+    public IQueryable<Application> VisibleToStaff(ClaimsPrincipal user)
+    {
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var onlyForwarded = user.IsInRole(RoleNames.ViceDean) && !user.IsInRole(RoleNames.DeanOffice);
+
+        return _db.Applications.Where(a => a.ApplicantId != userId
             && _db.StaffAssignments.Any(s => s.UserId == userId
-                && s.FacultyId == a.Enrollment.FieldOfStudy.FacultyId));
+                && s.FacultyId == a.Enrollment.FieldOfStudy.FacultyId)
+            && (!onlyForwarded
+                || a.StatusHistory.Any(h => h.ToStatus == ApplicationStatus.ForwardedToDean)));
+    }
 
     // Null when the application does not exist or the user may not see it -
     // both end as the same 404, so nobody learns which numbers exist
@@ -53,7 +62,7 @@ public sealed class ApplicationAccess
         if (applicantId == userId)
             return ApplicationViewer.Applicant;
 
-        if (IsStaff(user) && await VisibleToStaff(userId)
+        if (IsStaff(user) && await VisibleToStaff(user)
                 .AnyAsync(a => a.Id == applicationId, cancellationToken))
             return ApplicationViewer.Staff;
 

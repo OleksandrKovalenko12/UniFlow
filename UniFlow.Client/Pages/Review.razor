@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject NavigationManager Navigation
 @inject ReviewListState State
+@inject ISnackbar Snackbar
 
 <PageTitle>Wnioski do rozpatrzenia - UniFlow</PageTitle>
 
@@ -13,10 +14,10 @@
     <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
 }
 
-@* Only the tab headers - one table below serves all of them *@
-<MudTabs ActivePanelIndex="(int)CurrentTab" ActivePanelIndexChanged="ChangeTabAsync"
+@* Only the tab headers - the content below serves all of them *@
+<MudTabs ActivePanelIndex="_tabs.IndexOf(CurrentTab)" ActivePanelIndexChanged="ChangeTabAsync"
          Elevation="0" Class="mb-4" Border="true">
-    @foreach (var tab in Enum.GetValues<ReviewTab>())
+    @foreach (var tab in _tabs)
     {
         <MudTabPanel Text="@TabText(tab)" />
     }
@@ -24,10 +25,11 @@
 
 <div class="d-flex flex-wrap gap-4 mb-4">
     <MudTextField T="string" Value="State.Search" ValueChanged="SearchAsync" Immediate="true"
-                  DebounceInterval="400" Clearable="true" Placeholder="Szukaj: nazwisko lub nr albumu"
+                  DebounceInterval="400" Clearable="true"
+                  Placeholder="Szukaj: nazwisko, nr albumu, nr wniosku"
                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
-                  aria-label="Szukaj wniosków po nazwisku lub numerze albumu" />
+                  aria-label="Szukaj po nazwisku, numerze albumu lub numerze wniosku" />
     <MudSelect T="string" Value="State.Type" ValueChanged="FilterTypeAsync"
                Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
                aria-label="Rodzaj wniosku">
@@ -37,43 +39,82 @@
             <MudSelectItem Value="@type.Code">@type.Name</MudSelectItem>
         }
     </MudSelect>
+    @if (ShowAssignedFilter)
+    {
+        <MudSelect T="string" Value="CurrentAssigned" ValueChanged="FilterAssignedAsync"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+                   aria-label="Kto prowadzi sprawę">
+            <MudSelectItem Value="@("")">Prowadzi: wszyscy</MudSelectItem>
+            <MudSelectItem Value="@AssignedFilter.Me">Prowadzi: ja</MudSelectItem>
+            <MudSelectItem Value="@AssignedFilter.None">Nieprzypisane</MudSelectItem>
+            @foreach (var person in _staff)
+            {
+                <MudSelectItem Value="@person.Id">Prowadzi: @person.Name</MudSelectItem>
+            }
+        </MudSelect>
+    }
 </div>
+
+@if (CurrentTab == ReviewTab.New)
+{
+    @if (SelectedCount > 0)
+    {
+        <div class="d-flex flex-wrap align-center gap-2 mb-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                       Disabled="_taking" OnClick="TakeSelectedAsync">
+                @(_taking ? "Wysyłanie..." : $"Weź zaznaczone ({SelectedCount})")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Disabled="_taking" OnClick="ClearSelection">Odznacz</MudButton>
+        </div>
+    }
+
+    @* Corrected applications: open with my own cases, the others one click away *@
+    @if (_corrected.Count > 0)
+    {
+        <MudPaper Class="mb-4" Elevation="0" Outlined="true">
+            <button type="button" class="section-header" aria-expanded="@(_correctedOpen ? "true" : "false")"
+                    @onclick="ToggleCorrected">
+                <MudIcon Icon="@(_correctedOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)" />
+                <span>
+                    Poprawione przez studentów (@_corrected.Count)
+                    @if (MyCorrected.Count == 0)
+                    {
+                        <span class="mud-text-secondary"> - prowadzą inne osoby</span>
+                    }
+                </span>
+            </button>
+
+            @if (_correctedOpen)
+            {
+                <MudTable T="ReviewListItem" Items="VisibleCorrected" Hover="true" Elevation="0"
+                          Breakpoint="Breakpoint.Sm" MultiSelection="true" SelectOnRowClick="false"
+                          @bind-SelectedItems="_selectedCorrected"
+                          OnRowClick="args => Open(args.Item)" RowClass="cursor-pointer">
+                    <HeaderContent>@HeaderCells</HeaderContent>
+                    <RowTemplate>@RowCells(context)</RowTemplate>
+                </MudTable>
+
+                @if (!_showOthers && MyCorrected.Count > 0 && OthersCorrected.Count > 0)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Class="ma-2"
+                               OnClick="() => _showOthers = true">
+                        Pokaż też sprawy innych osób (@OthersCorrected.Count)
+                    </MudButton>
+                }
+            }
+        </MudPaper>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Nowe wnioski</MudText>
+    }
+}
 
 <MudTable @ref="_table" T="ReviewListItem" ServerData="LoadAsync" RowsPerPage="ReviewPageSize"
           Hover="true" Elevation="0" Outlined="true" Breakpoint="Breakpoint.Sm"
+          MultiSelection="@(CurrentTab == ReviewTab.New)" SelectOnRowClick="false"
+          @bind-SelectedItems="_selectedFresh"
           OnRowClick="args => Open(args.Item)" RowClass="cursor-pointer">
-    <HeaderContent>
-        <MudTh>Numer</MudTh>
-        <MudTh>Rodzaj</MudTh>
-        <MudTh>Student</MudTh>
-        <MudTh>Kierunek</MudTh>
-        <MudTh>Status</MudTh>
-        <MudTh>Złożono</MudTh>
-        <MudTh>Prowadzi</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        @* A real link too: keyboard users and "open in a new tab" *@
-        <MudTd DataLabel="Numer">
-            <MudLink Href="@($"applications/{context.Id}")"><b>@context.Number</b></MudLink>
-        </MudTd>
-        <MudTd DataLabel="Rodzaj">@context.TypeName</MudTd>
-        @* One block per cell: on a phone the cell is a row of a card, the second line stays below *@
-        <MudTd DataLabel="Student">
-            <div>
-                @context.StudentName
-                <div class="mud-text-secondary">@context.AlbumNumber</div>
-            </div>
-        </MudTd>
-        <MudTd DataLabel="Kierunek">
-            <div>
-                @context.FieldOfStudyName (@context.FacultyCode)
-                <div class="mud-text-secondary">@context.StudyLevel</div>
-            </div>
-        </MudTd>
-        <MudTd DataLabel="Status"><StatusChip Status="context.Status" /></MudTd>
-        <MudTd DataLabel="Złożono">@DateText.Format(context.SubmittedAt)</MudTd>
-        <MudTd DataLabel="Prowadzi">@(context.AssignedToName ?? "-")</MudTd>
-    </RowTemplate>
+    <HeaderContent>@HeaderCells</HeaderContent>
+    <RowTemplate>@RowCells(context)</RowTemplate>
     <NoRecordsContent>
         <MudText Class="mud-text-secondary">Brak wniosków.</MudText>
     </NoRecordsContent>
@@ -89,36 +130,81 @@
     // The server returns pages of this size (ReviewController.PageSize)
     private const int ReviewPageSize = 25;
 
+    private static readonly List<ReviewTab> AllTabs = [.. Enum.GetValues<ReviewTab>()];
+
+    // A vice-dean only decides on what was forwarded; the server sends nothing else anyway
+    private static readonly List<ReviewTab> ViceDeanTabs = [ReviewTab.AtViceDean, ReviewTab.Closed];
+
     [CascadingParameter]
     private Task<AuthenticationState> AuthState { get; set; } = null!;
 
     private MudTable<ReviewListItem> _table = null!;
+    private List<ReviewTab> _tabs = AllTabs;
+    private bool _viceDeanOnly;
     private IReadOnlyList<ApplicationTypeSummary> _types = [];
+    private IReadOnlyList<StaffMember> _staff = [];
     private ReviewCounts? _counts;
     private string? _error;
 
-    private ReviewTab CurrentTab => State.Tab ?? ReviewTab.New;
+    // The "Nowe" tab: corrected applications above the new ones, and what is ticked
+    private IReadOnlyList<ReviewListItem> _corrected = [];
+    private bool _correctedOpen;
+    private bool _correctedToggled;
+    private bool _showOthers;
+    private HashSet<ReviewListItem> _selectedCorrected = [];
+    private HashSet<ReviewListItem> _selectedFresh = [];
+    private bool _taking;
+
+    private ReviewTab CurrentTab => State.Tab ?? _tabs[0];
+
+    private bool ShowAssignedFilter => !_viceDeanOnly && CurrentTab != ReviewTab.New;
+
+    // My cases are what I work on, so "W weryfikacji" opens with them
+    private string CurrentAssigned => State.Assigned.TryGetValue(CurrentTab, out var chosen)
+        ? chosen
+        : CurrentTab == ReviewTab.InReview ? AssignedFilter.Me : "";
+
+    private List<ReviewListItem> MyCorrected => _corrected.Where(a => a.AssignedToMe).ToList();
+    private List<ReviewListItem> OthersCorrected => _corrected.Where(a => !a.AssignedToMe).ToList();
+
+    // With none of my own the section shows everyone's
+    private IReadOnlyList<ReviewListItem> VisibleCorrected =>
+        _showOthers || MyCorrected.Count == 0 ? _corrected : MyCorrected;
+
+    private int SelectedCount => _selectedCorrected.Count + _selectedFresh.Count;
 
     protected override async Task OnInitializedAsync()
     {
-        // A vice-dean works on what was passed to them, so that tab opens first
-        if (State.Tab is null)
-        {
-            var user = (await AuthState).User;
-            if (user.IsInRole(RoleNames.ViceDean) && !user.IsInRole(RoleNames.DeanOffice))
-                State.Tab = ReviewTab.AtViceDean;
-        }
+        var user = (await AuthState).User;
+        _viceDeanOnly = user.IsInRole(RoleNames.ViceDean) && !user.IsInRole(RoleNames.DeanOffice);
+        _tabs = _viceDeanOnly ? ViceDeanTabs : AllTabs;
+
+        if (State.Tab is not null && !_tabs.Contains(State.Tab.Value))
+            State.Tab = null;
 
         var types = await Api.GetApplicationTypesAsync();
         if (types.IsSuccess)
             _types = types.Value;
 
+        if (!_viceDeanOnly)
+        {
+            var staff = await Api.GetReviewStaffAsync();
+            if (staff.IsSuccess)
+                _staff = staff.Value;
+        }
+
         await LoadCountsAsync();
+        await LoadCorrectedAsync();
     }
 
+    // The main table: in "Nowe" only the new applications, the corrected ones are above it
     private async Task<TableData<ReviewListItem>> LoadAsync(TableState state, CancellationToken token)
     {
-        var result = await Api.GetReviewListAsync(CurrentTab, State.Search, State.Type, state.Page + 1);
+        var result = await Api.GetReviewListAsync(CurrentTab, State.Search, State.Type,
+            corrected: CurrentTab == ReviewTab.New ? false : null,
+            assigned: ShowAssignedFilter ? CurrentAssigned : null,
+            page: state.Page + 1);
+
         if (!result.IsSuccess)
         {
             _error = result.Error.Message;
@@ -131,6 +217,23 @@
             Items = result.Value.Items,
             TotalItems = result.Value.TotalCount
         };
+    }
+
+    // A handful at a time, so one page is enough
+    private async Task LoadCorrectedAsync()
+    {
+        if (CurrentTab != ReviewTab.New)
+        {
+            _corrected = [];
+            return;
+        }
+
+        var result = await Api.GetReviewListAsync(ReviewTab.New, State.Search, State.Type,
+            corrected: true, assigned: null, page: 1);
+        _corrected = result.IsSuccess ? result.Value.Items : [];
+
+        if (!_correctedToggled)
+            _correctedOpen = MyCorrected.Count > 0;
     }
 
     private async Task LoadCountsAsync()
@@ -147,7 +250,7 @@
             ReviewTab.New => "Nowe",
             ReviewTab.InReview => "W weryfikacji",
             ReviewTab.WaitingForStudent => "Czekają na studenta",
-            ReviewTab.AtViceDean => "U prodziekana",
+            ReviewTab.AtViceDean => _viceDeanOnly ? "Do decyzji" : "U prodziekana",
             _ => "Zakończone"
         };
 
@@ -166,7 +269,10 @@
 
     private async Task ChangeTabAsync(int index)
     {
-        State.Tab = (ReviewTab)index;
+        State.Tab = _tabs[index];
+        ClearSelection();
+        _correctedToggled = false;
+        _showOthers = false;
         await ReloadAsync();
     }
 
@@ -182,11 +288,88 @@
         await ReloadAsync();
     }
 
+    private async Task FilterAssignedAsync(string assigned)
+    {
+        State.Assigned[CurrentTab] = assigned;
+        await ReloadAsync();
+    }
+
+    private void ToggleCorrected()
+    {
+        _correctedOpen = !_correctedOpen;
+        _correctedToggled = true;
+    }
+
     // Another tab or filter starts again from the first page
     private async Task ReloadAsync()
     {
+        await LoadCorrectedAsync();
+        await LoadCountsAsync();
         _table.NavigateTo(Page.First);
         await _table.ReloadServerData();
+    }
+
+    private void ClearSelection()
+    {
+        _selectedCorrected = [];
+        _selectedFresh = [];
+    }
+
+    private async Task TakeOneAsync(ReviewListItem item)
+    {
+        var result = await Api.DecideAsync(item.Id, ReviewAction.Take, null);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add($"{item.Number}: {result.Error.Message}", Severity.Error);
+        }
+        else
+        {
+            // A way straight into the case, for those who want to start at once
+            Snackbar.Add($"{item.Number} przyjęty do weryfikacji.", Severity.Success, config =>
+            {
+                config.Action = "Otwórz";
+                config.ActionColor = Color.Inherit;
+                // With a button MudBlazor would keep it until closed; a few seconds are enough
+                config.RequireInteraction = false;
+                config.VisibleStateDuration = 8000;
+                config.OnClick = _ =>
+                {
+                    Navigation.NavigateTo($"applications/{item.Id}");
+                    return Task.CompletedTask;
+                };
+            });
+        }
+
+        _selectedCorrected.Remove(item);
+        _selectedFresh.Remove(item);
+        await ReloadAsync();
+    }
+
+    // One "take" per application, as from the button: each one passes Domain on its own,
+    // so someone else taking one of them in the meantime does not spoil the rest
+    private async Task TakeSelectedAsync()
+    {
+        var items = _selectedCorrected.Concat(_selectedFresh).DistinctBy(i => i.Id).ToList();
+        var failed = new List<string>();
+
+        _taking = true;
+        foreach (var item in items)
+        {
+            var result = await Api.DecideAsync(item.Id, ReviewAction.Take, null);
+            if (!result.IsSuccess)
+                failed.Add(item.Number);
+        }
+        _taking = false;
+
+        if (failed.Count == 0)
+            Snackbar.Add($"Wzięto do weryfikacji: {items.Count}.", Severity.Success);
+        else
+            Snackbar.Add($"Wzięto {items.Count - failed.Count} z {items.Count}. Nie udało się: " +
+                $"{string.Join(", ", failed)} - mógł je wziąć ktoś inny.", Severity.Warning);
+
+        ClearSelection();
+        await ReloadAsync();
     }
 
     private void Open(ReviewListItem? item)
@@ -194,4 +377,55 @@
         if (item is not null)
             Navigation.NavigateTo($"applications/{item.Id}");
     }
+
+    // The same columns in both tables of "Nowe" and in the other tabs
+    private RenderFragment HeaderCells => @<text>
+        <MudTh>Numer</MudTh>
+        <MudTh>Rodzaj</MudTh>
+        <MudTh>Student</MudTh>
+        <MudTh>Kierunek</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Złożono</MudTh>
+        <MudTh>Prowadzi</MudTh>
+        @if (CurrentTab == ReviewTab.New)
+        {
+            <MudTh></MudTh>
+        }
+    </text>;
+
+    private RenderFragment RowCells(ReviewListItem item) => @<text>
+        @* A real link too: keyboard users and "open in a new tab" *@
+        <MudTd DataLabel="Numer">
+            <MudLink Href="@($"applications/{item.Id}")"><b>@item.Number</b></MudLink>
+        </MudTd>
+        <MudTd DataLabel="Rodzaj">@item.TypeName</MudTd>
+        @* One block per cell: on a phone the cell is a row of a card, the second line stays below *@
+        <MudTd DataLabel="Student">
+            <div>
+                @item.StudentName
+                <div class="mud-text-secondary">@item.AlbumNumber</div>
+            </div>
+        </MudTd>
+        <MudTd DataLabel="Kierunek">
+            <div>
+                @item.FieldOfStudyName (@item.FacultyCode)
+                <div class="mud-text-secondary">@item.StudyLevel</div>
+            </div>
+        </MudTd>
+        <MudTd DataLabel="Status"><StatusChip Status="item.Status" /></MudTd>
+        <MudTd DataLabel="Złożono">@DateText.Format(item.SubmittedAt)</MudTd>
+        <MudTd DataLabel="Prowadzi">@(item.AssignedToName ?? "-")</MudTd>
+        @if (CurrentTab == ReviewTab.New)
+        {
+            @* Taking a case must not also open it - the click stops here *@
+            <MudTd>
+                <div @onclick:stopPropagation="true">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               Disabled="_taking" OnClick="() => TakeOneAsync(item)">
+                        Weź
+                    </MudButton>
+                </div>
+            </MudTd>
+        }
+    </text>;
 }

@@ -46,11 +46,16 @@ public sealed class ApiClient
     });
 
     public Task<ApiResult<PagedList<ReviewListItem>>> GetReviewListAsync(ReviewTab tab,
-    string? search, string? type, int page) =>
+    string? search, string? type, bool? corrected, string? assigned, int page) =>
     SendAsync<PagedList<ReviewListItem>>(() => _http.GetAsync(
         $"api/review?tab={tab}&page={page}" +
         (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}") +
-        (string.IsNullOrWhiteSpace(type) ? "" : $"&type={Uri.EscapeDataString(type)}")));
+        (string.IsNullOrWhiteSpace(type) ? "" : $"&type={Uri.EscapeDataString(type)}") +
+        (corrected is null ? "" : $"&corrected={(corrected.Value ? "true" : "false")}") +
+        (string.IsNullOrWhiteSpace(assigned) ? "" : $"&assigned={Uri.EscapeDataString(assigned)}")));
+
+    public Task<ApiResult<IReadOnlyList<StaffMember>>> GetReviewStaffAsync() =>
+        SendAsync<IReadOnlyList<StaffMember>>(() => _http.GetAsync("api/review/staff"));
 
     public Task<ApiResult<ReviewCounts>> GetReviewCountsAsync() =>
         SendAsync<ReviewCounts>(() => _http.GetAsync("api/review/counts"));

@@ -29,8 +29,26 @@ else if (_items.Count == 0)
 }
 else
 {
+    <MudTabs @bind-ActivePanelIndex="_tabIndex" Elevation="0" Class="mb-4" Border="true">
+        <MudTabPanel Text="@($"W toku ({Open.Count})")" />
+        <MudTabPanel Text="@($"Zakończone ({Closed.Count})")" />
+    </MudTabs>
+
+    @if (Shown.Count == 0)
+    {
+        <MudPaper Class="pa-6" Elevation="0" Outlined="true" Style="text-align: center">
+            <MudText Class="mb-4">
+                @(_tabIndex == 0 ? "Nie masz wniosków w toku." : "Nie masz jeszcze zakończonych wniosków.")
+            </MudText>
+            @if (_tabIndex == 0)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="new">Złóż wniosek</MudButton>
+            }
+        </MudPaper>
+    }
+
     @* The server sends those waiting for the student first *@
-    @foreach (var item in _items)
+    @foreach (var item in Shown)
     {
         var needsAction = item.Status == ApplicationState.NeedsCorrection;
 
@@ -56,8 +74,17 @@ else
 }
 
 @code {
+    private static readonly ApplicationState[] ClosedStatuses =
+        [ApplicationState.Approved, ApplicationState.Rejected, ApplicationState.Withdrawn];
+
     private IReadOnlyList<MyApplicationItem>? _items;
     private string? _error;
+    private int _tabIndex;
+
+    // "W toku" - still moving; "Zakończone" - decided or withdrawn
+    private List<MyApplicationItem> Open => _items!.Where(a => !ClosedStatuses.Contains(a.Status)).ToList();
+    private List<MyApplicationItem> Closed => _items!.Where(a => ClosedStatuses.Contains(a.Status)).ToList();
+    private List<MyApplicationItem> Shown => _tabIndex == 0 ? Open : Closed;
 
     protected override async Task OnInitializedAsync()
     {
