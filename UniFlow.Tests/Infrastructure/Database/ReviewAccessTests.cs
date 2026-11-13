@@ -245,6 +245,48 @@ public sealed class ReviewAccessTests : IAsyncLifetime
             (await PostAsync($"/api/applications/{submitted.Id}/take", outsider, DeanOffice)).StatusCode);
     }
 
+    // The student's own applications
+
+    [Fact]
+    public async Task Mine_ListsOnlyTheStudentsOwnApplications()
+    {
+        var student = await CreateUserAsync();
+        var own = await SubmitAsync(student, await CreateFacultyAsync());
+        var someoneElses = await SubmitAsync(await CreateUserAsync(), await CreateFacultyAsync());
+
+        var mine = await (await GetAsync("/api/applications/mine", student, RoleNames.Student))
+            .Content.ReadFromJsonAsync<List<MyApplicationItem>>();
+
+        Assert.Contains(mine!, a => a.Number == own.Number);
+        Assert.DoesNotContain(mine!, a => a.Number == someoneElses.Number);
+    }
+
+    [Fact]
+    public async Task Withdraw_ByTheAuthor_ClosesTheCase_OnlyOnce()
+    {
+        var student = await CreateUserAsync();
+        var submitted = await SubmitAsync(student, await CreateFacultyAsync());
+        var url = $"/api/applications/{submitted.Id}/withdraw";
+
+        var withdrawn = await (await PostAsync(url, student, RoleNames.Student))
+            .Content.ReadFromJsonAsync<ApplicationDetails>();
+        Assert.Equal(ApplicationState.Withdrawn, withdrawn!.Status);
+        Assert.False(withdrawn.CanWithdraw);
+
+        Assert.Equal(HttpStatusCode.Conflict, (await PostAsync(url, student, RoleNames.Student)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Withdraw_SomeoneElsesApplication_IsNotFound()
+    {
+        var submitted = await SubmitAsync(await CreateUserAsync(), await CreateFacultyAsync());
+        var otherStudent = await CreateUserAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await PostAsync($"/api/applications/{submitted.Id}/withdraw", otherStudent, RoleNames.Student))
+                .StatusCode);
+    }
+
     [Fact]
     public async Task Student_CannotOpenTheStaffList()
     {

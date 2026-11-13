@@ -5,6 +5,7 @@ namespace UniFlow.Shared.Applications;
 
 // One application as its author or an employee of its faculty sees it.
 // FormData is the form's JSON - the page reads it with the form class of TypeCode.
+// ForApplicant: the author's view (a student working in the dean's office is both).
 public sealed record ApplicationDetails(
     Guid Id,
     string Number,
@@ -20,7 +21,10 @@ public sealed record ApplicationDetails(
     string FormData,
     IReadOnlyList<AttachmentInfo> Attachments,
     IReadOnlyList<StatusChange> History,
-    IReadOnlyList<ReviewAction> Actions);
+    IReadOnlyList<ReviewAction> Actions,
+    bool ForApplicant,
+    bool CanWithdraw);
+
 
 // IsDocument: the application's own PDF (older versions too) rather than a student's file
 public sealed record AttachmentInfo(

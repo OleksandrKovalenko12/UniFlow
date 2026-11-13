@@ -4,14 +4,14 @@
 
 <PageTitle>@(_details?.Number ?? "Wniosek") - UniFlow</PageTitle>
 
-<AuthorizeView Roles="@($"{RoleNames.DeanOffice},{RoleNames.ViceDean}")">
-    <Authorized>
-        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Href="review"
-                   Class="mb-2 ml-n2">
-            Wnioski do rozpatrzenia
-        </MudButton>
-    </Authorized>
-</AuthorizeView>
+@* Back to where this view belongs - not by role: a student working in the office has both *@
+@if (_details is not null)
+{
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+               Href="@(_details.ForApplicant ? "my" : "review")" Class="mb-2 ml-n2">
+        @(_details.ForApplicant ? "Moje wnioski" : "Wnioski do rozpatrzenia")
+    </MudButton>
+}
 
 @if (_error is not null)
 {
@@ -23,11 +23,26 @@ else if (_details is null)
 }
 else
 {
+    @if (_details.ForApplicant && _details.Status == ApplicationState.NeedsCorrection)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">
+            <b>Dziekanat prosi o poprawę wniosku.</b>
+            @if (CorrectionComment is not null)
+            {
+                <div class="pre-line mt-1">@CorrectionComment</div>
+            }
+        </MudAlert>
+    }
+
     <ApplicationView Details="_details">
         <Actions>
             @if (_details.Actions.Count > 0)
             {
                 <ReviewActionsPanel Details="_details" Decided="details => _details = details" />
+            }
+            @if (_details.CanWithdraw)
+            {
+                <StudentActionsPanel Details="_details" Changed="details => _details = details" />
             }
         </Actions>
     </ApplicationView>
@@ -39,6 +54,10 @@ else
 
     private ApplicationDetails? _details;
     private string? _error;
+    
+    // What the dean's office asked for the last time it sent the application back
+    private string? CorrectionComment =>
+        _details?.History.LastOrDefault(h => h.To == ApplicationState.NeedsCorrection)?.Comment;
 
     // Runs again when a link leads from one application to another
     protected override async Task OnParametersSetAsync()

@@ -40,6 +40,11 @@ public static class ReviewRules
         return actions;
     }
 
+    // The student may change their mind until the case is with the vice-dean
+    public static bool CanWithdraw(ApplicationStatus status) =>
+        status is ApplicationStatus.Submitted or ApplicationStatus.UnderReview
+            or ApplicationStatus.NeedsCorrection or ApplicationStatus.Resubmitted;
+
     public static ApplicationStatus[] StatusesOf(ReviewTab tab) => tab switch
     {
         ReviewTab.New => [ApplicationStatus.Submitted, ApplicationStatus.Resubmitted],

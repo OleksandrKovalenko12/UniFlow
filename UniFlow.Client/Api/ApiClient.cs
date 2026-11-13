@@ -55,6 +55,13 @@ public sealed class ApiClient
     public Task<ApiResult<ReviewCounts>> GetReviewCountsAsync() =>
         SendAsync<ReviewCounts>(() => _http.GetAsync("api/review/counts"));
 
+    public Task<ApiResult<IReadOnlyList<MyApplicationItem>>> GetMyApplicationsAsync() =>
+    SendAsync<IReadOnlyList<MyApplicationItem>>(() => _http.GetAsync("api/applications/mine"));
+
+    public Task<ApiResult<ApplicationDetails>> WithdrawAsync(Guid applicationId) =>
+        SendAsync<ApplicationDetails>(() =>
+            _http.PostAsync($"api/applications/{applicationId}/withdraw", content: null));
+
     public Task<ApiResult<ApplicationDetails>> GetApplicationAsync(Guid id) =>
         SendAsync<ApplicationDetails>(() => _http.GetAsync($"api/applications/{id}"));
 

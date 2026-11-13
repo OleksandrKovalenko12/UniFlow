@@ -102,7 +102,9 @@ public sealed class ApplicationDetailsQuery
             application.FormData,
             attachments,
             history,
-            actions);
+            actions,
+            ForApplicant: !staff,
+            CanWithdraw: !staff && ReviewRules.CanWithdraw(application.Status));
     }
 
     // The student is told which office acted, not which employee - as on paper

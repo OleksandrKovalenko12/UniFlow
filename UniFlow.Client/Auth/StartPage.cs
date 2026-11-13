@@ -10,7 +10,7 @@ public static class StartPage
     // Null when the account has no role yet - there is nowhere to send it
     public static string? For(ClaimsPrincipal user) =>
         user.IsInRole(RoleNames.DeanOffice) || user.IsInRole(RoleNames.ViceDean) ? "review"
-        : user.IsInRole(RoleNames.Student) ? "new"
+        : user.IsInRole(RoleNames.Student) ? "my"
         : user.IsInRole(RoleNames.Administrator) ? "admin"
         : null;
 }

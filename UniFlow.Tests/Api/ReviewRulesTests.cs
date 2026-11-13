@@ -63,6 +63,20 @@ public class ReviewRulesTests
         Assert.Empty(ReviewRules.ActionsFor(status, true, isDeanOffice, isViceDean));
     }
 
+    [Theory]
+    [InlineData(ApplicationStatus.Submitted, true)]
+    [InlineData(ApplicationStatus.UnderReview, true)]
+    [InlineData(ApplicationStatus.NeedsCorrection, true)]
+    [InlineData(ApplicationStatus.Resubmitted, true)]
+    [InlineData(ApplicationStatus.ForwardedToDean, false)]
+    [InlineData(ApplicationStatus.Approved, false)]
+    [InlineData(ApplicationStatus.Rejected, false)]
+    [InlineData(ApplicationStatus.Withdrawn, false)]
+    public void CanWithdraw_UntilTheCaseIsWithTheViceDean(ApplicationStatus status, bool expected)
+    {
+        Assert.Equal(expected, ReviewRules.CanWithdraw(status));
+    }
+
     // Every tab has its statuses and every status is on exactly one tab
     [Fact]
     public void StatusesOf_CoverEveryStatusOnce()

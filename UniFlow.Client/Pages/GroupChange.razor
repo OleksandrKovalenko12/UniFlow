@@ -26,7 +26,9 @@ else if (_submitted is not null)
         <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Color="Color.Success" Style="font-size: 3rem" />
         <MudText Typo="Typo.h6" Class="mt-2">Wniosek złożony</MudText>
         <MudText Class="mud-text-secondary mt-4">Numer wniosku</MudText>
-        <MudText Typo="Typo.h4" Class="mb-6"><b>@_submitted.Number</b></MudText>
+        <MudLink Href="@($"applications/{_submitted.Id}")" Typo="Typo.h4" Class="mb-6">
+            <b>@_submitted.Number</b>
+        </MudLink>
         
         @if (_files.Count > 0)
         {
@@ -49,8 +51,8 @@ else if (_submitted is not null)
         </div>
 
         <MudText Typo="Typo.body2" Class="mud-text-secondary">Dziekanat sprawdzi wniosek.</MudText>
-        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="new" Class="mt-4">
-            Wróć do listy wniosków
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="my" Class="mt-4">
+            Moje wnioski
         </MudButton>
     </MudPaper>
 }

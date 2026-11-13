@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using UniFlow.Api.Applications;
+using UniFlow.Api.Texts;
 using UniFlow.Documents.Models;
 using UniFlow.Documents.Rendering;
 using UniFlow.Documents.Templates;
@@ -14,6 +15,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Net.Http.Headers;
+using UniFlow.Domain;
 using UniFlow.Domain.Entities;
 using UniFlow.Domain.Enums;
 using UniFlow.Infrastructure.Persistence;
@@ -76,6 +78,56 @@ public sealed class ApplicationsController : ControllerBase
 
         return StatusCode(StatusCodes.Status201Created, submitted);
     }
+
+    // The student's own applications: those waiting for them first, then the newest
+    [HttpGet("api/applications/mine")]
+    [Authorize(Roles = RoleNames.Student)]
+    public async Task<IReadOnlyList<MyApplicationItem>> GetMine(CancellationToken cancellationToken)
+    {
+        var userId = _userManager.GetUserId(User);
+
+        var rows = await _db.Applications
+            .Where(a => a.ApplicantId == userId)
+            .OrderByDescending(a => a.Status == ApplicationStatus.NeedsCorrection)
+            .ThenByDescending(a => a.CreatedAt)
+            .Select(a => new
+            {
+                a.Id,
+                a.Number,
+                TypeName = a.ApplicationType.Name,
+                a.Status,
+                a.CreatedAt,
+                FieldOfStudyName = a.Enrollment.FieldOfStudy.Name,
+                a.Enrollment.FieldOfStudy.Level
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(r => new MyApplicationItem(r.Id, r.Number, r.TypeName, (ApplicationState)r.Status,
+                r.CreatedAt, r.FieldOfStudyName, StudyTexts.Level(r.Level)))
+            .ToList();
+    }
+
+    // Only the author; Domain decides whether it is still possible
+    [HttpPost("api/applications/{id:guid}/withdraw")]
+    [Authorize(Roles = RoleNames.Student)]
+    public async Task<ActionResult<ApplicationDetails>> Withdraw(Guid id,
+        CancellationToken cancellationToken)
+    {
+        var userId = _userManager.GetUserId(User)!;
+
+        var application = await _db.Applications
+            .SingleOrDefaultAsync(a => a.Id == id && a.ApplicantId == userId, cancellationToken);
+
+        if (application is null)
+            return NotFound();
+
+        application.Withdraw(new Actor(userId, ActorRole.Student), DateTime.UtcNow);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        return await _details.GetAsync(id, ApplicationViewer.Applicant, User, cancellationToken);
+    }
+
 
     // Someone else's application looks like a missing one (404, not 403)
     [HttpGet("api/applications/{id:guid}")]

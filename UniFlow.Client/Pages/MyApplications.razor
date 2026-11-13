@@ -1,0 +1,70 @@
+﻿@page "/my"
+@attribute [Authorize(Roles = RoleNames.Student)]
+@inject ApiClient Api
+
+<PageTitle>Moje wnioski - UniFlow</PageTitle>
+
+<div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-4">
+    <MudText Typo="Typo.h5" HtmlTag="h1">Moje wnioski</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Filled.Add" Href="new">
+        Złóż wniosek
+    </MudButton>
+</div>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_items is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_items.Count == 0)
+{
+    <MudPaper Class="pa-6" Elevation="0" Outlined="true" Style="text-align: center">
+        <MudText Class="mb-4">Nie masz jeszcze żadnych wniosków.</MudText>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="new">Złóż pierwszy wniosek</MudButton>
+    </MudPaper>
+}
+else
+{
+    @* The server sends those waiting for the student first *@
+    @foreach (var item in _items)
+    {
+        var needsAction = item.Status == ApplicationState.NeedsCorrection;
+
+        <a href="@($"applications/{item.Id}")" class="@(needsAction ? "application-card needs-action" : "application-card")">
+            <MudPaper Class="pa-4" Elevation="0" Outlined="true">
+                <div class="d-flex flex-wrap align-center gap-2 mb-1">
+                    <MudText><b>@item.Number</b></MudText>
+                    <StatusChip Status="item.Status" />
+                </div>
+                <MudText>@item.TypeName</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Złożony @DateText.Format(item.SubmittedAt) · @item.FieldOfStudyName, @item.StudyLevel
+                </MudText>
+                @if (needsAction)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Warning" Class="mt-1">
+                        <b>Wymaga Twojej reakcji</b> - dziekanat prosi o poprawę.
+                    </MudText>
+                }
+            </MudPaper>
+        </a>
+    }
+}
+
+@code {
+    private IReadOnlyList<MyApplicationItem>? _items;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetMyApplicationsAsync();
+        if (result.IsSuccess)
+            _items = result.Value;
+        else
+            _error = result.Error.Message;
+    }
+}

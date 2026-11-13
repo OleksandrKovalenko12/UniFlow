@@ -204,6 +204,22 @@ h1:focus {
         border-left-color: var(--mud-palette-tertiary);
     }
 
+/* A card on "Moje wnioski": the whole card is the link to the application */
+.application-card {
+    display: block;
+    margin-bottom: 12px;
+    color: inherit;
+    text-decoration: none;
+}
+
+    .application-card:hover .mud-paper {
+        border-color: var(--mud-palette-primary);
+    }
+
+    /* Waiting for the student - the one thing on the list they must act on */
+    .application-card.needs-action .mud-paper {
+        border-left: 4px solid var(--mud-palette-warning);
+    }
 
 /* Label above a text field (instead of MudBlazor's label inside the field) */
 .field-label {

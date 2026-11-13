@@ -59,6 +59,9 @@
                         </MudNavLink>
                     </AuthorizeView>
                     <AuthorizeView Roles="@RoleNames.Student">
+                        <MudNavLink Href="my" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.FolderOpen">
+                            Moje wnioski
+                        </MudNavLink>
                         <MudNavLink Href="new" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.NoteAdd">
                              Nowy wniosek
                 </MudNavLink>
