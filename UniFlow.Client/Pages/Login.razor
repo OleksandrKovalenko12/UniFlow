@@ -38,7 +38,8 @@
 </EditForm>
 
 @code {
-    private const string DefaultPage = "/new";
+    // "/" sends every role on to its own start page
+    private const string DefaultPage = "/"; 
     private readonly LoginRequest _model = new();
     private string? _error;
     private bool _sending;

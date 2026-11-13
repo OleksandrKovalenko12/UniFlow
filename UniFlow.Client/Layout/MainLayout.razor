@@ -7,7 +7,9 @@
     <MudAppBar Elevation="0">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        aria-label="Menu" OnClick="ToggleDrawer" />
-        <img src="images/uniflow-logo.svg" alt="UniFlow" class="appbar-logo" />
+                <a href="./" class="d-flex" aria-label="UniFlow - strona startowa">
+            <img src="images/uniflow-logo.svg" alt="UniFlow" class="appbar-logo" />
+        </a>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
@@ -48,6 +50,12 @@
                     <AuthorizeView Roles="@($"{RoleNames.DeanOffice},{RoleNames.ViceDean}")">
                         <MudNavLink Href="review" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Inbox">
                             Wnioski do rozpatrzenia
+                        </MudNavLink>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="@RoleNames.Administrator">
+                        <MudNavLink Href="admin" Match="NavLinkMatch.Prefix"
+                                    Icon="@Icons.Material.Outlined.AdminPanelSettings">
+                            Panel administratora
                         </MudNavLink>
                     </AuthorizeView>
                     <AuthorizeView Roles="@RoleNames.Student">
