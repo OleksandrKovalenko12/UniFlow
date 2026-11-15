@@ -28,41 +28,38 @@ namespace UniFlow.Api.Controllers;
 public sealed class ApplicationsController : ControllerBase
 {
     public const string SubmissionRateLimit = "submissions";
-    public const string UploadRateLimit = "uploads";
     private const string Readers =
         RoleNames.Student + "," + RoleNames.DeanOffice + "," + RoleNames.ViceDean;
 
     private readonly ApplicationAccess _access;
     private readonly ApplicationDetailsQuery _details;
-    private readonly AttachmentUploadService _attachments;
     private readonly ApplicationSubmissionService _submission;
     private readonly DocumentRenderer _renderer;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly UniFlowDbContext _db;
     private readonly IFileStorage _storage;
 
-    public ApplicationsController(ApplicationSubmissionService submission,
-    AttachmentUploadService attachments, DocumentRenderer renderer,
+    public ApplicationsController(ApplicationSubmissionService submission, DocumentRenderer renderer,
     UserManager<ApplicationUser> userManager, UniFlowDbContext db, IFileStorage storage,
     ApplicationAccess access, ApplicationDetailsQuery details)
     {
         _access = access;
         _details = details;
         _submission = submission;
-        _attachments = attachments;
         _renderer = renderer;
         _userManager = userManager;
         _db = db;
         _storage = storage;
     }
 
-    // The form has already been validated by [ApiController]
+    // The form has already been validated by [ApiController]. draftId: the files added to the
+    // draft come along as attachments, and the draft goes.
     [HttpPost("api/enrollments/{enrollmentId:int}/applications/group-change")]
     [Authorize(Roles = RoleNames.Student)]
     [EnableRateLimiting(SubmissionRateLimit)]
     public async Task<ActionResult<SubmittedApplication>> SubmitGroupChange(int enrollmentId,
-        [FromHeader(Name = SubmissionHeaders.IdempotencyKey), Required] Guid? submissionKey,
-        GroupChangeForm form, CancellationToken cancellationToken)
+    [FromHeader(Name = SubmissionHeaders.IdempotencyKey), Required] Guid? submissionKey,
+    [FromQuery] Guid? draftId, GroupChangeForm form, CancellationToken cancellationToken)
     {
         form.Normalize();
 
@@ -71,7 +68,8 @@ public sealed class ApplicationsController : ControllerBase
             submissionKey!.Value,
             enrollmentId,
             ApplicationTypeCodes.GroupChange,
-            FormJson.Serialize(form),
+            FormJson.Serialize(form), 
+            draftId,
             header => _renderer.RenderAsync<GroupChangeTemplate, GroupChangeDocument>(
                 new GroupChangeDocument(header, form)),
             cancellationToken);
@@ -163,22 +161,7 @@ public sealed class ApplicationsController : ControllerBase
         if (document is null)
             return NotFound();
 
-        return PdfFile(document.StoragePath, document.OriginalFileName, inline);
-    }
-
-    // One file per request - the Client sends them one after another.
-    // The size limit stops a too large upload before the whole file is received.
-    [HttpPost("api/applications/{id:guid}/attachments")]
-    [Authorize(Roles = RoleNames.Student)]
-    [EnableRateLimiting(UploadRateLimit)]
-    [RequestSizeLimit(AttachmentRules.MaxSizeBytes + 1024 * 1024)]
-    public async Task<ActionResult<AttachmentSummary>> AddAttachment(Guid id, IFormFile file,
-        CancellationToken cancellationToken)
-    {
-        var added = await _attachments.UploadAsync(_userManager.GetUserId(User)!, id, file,
-            cancellationToken);
-
-        return added is null ? NotFound() : StatusCode(StatusCodes.Status201Created, added);
+        return this.PdfFile(_storage, document.StoragePath, document.OriginalFileName, inline);
     }
 
     // Always the PDF version: a file from a student is never opened in the browser as it is
@@ -205,20 +188,7 @@ public sealed class ApplicationsController : ControllerBase
         if (attachment is null)
             return NotFound();
 
-        return PdfFile(attachment.Path, Path.ChangeExtension(attachment.OriginalFileName, ".pdf"),
-            inline);
+        return this.PdfFile(_storage, attachment.Path, Path.ChangeExtension(attachment.OriginalFileName, ".pdf"), inline);
     }
 
-    private FileStreamResult PdfFile(string storagePath, string fileName, bool inline)
-    {
-        // "inline" opens the PDF in the browser, "attachment" saves it
-        var disposition = new ContentDispositionHeaderValue(inline ? "inline" : "attachment");
-        disposition.SetHttpFileName(fileName);
-        Response.Headers.ContentDisposition = disposition.ToString();
-
-        // The browser must not guess another type than the one we send
-        Response.Headers.XContentTypeOptions = "nosniff";
-
-        return File(_storage.OpenRead(storagePath), Attachment.PdfContentType);
-    }
 }

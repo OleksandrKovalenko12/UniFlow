@@ -78,7 +78,9 @@ builder.Services.AddScoped<DevelopmentSeeder>();
 builder.Services.AddScoped<IApplicationNumberGenerator, ApplicationNumberGenerator>();
 
 builder.Services.AddScoped<ApplicationSubmissionService>();
-builder.Services.AddScoped<AttachmentUploadService>();
+builder.Services.AddScoped<FileIntake>();
+builder.Services.AddScoped<DraftService>();
+builder.Services.AddHostedService<DraftCleanupService>();
 builder.Services.AddScoped<ApplicationAccess>();
 builder.Services.AddScoped<ApplicationDetailsQuery>();
 builder.Services.AddSingleton<DocumentRenderer>();
@@ -97,7 +99,7 @@ builder.Services.AddRateLimiter(options =>
             }));
 
     // Rejected files do not count towards the attachment limit, so uploads need their own
-    options.AddPolicy(ApplicationsController.UploadRateLimit, context =>
+    options.AddPolicy(DraftsController.UploadRateLimit, context =>
         RateLimitPartition.GetFixedWindowLimiter(
             context.User.FindFirstValue(ClaimTypes.NameIdentifier)!,
             _ => new FixedWindowRateLimiterOptions

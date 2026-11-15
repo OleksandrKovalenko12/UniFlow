@@ -221,6 +221,17 @@ h1:focus {
         border-left: 4px solid var(--mud-palette-warning);
     }
 
+/* A draft card: "Usuń" next to the card's link.*/
+.draft-card {
+    position: relative;
+}
+
+    .draft-card .draft-delete {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+    }
+
 
 /* The header of a section that opens and closes (corrected applications in "Nowe") */
 .section-header {

@@ -3,11 +3,19 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject NavigationManager Navigation
+@implements IDisposable
 
 <PageTitle>Zmiana grupy zajęciowej - UniFlow</PageTitle>
 
-@* Asks before leaving a form that was filled in but not sent *@
+@* The form is saved as a draft, so leaving is safe - it asks only when the last changes
+   could not be saved yet or files are still being sent *@
 <NavigationLock OnBeforeInternalNavigation="ConfirmLeaveAsync" ConfirmExternalNavigation="HasUnsavedChanges" />
+
+@* Back to the page the form was opened from. No "Zapisz" button: the draft saves itself,
+   leaving is enough. *@
+<MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Href="@BackUrl" Class="mb-2 ml-n2">
+    Wróć
+</MudButton>
 
 <MudText Typo="Typo.h5" HtmlTag="h1" GutterBottom="true">Zmiana grupy zajęciowej</MudText>
 
@@ -29,12 +37,6 @@ else if (_submitted is not null)
         <MudLink Href="@($"applications/{_submitted.Id}")" Typo="Typo.h4" Class="mb-6">
             <b>@_submitted.Number</b>
         </MudLink>
-        
-        @if (_files.Count > 0)
-        {
-            <AttachmentUploads ApplicationId="_submitted.Id" Files="_files"
-                               UnfinishedChanged="unfinished => _uploadsUnfinished = unfinished" />
-        }
 
         <div class="d-flex flex-wrap justify-center gap-2 mb-4">
             @* target="_blank" and download: the router lets these links through to the server *@
@@ -230,9 +232,9 @@ else
     
     @if (_maxAttachments > 0)
     {
-        <AttachmentPicker Files="_files" MaxFiles="_maxAttachments"
-                          Hint="Opcjonalnie, np. zaświadczenie od pracodawcy."
-                          OnChanged="OnFieldChanged" />
+        <DraftFilesPicker Files="_files" DraftId="_draft?.Id" EnsureDraftAsync="EnsureDraftAsync"
+            MaxFiles="_maxAttachments" BusyChanged="busy => _filesBusy = busy"
+            Hint="Opcjonalnie, np. zaświadczenie od pracodawcy." />
     }
 
     @if (_submitError is not null)
@@ -244,12 +246,15 @@ else
         <MudAlert Severity="Severity.Error" Class="mb-4">Popraw zaznaczone pola formularza.</MudAlert>
     }
 
-    <div class="d-flex justify-end">
+        <div class="d-flex flex-wrap align-center justify-space-between gap-2">
+        <MudText Typo="Typo.body2" Class="@(_saveFailed ? "mud-error-text" : "mud-text-secondary")">
+            @SaveStatus
+        </MudText>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Size="Size.Large"
-                   Disabled="_sending" OnClick="SubmitAsync">
+                   Disabled="_sending || _filesBusy" OnClick="SubmitAsync">
             @(_sending ? "Wysyłanie..." : "Złóż wniosek")
         </MudButton>
-    </div>
+        </div>
 }
 
 @code {
@@ -260,26 +265,51 @@ else
     private static readonly GroupType[] SubjectGroupTypes =
         [GroupType.Exercises, GroupType.Laboratory, GroupType.Project];
 
+    // How long after the last change the draft is saved
+    private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(1.5);
+
     [Parameter]
     public int EnrollmentId { get; set; }
+
+    // From "Dokończ" on "Moje wnioski": the student already chose to continue the draft
+    [SupplyParameterFromQuery(Name = "continue")]
+    public bool Continue { get; set; }
+
+    // The page the form was opened from ("/new" or "/my"). Only an address inside the
+    // application is used - the link could be changed by anyone.
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    private string BackUrl => LocalUrl.IsLocal(From) ? From! : "my";
 
     // null = not loaded yet
     private IReadOnlyList<EnrollmentSummary>? _enrollments;
     private EnrollmentSummary? _enrollment;
     private string? _error;
 
-    // No scope chosen at the start; one empty row is ready for the "Subjects" scope
-    private readonly GroupChangeForm _form = new() { Subjects = [new SubjectGroupChange()] };
+    // No scope chosen at the start; one empty row is ready for the "Subjects" scope.
+    // Replaced by the draft's form when the student continues a draft.
+    private GroupChangeForm _form = new() { Subjects = [new SubjectGroupChange()] };
     private readonly FormErrors _errors = new();
-    
-    // Sent one by one after the application is submitted 
-    private readonly List<PickedFile> _files = [];
+
+    // Already on the server, in the draft; submitted together with the form
+    private readonly List<DraftFileInfo> _files = [];
     private int _maxAttachments;
+    private bool _filesBusy;
 
     // After the first "Złóż wniosek" every change is checked at once
     private bool _attempted;
-    // Something was typed and not sent yet
+
+    // The draft: saved a moment after each change. _changes counts the changes, so a change
+    // made while a save is on its way is not taken as saved.
+    private DraftDetails? _draft;
     private bool _dirty;
+    private int _changes;
+    private bool _saving;
+    private bool _saveFailed;
+    private DateTime? _savedAt;
+    private CancellationTokenSource? _saveDelay;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
 
     // One key per filled-in form: if the answer is lost and the student sends again,
     // the server recognises the key and returns the application it already created
@@ -290,10 +320,13 @@ else
     private string? _submitError;
     private SubmittedApplication? _submitted;
 
-    private bool _uploadsUnfinished;
+    private bool HasUnsavedChanges => _submitted is null && (_dirty || _saving || _filesBusy);
 
-    // Before submitting: anything typed; after: files that are not on the server yet
-    private bool HasUnsavedChanges => (_dirty && _submitted is null) || _uploadsUnfinished;
+    private string SaveStatus =>
+        _saveFailed ? "Nie udało się zapisać szkicu - spróbujemy przy następnej zmianie."
+        : _saving ? "Zapisywanie..."
+        : _savedAt is not null ? $"Szkic zapisany {DateText.Format(_savedAt.Value)}"
+        : "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -305,7 +338,7 @@ else
         }
 
         _enrollments = result.Value;
-        
+
         // How many files this type allows - an administrator can change it
         var types = await Api.GetApplicationTypesAsync();
         if (!types.IsSuccess)
@@ -316,6 +349,50 @@ else
 
         _maxAttachments = types.Value
             .FirstOrDefault(t => t.Code == ApplicationTypeCodes.GroupChange)?.MaxAttachments ?? 0;
+
+        await LoadDraftAsync();
+    }
+
+    // A draft of this type from before: continue it, or start again and delete it
+    private async Task LoadDraftAsync()
+    {
+        var result = await Api.GetDraftAsync(ApplicationTypeCodes.GroupChange);
+        if (!result.IsSuccess || result.Value is null)
+            return;
+
+        var draft = result.Value;
+
+        if (!Continue)
+        {
+            var choice = await Dialogs.ShowMessageBoxAsync(
+                "Niedokończony wniosek",
+                $"Masz niedokończony wniosek o zmianę grupy, zapisany {DateText.Format(draft.UpdatedAt)}. " +
+                "Dokończyć go? Jeśli zaczniesz od nowa, wpisane dane i dodane pliki zostaną usunięte.",
+                yesText: "Dokończ", noText: "Zacznij od nowa");
+
+            // Closing the dialog keeps the draft - nothing is deleted without a clear choice
+            if (choice == false)
+            {
+                await Api.DeleteDraftAsync(draft.Id);
+                return;
+            }
+        }
+
+        _draft = draft;
+        try
+        {
+            _form = FormJson.Deserialize<GroupChangeForm>(draft.FormData);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Saved by an older version of the form: the files stay, the fields start empty
+        }
+        if (_form.Subjects.Count == 0)
+            _form.Subjects.Add(new SubjectGroupChange());
+        _files.AddRange(draft.Files);
+        _savedAt = draft.UpdatedAt;
+
+        // Started on other studies: OnParametersSet moves the draft to the studies chosen now
     }
 
     // Runs after loading and again when "Zmień" puts another id in the address
@@ -334,14 +411,20 @@ else
             _submissionKey = Guid.NewGuid();
             _keyEnrollmentId = EnrollmentId;
         }
+
+        // "Zmień": the draft moves to the new studies
+        if (_draft is not null && _draft.EnrollmentId != EnrollmentId)
+            ScheduleSave();
     }
 
     private async Task ChangeEnrollmentAsync()
     {
         var enrollmentId = await ChooseEnrollmentDialog.ShowAsync(Dialogs, _enrollments!, EnrollmentId);
 
+        // "from" stays, so "Wróć" still leads to where the student came from
         if (enrollmentId is not null && enrollmentId != EnrollmentId)
-            Navigation.NavigateTo($"new/group-change/{enrollmentId}");
+            Navigation.NavigateTo($"new/group-change/{enrollmentId}" +
+                (From is null ? "" : $"?from={Uri.EscapeDataString(From)}"));
     }
 
     // "grupa dziekańska" -> "Grupa dziekańska"; nothing chosen yet (0) -> empty field
@@ -356,10 +439,89 @@ else
 
     private void OnFieldChanged()
     {
-        _dirty = true;
         _submitError = null;
         if (_attempted)
             _errors.Validate(_form);
+
+        ScheduleSave();
+    }
+
+    // Saved a moment after the last change, not after every key
+    private void ScheduleSave()
+    {
+        _dirty = true;
+        _changes++;
+
+        _saveDelay?.Cancel();
+        _saveDelay = new CancellationTokenSource();
+        _ = SaveLaterAsync(_saveDelay.Token);
+    }
+
+    private async Task SaveLaterAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(SaveDelay, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await SaveNowAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // One save at a time; false when the server did not take it
+    private async Task<bool> SaveNowAsync()
+    {
+        await _saveLock.WaitAsync();
+        try
+        {
+            // Submitted in the meantime: the server has deleted the draft, it must not come back
+            if (_submitted is not null)
+                return true;
+            if (!_dirty && _draft is not null)
+                return true;
+
+            var changes = _changes;
+            _saving = true;
+            var result = await Api.SaveDraftAsync(ApplicationTypeCodes.GroupChange, EnrollmentId,
+                FormJson.Serialize(_form));
+            _saving = false;
+
+            if (!result.IsSuccess)
+            {
+                _saveFailed = true;
+                return false;
+            }
+
+            _draft = result.Value;
+            _savedAt = result.Value.UpdatedAt;
+            _saveFailed = false;
+
+            // Changed while saving: still dirty, the scheduled save will take it
+            if (_changes == changes)
+                _dirty = false;
+
+            return true;
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
+    // A file needs a draft to go to - saved now if there is none yet
+    private async Task<Guid?> EnsureDraftAsync()
+    {
+        if (_draft is null)
+        {
+            _dirty = true;
+            await SaveNowAsync();
+        }
+
+        return _draft?.Id;
     }
 
     private void AddSubject()
@@ -374,7 +536,7 @@ else
         OnFieldChanged();
     }
 
-        private async Task SubmitAsync()
+    private async Task SubmitAsync()
     {
         _attempted = true;
         _submitError = null;
@@ -393,15 +555,26 @@ else
         if (confirmed != true)
             return;
 
+        // No draft save may run alongside: after submission the draft is gone for good
+        _saveDelay?.Cancel();
+        await _saveLock.WaitAsync();
+
         _sending = true;
-        var result = await Api.SubmitGroupChangeAsync(EnrollmentId, _submissionKey, _form);
-        _sending = false;
+        ApiResult<SubmittedApplication> result;
+        try
+        {
+            result = await Api.SubmitGroupChangeAsync(EnrollmentId, _submissionKey, _form, _draft?.Id);
+            if (result.IsSuccess)
+                _submitted = result.Value;
+        }
+        finally
+        {
+            _sending = false;
+            _saveLock.Release();
+        }
 
         if (result.IsSuccess)
-        {
-            _submitted = result.Value;
             return;
-        }
 
         // Field errors from the server land under the same fields as the browser's own
         _errors.Set(result.Error.FieldErrors);
@@ -416,17 +589,24 @@ else
         if (!HasUnsavedChanges || target.StartsWith("/new/group-change/"))
             return;
 
-        var leave = _submitted is null
-            ? await Dialogs.ShowMessageBoxAsync(
-                "Opuścić formularz?",
-                "Wpisane dane nie zostały wysłane i zostaną utracone.",
-                yesText: "Opuść", cancelText: "Zostań")
-            : await Dialogs.ShowMessageBoxAsync(
-                "Opuścić stronę?",
-                "Nie wszystkie załączniki zostały dodane do wniosku. Jeśli wyjdziesz, nie zostaną wysłane.",
-                yesText: "Opuść", cancelText: "Zostań");
+        // Typed a moment ago: saved now instead of asking
+        if (_dirty && !_filesBusy)
+        {
+            _saveDelay?.Cancel();
+            if (await SaveNowAsync())
+                return;
+        }
+
+        var leave = await Dialogs.ShowMessageBoxAsync(
+            "Opuścić formularz?",
+            _filesBusy
+                ? "Pliki są jeszcze wysyłane. Jeśli wyjdziesz, mogą nie zostać dodane."
+                : "Nie udało się zapisać ostatnich zmian. Jeśli wyjdziesz, mogą przepaść.",
+            yesText: "Opuść", cancelText: "Zostań");
 
         if (leave != true)
             context.PreventNavigation();
     }
+
+    public void Dispose() => _saveDelay?.Cancel();
 }

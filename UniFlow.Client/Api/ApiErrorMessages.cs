@@ -19,6 +19,7 @@ public static class ApiErrorMessages
         ["EnrollmentInactive"] = "Wybrane studia nie są już aktywne.",
         ["ApplicationTypeInactive"] = "Tego rodzaju wniosku nie można już złożyć.",
         ["AttachmentLimitReached"] = "Osiągnięto limit załączników dla tego wniosku.",
+        ["DraftNotFound"] = "Nie znaleziono niedokończonego wniosku. Odśwież stronę.",
         ["UnsupportedFileType"] = "Ten rodzaj pliku nie jest obsługiwany. Dozwolone: PDF, DOCX, ODT, JPG, PNG, WebP.",
         ["InvalidFileSize"] = "Plik jest pusty albo większy niż 10 MB.",
         ["FileConversionFailed"] = "Nie udało się przetworzyć pliku. Sprawdź, czy otwiera się poprawnie, albo zapisz go jako PDF."

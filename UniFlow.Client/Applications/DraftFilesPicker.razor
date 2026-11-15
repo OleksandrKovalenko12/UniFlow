@@ -1,0 +1,195 @@
+﻿@* Files of a draft: each goes to the server as soon as it is picked, is checked and converted
+   to PDF there, and can be previewed - the same PDF the dean's office will see *@
+@inject ApiClient Api
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.h6">Załączniki</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+        @Hint Najwyżej @FileCount(MaxFiles) do 10 MB: PDF, DOCX, ODT, JPG, PNG, WebP.
+    </MudText>
+
+    @foreach (var file in Files)
+    {
+        <div class="attachment-row">
+            <MudIcon Icon="@IconFor(file.FileName)" Size="Size.Small" Class="mud-text-secondary" />
+                        <span class="attachment-name" title="@file.FileName">@file.FileName</span>
+            <span class="attachment-size mud-text-secondary">@FileSizeText.Format(file.SizeBytes)</span>
+            @* The PDF the dean's office will see. target="_blank": the router lets the link
+               through to the server *@
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                       Href="@ApiClient.DraftFileUrl(CurrentDraftId!.Value, file.Id, inline: true)" Target="_blank">
+                Podgląd
+            </MudButton>
+            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" Disabled="_busy"
+                    aria-label="@($"Usuń plik {file.FileName}")" OnClick="() => RemoveAsync(file)" />
+        </div>
+    }
+
+    @foreach (var name in _sending)
+    {
+        <div class="attachment-row">
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="upload-progress" />
+            <span class="attachment-name">@name</span>
+            <span class="attachment-size mud-text-secondary">Przetwarzanie...</span>
+        </div>
+    }
+
+    @foreach (var message in _messages)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Error">@message</MudText>
+    }
+
+    @* The hidden file input must stay on the page while the files are read -
+       the browser reads them through it *@
+    @if (_busy || Files.Count < MaxFiles)
+    {
+        <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="AddAsync"
+                       Accept="@Accept" MaximumFileCount="MaxSelection">
+            <CustomContent>
+                <MudButton Variant="Variant.Text" Color="Color.Primary" Class="mt-1"
+                           StartIcon="@Icons.Material.Outlined.AttachFile"
+                           Disabled="_busy" OnClick="@context.OpenFilePickerAsync">
+                    Dodaj plik
+                </MudButton>
+            </CustomContent>
+            @* Our own list is above - no chips from MudBlazor *@
+            <SelectedTemplate />
+        </MudFileUpload>
+    }
+</MudPaper>
+
+@code {
+    // Kept by the page: they come with the draft and are submitted with it
+    [Parameter, EditorRequired]
+    public List<DraftFileInfo> Files { get; set; } = null!;
+
+    // Null until the draft is saved for the first time
+    [Parameter]
+    public Guid? DraftId { get; set; }
+
+    // Saves the draft when it does not exist yet - a file needs somewhere to go
+    [Parameter, EditorRequired]
+    public Func<Task<Guid?>> EnsureDraftAsync { get; set; } = null!;
+
+    [Parameter]
+    public int MaxFiles { get; set; }
+
+    // What could be attached to this type of application
+    [Parameter]
+    public string? Hint { get; set; }
+
+    // True while files are sent or removed - the page waits with submitting
+    [Parameter]
+    public EventCallback<bool> BusyChanged { get; set; }
+
+    // More files picked in one go are not read at all
+    private const int MaxSelection = 20;
+
+    private static readonly string Accept = string.Join(",", AttachmentRules.Extensions);
+
+    // The draft created for the first file. The page passes it as DraftId only on its next
+    // render, and the file's row needs it at once.
+    private Guid? _createdDraftId;
+    private Guid? CurrentDraftId => DraftId ?? _createdDraftId;
+
+    private readonly List<string> _sending = [];
+    private readonly List<string> _messages = [];
+    private bool _busy;
+
+    private async Task AddAsync(IReadOnlyList<IBrowserFile>? picked)
+    {
+        _messages.Clear();
+        if (picked is null || picked.Count == 0)
+            return;
+
+        await SetBusyAsync(true);
+
+        foreach (var file in picked)
+        {
+            if (Files.Count + _sending.Count >= MaxFiles)
+            {
+                _messages.Add($"Można dodać najwyżej {FileCount(MaxFiles)}.");
+                break;
+            }
+
+            var problem = Check(file);
+            if (problem is not null)
+            {
+                _messages.Add(problem);
+                continue;
+            }
+
+            var draftId = await EnsureDraftAsync();
+            if (draftId is null)
+            {
+                _messages.Add("Nie udało się zapisać wniosku, więc pliku nie można dodać. Spróbuj za chwilę.");
+                break;
+            }
+
+            _createdDraftId = draftId;
+
+            // One at a time: each is converted on the server for a moment
+            _sending.Add(file.Name);
+            StateHasChanged();
+
+            var result = await Api.UploadDraftFileAsync(draftId.Value, file);
+            _sending.Remove(file.Name);
+
+            if (result.IsSuccess)
+                Files.Add(result.Value);
+            else
+                _messages.Add($"{file.Name}: {result.Error.Message}");
+        }
+
+        await SetBusyAsync(false);
+    }
+
+    // The same rules the server checks - here the student learns at once
+    private string? Check(IBrowserFile file)
+    {
+        if (!AttachmentRules.IsAllowedExtension(file.Name))
+            return $"Plik {file.Name}: ten rodzaj pliku nie jest obsługiwany.";
+
+        if (file.Size < 1 || file.Size > AttachmentRules.MaxSizeBytes)
+            return $"Plik {file.Name} jest pusty albo większy niż 10 MB.";
+
+        if (Files.Any(f => f.FileName == file.Name && f.SizeBytes == file.Size))
+            return $"Plik {file.Name} jest już dodany.";
+
+        return null;
+    }
+
+    private async Task RemoveAsync(DraftFileInfo file)
+    {
+        _messages.Clear();
+        await SetBusyAsync(true);
+
+        var result = await Api.DeleteDraftFileAsync(CurrentDraftId!.Value, file.Id);
+        if (result.IsSuccess)
+            Files.Remove(file);
+        else
+            _messages.Add($"{file.FileName}: {result.Error.Message}");
+
+        await SetBusyAsync(false);
+    }
+
+    private async Task SetBusyAsync(bool busy)
+    {
+        _busy = busy;
+        await BusyChanged.InvokeAsync(busy);
+    }
+
+    private static string IconFor(string fileName) =>
+        Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".pdf" => Icons.Material.Outlined.PictureAsPdf,
+            ".jpg" or ".jpeg" or ".png" or ".webp" => Icons.Material.Outlined.Image,
+            _ => Icons.Material.Outlined.Description
+        };
+
+    // 1 plik, 2-4 pliki, 5 plików (but 12-14 plików)
+    private static string FileCount(int count) =>
+        count == 1 ? "1 plik"
+        : count % 10 is >= 2 and <= 4 && count % 100 is < 12 or > 14 ? $"{count} pliki"
+        : $"{count} plików";
+}

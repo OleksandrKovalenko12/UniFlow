@@ -105,8 +105,9 @@ else
             ? enrollments[0].Id
             : await ChooseEnrollmentDialog.ShowAsync(Dialogs, enrollments);
 
+        // "from": the form's "Wróć" brings the student back here
         if (enrollmentId is not null)
-            Navigation.NavigateTo($"{FormPages[type.Code]}/{enrollmentId}");
+            Navigation.NavigateTo($"{FormPages[type.Code]}/{enrollmentId}?from=/new");
     }
 
     private void ShowStartMessage(string message, Severity severity)

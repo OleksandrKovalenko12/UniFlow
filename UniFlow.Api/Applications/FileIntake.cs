@@ -1,45 +1,28 @@
-﻿using Microsoft.EntityFrameworkCore;
-using UniFlow.Api.Errors;
+﻿using UniFlow.Api.Errors;
 using UniFlow.Domain;
 using UniFlow.Domain.Entities;
-using UniFlow.Domain.Enums;
 using UniFlow.Infrastructure.Pdf;
-using UniFlow.Infrastructure.Persistence;
 using UniFlow.Infrastructure.Storage;
 using UniFlow.Shared.Applications;
 
 namespace UniFlow.Api.Applications;
 
-public sealed class AttachmentUploadService
+// Takes in one file sent by a student: checks it, saves it and converts it to PDF.
+// When anything fails, nothing is left on disk.
+public sealed class FileIntake
 {
-    private readonly UniFlowDbContext _db;
     private readonly IPdfConverter _pdf;
     private readonly IFileStorage _storage;
 
-    public AttachmentUploadService(UniFlowDbContext db, IPdfConverter pdf, IFileStorage storage)
+    public FileIntake(IPdfConverter pdf, IFileStorage storage)
     {
-        _db = db;
         _pdf = pdf;
         _storage = storage;
     }
 
-    // Null when the application does not exist or belongs to someone else
-    public async Task<AttachmentSummary?> UploadAsync(string userId, Guid applicationId,
-        IFormFile file, CancellationToken cancellationToken)
+    public async Task<StoredFile> StoreAsync(IFormFile file, string folder,
+        CancellationToken cancellationToken)
     {
-        var application = await _db.Applications
-            .Include(a => a.Attachments)
-            .SingleOrDefaultAsync(a => a.Id == applicationId && a.ApplicantId == userId,
-                cancellationToken);
-
-        if (application is null)
-            return null;
-
-        var actor = new Actor(userId, ActorRole.Student);
-
-        // Cheap checks first: saving and converting take seconds
-        application.EnsureCanAddAttachment(actor);
-
         if (file.Length < 1 || file.Length > AttachmentRules.MaxSizeBytes)
             throw new InvalidFileException(ErrorMapping.InvalidFileSize,
                 $"File size {file.Length} B is outside the allowed range.");
@@ -50,7 +33,6 @@ public sealed class AttachmentUploadService
             ?? throw new InvalidFileException(ErrorMapping.UnsupportedFileType,
                 $"'{fileName}' is not an allowed file or its content does not match the name.");
 
-        var folder = $"applications/{application.Id}";
         string? originalPath = null;
         string? pdfPath = null;
 
@@ -65,23 +47,24 @@ public sealed class AttachmentUploadService
                 pdfPath = await ConvertAsync(originalPath, type.ContentType, folder,
                     cancellationToken);
 
-            var attachment = application.AddAttachment(actor, new StoredFile(
-                fileName, type.ContentType, originalPath, pdfPath, file.Length), DateTime.UtcNow);
-
-            await _db.SaveChangesAsync(cancellationToken);
-
-            return new AttachmentSummary(attachment.Id, attachment.OriginalFileName,
-                attachment.SizeBytes);
+            return new StoredFile(fileName, type.ContentType, originalPath, pdfPath, file.Length);
         }
         catch
         {
-            // Nothing reached the database, so the files on disk would belong to nothing
-            if (pdfPath is not null)
-                _storage.Delete(pdfPath);
-            if (originalPath is not null)
-                _storage.Delete(originalPath);
+            Delete(originalPath, pdfPath);
             throw;
         }
+    }
+
+    // For a file that was stored but is not wanted after all
+    public void Delete(StoredFile file) => Delete(file.StoragePath, file.PdfStoragePath);
+
+    private void Delete(string? originalPath, string? pdfPath)
+    {
+        if (pdfPath is not null)
+            _storage.Delete(pdfPath);
+        if (originalPath is not null)
+            _storage.Delete(originalPath);
     }
 
     private static async Task<byte[]> ReadHeaderAsync(IFormFile file,

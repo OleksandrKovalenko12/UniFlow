@@ -17,6 +17,7 @@ public class UniFlowDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<StudentProfile> StudentProfiles => Set<StudentProfile>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
     public DbSet<Application> Applications => Set<Application>();
+    public DbSet<Draft> Drafts => Set<Draft>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<ApplicationNumberCounter> ApplicationNumberCounters => Set<ApplicationNumberCounter>();
 

@@ -1,26 +1,23 @@
 ﻿@page "/my"
 @attribute [Authorize(Roles = RoleNames.Student)]
 @inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
 
 <PageTitle>Moje wnioski - UniFlow</PageTitle>
 
-<div class="d-flex flex-wrap align-center justify-space-between gap-2 mb-4">
-    <MudText Typo="Typo.h5" HtmlTag="h1">Moje wnioski</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
-               StartIcon="@Icons.Material.Filled.Add" Href="new">
-        Złóż wniosek
-    </MudButton>
-</div>
+@* A new application starts from "Nowy wniosek" in the menu, or from the empty list below *@
+<MudText Typo="Typo.h5" HtmlTag="h1" Class="mb-4">Moje wnioski</MudText>
 
 @if (_error is not null)
 {
     <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
-else if (_items is null)
+else if (_items is null || _drafts is null)
 {
     <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
 }
-else if (_items.Count == 0)
+else if (_items.Count == 0 && _drafts.Count == 0)
 {
     <MudPaper Class="pa-6" Elevation="0" Outlined="true" Style="text-align: center">
         <MudText Class="mb-4">Nie masz jeszcze żadnych wniosków.</MudText>
@@ -30,11 +27,53 @@ else if (_items.Count == 0)
 else
 {
     <MudTabs @bind-ActivePanelIndex="_tabIndex" Elevation="0" Class="mb-4" Border="true">
-        <MudTabPanel Text="@($"W toku ({Open.Count})")" />
+        <MudTabPanel Text="@($"W toku ({Open.Count + _drafts.Count})")" />
         <MudTabPanel Text="@($"Zakończone ({Closed.Count})")" />
     </MudTabs>
 
-    @if (Shown.Count == 0)
+    @if (_tabIndex == 0 && _drafts.Count > 0)
+    {
+        <MudText Typo="Typo.subtitle1" HtmlTag="h2" Class="mb-2"><b>Niedokończone</b></MudText>
+
+        @* Not submitted yet: no number and no status, only the student sees them.
+        The whole card opens the form, like the cards below. "Usuń" sits next to the link. *@
+        @foreach (var draft in _drafts)
+        {
+            <div class="draft-card">
+                <a href="@ContinueUrl(draft)" class="application-card">
+                    <MudPaper Class="pa-4 pr-12" Elevation="0" Outlined="true">
+                        <div class="d-flex flex-wrap align-center gap-2 mb-1">
+                            <MudText><b>@draft.TypeName</b></MudText>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Niedokończony</MudChip>
+                        </div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            Zapisany @DateText.Format(draft.UpdatedAt) · @draft.FieldOfStudyName, @draft.StudyLevel
+                            @if (draft.FileCount > 0)
+                            {
+                                <span> · Załączniki: @draft.FileCount</span>
+                            }
+                        </MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            Jeśli go nie dokończysz, zostanie usunięty @DateText.Day(draft.ExpiresAt).
+                        </MudText>
+                    </MudPaper>
+                </a>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" Class="draft-delete"
+                        Disabled="_deleting" aria-label="@($"Usuń niedokończony wniosek: {draft.TypeName}")"
+                        OnClick="() => DeleteAsync(draft)">
+                        Usuń
+                    </MudButton>
+            </div>
+        }
+
+        @if (Open.Count > 0)
+        {
+            <MudText Typo="Typo.subtitle1" HtmlTag="h2" Class="mt-4 mb-2"><b>Złożone</b></MudText>
+        }
+    }
+
+    @* "W toku" with drafts only is not empty *@
+    @if (Shown.Count == 0 && !(_tabIndex == 0 && _drafts.Count > 0))
     {
         <MudPaper Class="pa-6" Elevation="0" Outlined="true" Style="text-align: center">
             <MudText Class="mb-4">
@@ -78,8 +117,10 @@ else
         [ApplicationState.Approved, ApplicationState.Rejected, ApplicationState.Withdrawn];
 
     private IReadOnlyList<MyApplicationItem>? _items;
+    private List<DraftSummary>? _drafts;
     private string? _error;
     private int _tabIndex;
+    private bool _deleting;
 
     // "W toku" - still moving; "Zakończone" - decided or withdrawn
     private List<MyApplicationItem> Open => _items!.Where(a => !ClosedStatuses.Contains(a.Status)).ToList();
@@ -88,10 +129,48 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var result = await Api.GetMyApplicationsAsync();
-        if (result.IsSuccess)
-            _items = result.Value;
+        // Both requests start together - neither waits for the other
+        var items = Api.GetMyApplicationsAsync();
+        var drafts = Api.GetMyDraftsAsync();
+
+        var itemsResult = await items;
+        var draftsResult = await drafts;
+
+        if (!itemsResult.IsSuccess)
+            _error = itemsResult.Error.Message;
+        else if (!draftsResult.IsSuccess)
+            _error = draftsResult.Error.Message;
         else
-            _error = result.Error.Message;
+        {
+            _items = itemsResult.Value;
+            _drafts = draftsResult.Value.ToList();
+        }
+    }
+
+    // Every type has its own form; "continue" skips the question the form would ask
+    private static string ContinueUrl(DraftSummary draft) => draft.TypeCode switch
+    {
+        ApplicationTypeCodes.GroupChange => $"new/group-change/{draft.EnrollmentId}?continue=true",
+        _ => "new"
+    };
+
+    private async Task DeleteAsync(DraftSummary draft)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Usunąć niedokończony wniosek?",
+            $"{draft.TypeName}: wpisane dane i dodane pliki zostaną usunięte. Tego nie można cofnąć.",
+            yesText: "Usuń", cancelText: "Anuluj");
+
+        if (confirmed != true)
+            return;
+
+        _deleting = true;
+        var result = await Api.DeleteDraftAsync(draft.Id);
+        _deleting = false;
+
+        if (result.IsSuccess)
+            _drafts!.Remove(draft);
+        else
+            Snackbar.Add(result.Error.Message, Severity.Error);
     }
 }

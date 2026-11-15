@@ -30,9 +30,10 @@ public sealed class ApplicationSubmissionService
         _storage = storage;
     }
 
-    public async Task<SubmittedApplication> SubmitAsync(string userId, Guid submissionKey, 
-        int enrollmentId, string typeCode, string formData, Func<ApplicationHeader, Task<string>> renderHtml,
-        CancellationToken cancellationToken)
+    // draftId: the student's draft whose files become the application's attachments
+    public async Task<SubmittedApplication> SubmitAsync(string userId, Guid submissionKey,
+        int enrollmentId, string typeCode, string formData, Guid? draftId,
+        Func<ApplicationHeader, Task<string>> renderHtml, CancellationToken cancellationToken)
     {
         // A repeated submission gets the first result and takes no new number
         var alreadySubmitted = await FindSubmittedAsync(userId, submissionKey, cancellationToken);
@@ -51,6 +52,18 @@ public sealed class ApplicationSubmissionService
 
         // Before taking a number - a rejected submission must not waste one
         Application.EnsureCanBeSubmitted(userId, submissionKey, enrollment, type);
+
+        Draft? draft = null;
+        if (draftId is not null)
+        {
+            draft = await _db.Drafts
+                .Include(d => d.Files)
+                .SingleOrDefaultAsync(d => d.Id == draftId && d.StudentId == userId, cancellationToken)
+                ?? throw new DomainException(DomainErrorCode.DraftNotFound, "Draft not found.");
+
+            if (draft.ApplicationTypeId != type.Id)
+                throw new ArgumentException("The draft is of another application type.", nameof(draftId));
+        }
 
         var student = await _db.Users
             .Where(u => u.Id == userId)
@@ -81,9 +94,20 @@ public sealed class ApplicationSubmissionService
                 $"Wniosek_{number.Replace('/', '-')}.pdf", Attachment.PdfContentType, path, null,
                 pdf.Length), now);
 
+            // The draft's files become the application's attachments - the same files on disk -
+            // and the draft is gone
+            if (draft is not null)
+            {
+                var applicant = new Actor(userId, ActorRole.Student);
+                foreach (var file in draft.Files.OrderBy(f => f.UploadedAt))
+                    application.AddAttachment(applicant, file.ToStoredFile(), now);
+
+                _db.Drafts.Remove(draft);
+            }
+
             _db.Applications.Add(application);
 
-            // Application, status history and attachment: all or nothing
+            // Application, status history, attachments and the draft: all or nothing
             await _db.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateException exception) when (IsDuplicateSubmission(exception))

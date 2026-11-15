@@ -356,6 +356,82 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogEntries");
                 });
 
+            modelBuilder.Entity("UniFlow.Domain.Entities.Draft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ApplicationTypeId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EnrollmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FormData")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("StudentId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationTypeId");
+
+                    b.HasIndex("EnrollmentId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("StudentId", "ApplicationTypeId")
+                        .IsUnique();
+
+                    b.ToTable("Drafts");
+                });
+
+            modelBuilder.Entity("UniFlow.Domain.Entities.DraftFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("DraftId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("PdfStoragePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DraftId");
+
+                    b.ToTable("DraftFiles", (string)null);
+                });
+
             modelBuilder.Entity("UniFlow.Domain.Entities.Enrollment", b =>
                 {
                     b.Property<int>("Id")
@@ -733,6 +809,40 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("UniFlow.Domain.Entities.Draft", b =>
+                {
+                    b.HasOne("UniFlow.Domain.Entities.ApplicationType", "ApplicationType")
+                        .WithMany()
+                        .HasForeignKey("ApplicationTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UniFlow.Domain.Entities.Enrollment", "Enrollment")
+                        .WithMany()
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UniFlow.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApplicationType");
+
+                    b.Navigation("Enrollment");
+                });
+
+            modelBuilder.Entity("UniFlow.Domain.Entities.DraftFile", b =>
+                {
+                    b.HasOne("UniFlow.Domain.Entities.Draft", null)
+                        .WithMany("Files")
+                        .HasForeignKey("DraftId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("UniFlow.Domain.Entities.Enrollment", b =>
                 {
                     b.HasOne("UniFlow.Domain.Entities.FieldOfStudy", "FieldOfStudy")
@@ -807,6 +917,11 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("StatusHistory");
+                });
+
+            modelBuilder.Entity("UniFlow.Domain.Entities.Draft", b =>
+                {
+                    b.Navigation("Files");
                 });
 #pragma warning restore 612, 618
         }

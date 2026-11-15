@@ -37,7 +37,8 @@ public static class ErrorMapping
             or DomainErrorCode.NotOwnEnrollment => StatusCodes.Status403Forbidden,
 
         DomainErrorCode.AttachmentNotFound
-            or DomainErrorCode.EnrollmentNotFound => StatusCodes.Status404NotFound,
+            or DomainErrorCode.EnrollmentNotFound
+            or DomainErrorCode.DraftNotFound => StatusCodes.Status404NotFound,
 
         // State of the application, enrollment or attachment
         DomainErrorCode.InvalidStatus

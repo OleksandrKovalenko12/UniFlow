@@ -6,7 +6,8 @@ using UniFlow.Shared.ApplicationTypes;
 using UniFlow.Shared.Enrollments;
 using UniFlow.Shared.Applications;
 using UniFlow.Shared.Forms;
-using UniFlow.Client.Applications;
+using Microsoft.AspNetCore.Components.Forms;
+using UniFlow.Shared.Drafts;
 using UniFlow.Shared.Review;
 
 namespace UniFlow.Client.Api;
@@ -32,12 +33,14 @@ public sealed class ApiClient
     public Task<ApiResult<IReadOnlyList<EnrollmentSummary>>> GetMyEnrollmentsAsync() =>
     SendAsync<IReadOnlyList<EnrollmentSummary>>(() => _http.GetAsync("api/enrollments/mine"));
 
+    // draftId: the draft whose files become attachments; the server deletes the draft
     public Task<ApiResult<SubmittedApplication>> SubmitGroupChangeAsync(int enrollmentId,
-    Guid submissionKey, GroupChangeForm form) =>
+    Guid submissionKey, GroupChangeForm form, Guid? draftId) =>
     SendAsync<SubmittedApplication>(() =>
     {
         var request = new HttpRequestMessage(HttpMethod.Post,
-            $"api/enrollments/{enrollmentId}/applications/group-change")
+            $"api/enrollments/{enrollmentId}/applications/group-change" +
+            (draftId is null ? "" : $"?draftId={draftId}"))
         {
             Content = JsonContent.Create(form)
         };
@@ -87,17 +90,39 @@ public sealed class ApiClient
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown action.")
     };
 
-    // One file per request; the server checks it, converts it to PDF and returns its id
-    public Task<ApiResult<AttachmentSummary>> UploadAttachmentAsync(Guid applicationId,
-        PickedFile file) =>
-        SendAsync<AttachmentSummary>(() =>
+    // Drafts: the form saved as it is typed, and the files added to it
+
+    public Task<ApiResult<IReadOnlyList<DraftSummary>>> GetMyDraftsAsync() =>
+        SendAsync<IReadOnlyList<DraftSummary>>(() => _http.GetAsync("api/drafts"));
+
+    // Value is null when there is no draft of this type
+    public Task<ApiResult<DraftDetails?>> GetDraftAsync(string typeCode) =>
+        SendAsync<DraftDetails?>(() => _http.GetAsync($"api/drafts/{typeCode}"));
+
+    public Task<ApiResult<DraftDetails>> SaveDraftAsync(string typeCode, int enrollmentId,
+        string formData) =>
+        SendAsync<DraftDetails>(() => _http.PutAsJsonAsync($"api/drafts/{typeCode}",
+            new SaveDraftRequest { EnrollmentId = enrollmentId, FormData = formData }));
+
+    public Task<ApiResult<Done>> DeleteDraftAsync(Guid draftId) =>
+        SendAsync<Done>(() => _http.DeleteAsync($"api/drafts/{draftId}"));
+
+    // Streamed straight from the file picker; the server checks it and converts it to PDF
+    public Task<ApiResult<DraftFileInfo>> UploadDraftFileAsync(Guid draftId, IBrowserFile file) =>
+        SendAsync<DraftFileInfo>(() =>
         {
             var content = new MultipartFormDataContent
             {
-                { new ByteArrayContent(file.Content), "file", file.Name }
+                { new StreamContent(file.OpenReadStream(AttachmentRules.MaxSizeBytes)), "file", file.Name }
             };
-            return _http.PostAsync($"api/applications/{applicationId}/attachments", content);
+            return _http.PostAsync($"api/drafts/{draftId}/files", content);
         });
+
+    public Task<ApiResult<Done>> DeleteDraftFileAsync(Guid draftId, Guid fileId) =>
+        SendAsync<Done>(() => _http.DeleteAsync($"api/drafts/{draftId}/files/{fileId}"));
+
+    public static string DraftFileUrl(Guid draftId, Guid fileId, bool inline) =>
+        $"api/drafts/{draftId}/files/{fileId}" + (inline ? "?inline=true" : "");
 
     public static string AttachmentUrl(Guid applicationId, Guid attachmentId, bool inline) =>
         $"api/applications/{applicationId}/attachments/{attachmentId}" +
@@ -121,6 +146,10 @@ public sealed class ApiClient
 
         using (response)
         {
+            // 204: done, nothing to read (deleting) - or "there is none" (no draft yet)
+            if (response.StatusCode == HttpStatusCode.NoContent)
+                return ApiResult<T>.Success(default!);
+
             if (response.IsSuccessStatusCode)
                 return ApiResult<T>.Success((await response.Content.ReadFromJsonAsync<T>())!);
 
