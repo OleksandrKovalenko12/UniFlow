@@ -7,6 +7,7 @@ using UniFlow.Client.Api;
 using UniFlow.Client.Applications;
 using UniFlow.Client.Auth;
 
+
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
@@ -21,5 +22,6 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
     sp.GetRequiredService<CookieAuthenticationStateProvider>());
 builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<ReviewListState>();
+builder.Services.AddScoped<MyApplicationCounts>();
 
 await builder.Build().RunAsync();

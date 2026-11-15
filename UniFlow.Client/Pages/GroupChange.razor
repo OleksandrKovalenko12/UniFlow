@@ -3,6 +3,7 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject NavigationManager Navigation
+@inject MyApplicationCounts Counts
 @implements IDisposable
 
 <PageTitle>Zmiana grupy zajęciowej - UniFlow</PageTitle>
@@ -320,6 +321,7 @@ else
         if (result.IsSuccess)
         {
             _submitted = result.Value;
+            await Counts.RefreshAsync();
             return;
         }
 

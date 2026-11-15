@@ -2,12 +2,19 @@
 @inject CookieAuthenticationStateProvider AuthState
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject MyApplicationCounts Counts
+@implements IDisposable
 
 <MudLayout>
     <MudAppBar Elevation="0">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                       aria-label="Menu" OnClick="ToggleDrawer" />
-                <a href="./" class="d-flex" aria-label="UniFlow - strona startowa">
+        <AuthorizeView Context="auth">
+            @if (HasMenu(auth.User))
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                               aria-label="Menu" OnClick="ToggleDrawer" />
+            }
+        </AuthorizeView>
+        <a href="./" class="d-flex" aria-label="UniFlow - strona startowa">
             <img src="images/uniflow-logo.svg" alt="UniFlow" class="appbar-logo" />
         </a>
         <MudSpacer />
@@ -44,8 +51,13 @@
         </AuthorizeView>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always"
-               Class="border-r border-solid mud-border-lines-default">
+    @* Only when there is somewhere to go - an employee or the administrator alone has one page,
+       and the logo leads back to it *@
+    <AuthorizeView Context="auth">
+        @if (HasMenu(auth.User))
+        {
+            <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always"
+                       Class="border-r border-solid mud-border-lines-default">
                 <MudNavMenu>
                     <AuthorizeView Roles="@($"{RoleNames.DeanOffice},{RoleNames.ViceDean}")">
                         <MudNavLink Href="review" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Inbox">
@@ -59,15 +71,23 @@
                         </MudNavLink>
                     </AuthorizeView>
                     <AuthorizeView Roles="@RoleNames.Student">
-                        <MudNavLink Href="my" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.FolderOpen">
-                            Moje wnioski
-                        </MudNavLink>
+                        @* All, not Prefix: "my" would also light up on "my/zakonczone" *@
+                        <MudNavGroup Title="Moje wnioski" Icon="@Icons.Material.Outlined.FolderOpen" Expanded="true">
+                            <MudNavLink Href="my" Match="NavLinkMatch.All">
+                                <span class="nav-label">W toku<span class="nav-count">@Counts.InProgress</span></span>
+                            </MudNavLink>
+                            <MudNavLink Href="my/zakonczone" Match="NavLinkMatch.All">
+                                <span class="nav-label">Zakończone<span class="nav-count">@Counts.Closed</span></span>
+                            </MudNavLink>
+                        </MudNavGroup>
                         <MudNavLink Href="new" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.NoteAdd">
-                             Nowy wniosek
-                </MudNavLink>
-            </AuthorizeView>
-        </MudNavMenu>
-    </MudDrawer>
+                            Nowy wniosek
+                        </MudNavLink>
+                    </AuthorizeView>
+                </MudNavMenu>
+            </MudDrawer>
+        }
+    </AuthorizeView>
 
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
@@ -78,15 +98,32 @@
 
 @code {
     private bool _drawerOpen = true;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        Counts.Changed += CountsChanged;
+
+        var user = (await AuthState.GetAuthenticationStateAsync()).User;
+        if (user.IsInRole(RoleNames.Student))
+            await Counts.RefreshAsync();
+    }
+
+    private void CountsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Counts.Changed -= CountsChanged;
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
-        
-    // "Jan Zieliński" -> "JZ"
+
+    // A student has two pages to choose from; an employee or the administrator alone only one
+    private static bool HasMenu(ClaimsPrincipal user) =>
+        user.IsInRole(RoleNames.Student)
+        || ((user.IsInRole(RoleNames.DeanOffice) || user.IsInRole(RoleNames.ViceDean))
+            && user.IsInRole(RoleNames.Administrator));
+
     private static string Initials(string? name) =>
         string.Concat((name ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Take(2)
             .Select(part => char.ToUpper(part[0])));
-
 
     private async Task LogoutAsync()
     {

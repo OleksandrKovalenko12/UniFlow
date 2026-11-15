@@ -1,13 +1,15 @@
 ﻿@page "/my"
+@page "/my/{Tab}"
 @attribute [Authorize(Roles = RoleNames.Student)]
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject MyApplicationCounts Counts
 
-<PageTitle>Moje wnioski - UniFlow</PageTitle>
+<PageTitle>@Heading - UniFlow</PageTitle>
 
-@* A new application starts from "Nowy wniosek" in the menu, or from the empty list below *@
-<MudText Typo="Typo.h5" HtmlTag="h1" Class="mb-4">Moje wnioski</MudText>
+@* Which list - the menu chooses ("W toku" / "Zakończone"), the address keeps it *@
+<MudText Typo="Typo.h5" HtmlTag="h1" Class="mb-4">@Heading</MudText>
 
 @if (_error is not null)
 {
@@ -26,17 +28,13 @@ else if (_items.Count == 0 && _drafts.Count == 0)
 }
 else
 {
-    <MudTabs @bind-ActivePanelIndex="_tabIndex" Elevation="0" Class="mb-4" Border="true">
-        <MudTabPanel Text="@($"W toku ({Open.Count + _drafts.Count})")" />
-        <MudTabPanel Text="@($"Zakończone ({Closed.Count})")" />
-    </MudTabs>
-
-    @if (_tabIndex == 0 && _drafts.Count > 0)
+    @if (!ShowClosed && _drafts.Count > 0)
     {
         <MudText Typo="Typo.subtitle1" HtmlTag="h2" Class="mb-2"><b>Niedokończone</b></MudText>
 
         @* Not submitted yet: no number and no status, only the student sees them.
-        The whole card opens the form, like the cards below. "Usuń" sits next to the link. *@
+           The whole card opens the form, like the cards below. "Usuń" sits next to the link,
+           not inside it - a button inside a link is not valid HTML. *@
         @foreach (var draft in _drafts)
         {
             <div class="draft-card">
@@ -58,11 +56,11 @@ else
                         </MudText>
                     </MudPaper>
                 </a>
-                    <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" Class="draft-delete"
-                        Disabled="_deleting" aria-label="@($"Usuń niedokończony wniosek: {draft.TypeName}")"
-                        OnClick="() => DeleteAsync(draft)">
-                        Usuń
-                    </MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" Class="draft-delete"
+                           Disabled="_deleting" aria-label="@($"Usuń niedokończony wniosek: {draft.TypeName}")"
+                           OnClick="() => DeleteAsync(draft)">
+                    Usuń
+                </MudButton>
             </div>
         }
 
@@ -73,13 +71,13 @@ else
     }
 
     @* "W toku" with drafts only is not empty *@
-    @if (Shown.Count == 0 && !(_tabIndex == 0 && _drafts.Count > 0))
+    @if (Shown.Count == 0 && (ShowClosed || _drafts.Count == 0))
     {
         <MudPaper Class="pa-6" Elevation="0" Outlined="true" Style="text-align: center">
             <MudText Class="mb-4">
-                @(_tabIndex == 0 ? "Nie masz wniosków w toku." : "Nie masz jeszcze zakończonych wniosków.")
+                @(ShowClosed ? "Nie masz jeszcze zakończonych wniosków." : "Nie masz wniosków w toku.")
             </MudText>
-            @if (_tabIndex == 0)
+            @if (!ShowClosed)
             {
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="new">Złóż wniosek</MudButton>
             }
@@ -116,13 +114,21 @@ else
     private IReadOnlyList<MyApplicationItem>? _items;
     private List<DraftSummary>? _drafts;
     private string? _error;
-    private int _tabIndex;
     private bool _deleting;
+
+    // "zakonczone" for the closed ones; nothing for those in progress
+    [Parameter]
+    public string? Tab { get; set; }
+
+    private bool ShowClosed => Tab == "zakonczone";
+    private string Heading => ShowClosed ? "Wnioski zakończone" : "Wnioski w toku";
 
     // "W toku" - still moving; "Zakończone" - decided or withdrawn (the server decides which)
     private List<MyApplicationItem> Open => _items!.Where(a => a.InProgress).ToList();
     private List<MyApplicationItem> Closed => _items!.Where(a => !a.InProgress).ToList();
-    private List<MyApplicationItem> Shown => _tabIndex == 0 ? Open : Closed;
+
+    // The page stays when the menu changes the list - the lists stay loaded
+    private List<MyApplicationItem> Shown => ShowClosed ? Closed : Open;
 
     protected override async Task OnInitializedAsync()
     {
@@ -141,10 +147,15 @@ else
         {
             _items = itemsResult.Value;
             _drafts = draftsResult.Value.ToList();
+            UpdateCounts();
         }
     }
 
-    // Every type has its own form; "continue" skips the question the form would ask
+    // The menu shows the same numbers as these lists
+    private void UpdateCounts() => Counts.Set(Open.Count + _drafts!.Count, Closed.Count);
+
+    // Every type has its own form; "continue" skips the question the form would ask,
+    // "from" brings the student back here with "Wróć"
     private static string ContinueUrl(DraftSummary draft) => draft.TypeCode switch
     {
         ApplicationTypeCodes.GroupChange => $"new/group-change/{draft.EnrollmentId}?continue=true&from=/my",
@@ -166,7 +177,10 @@ else
         _deleting = false;
 
         if (result.IsSuccess)
+        {
             _drafts!.Remove(draft);
+            UpdateCounts();
+        }
         else
             Snackbar.Add(result.Error.Message, Severity.Error);
     }

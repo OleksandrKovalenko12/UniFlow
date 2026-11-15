@@ -53,6 +53,18 @@
             }
         </MudSelect>
     }
+    @* New applications do not appear by themselves - the list is loaded once *@
+    @if (_refreshing)
+    {
+        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="align-self-center mx-3" />
+    }
+    else
+    {
+        <MudTooltip Text="Odśwież listę" Class="align-self-center">
+            <MudIconButton Icon="@Icons.Material.Filled.Refresh" aria-label="Odśwież listę"
+                           OnClick="RefreshAsync" />
+        </MudTooltip>
+    }
 </div>
 
 @if (CurrentTab == ReviewTab.New)
@@ -144,6 +156,7 @@
     private IReadOnlyList<ApplicationTypeSummary> _types = [];
     private IReadOnlyList<StaffMember> _staff = [];
     private ReviewCounts? _counts;
+    private bool _refreshing;
     private string? _error;
 
     // The "Nowe" tab: corrected applications above the new ones, and what is ticked
@@ -298,6 +311,20 @@
     {
         _correctedOpen = !_correctedOpen;
         _correctedToggled = true;
+    }
+
+        // The same view with fresh data: tab, filters, page and the open sections stay. The selection
+    // goes - the selected rows may have been taken by someone in the meantime.
+    private async Task RefreshAsync()
+    {
+        _refreshing = true;
+        ClearSelection();
+
+        await LoadCorrectedAsync();
+        await LoadCountsAsync();
+        await _table.ReloadServerData();
+
+        _refreshing = false;
     }
 
     // Another tab or filter starts again from the first page

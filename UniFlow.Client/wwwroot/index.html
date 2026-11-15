@@ -16,11 +16,16 @@
 
 <body>
     <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
+        <!-- Before Blazor starts: plain HTML and CSS, no MudBlazor yet. The second logo is the
+             light that runs over the first one, like a dynamic turn signal. -->
+        <div class="app-loading">
+            <div class="app-loading-logo">
+                <img src="images/uniflow-logo.svg" alt="UniFlow" class="app-loading-base" />
+                <div class="app-loading-glow">
+                    <img src="images/uniflow-logo.svg" alt="" class="app-loading-light" />
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="blazor-error-ui">

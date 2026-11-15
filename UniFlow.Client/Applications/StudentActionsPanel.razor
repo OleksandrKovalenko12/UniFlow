@@ -2,6 +2,7 @@
 @inject ApiClient Api
 @inject IDialogService Dialogs
 @inject ISnackbar Snackbar
+@inject MyApplicationCounts Counts
 
 <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
     <MudText Typo="Typo.h6" GutterBottom="true">Twój wniosek</MudText>
@@ -52,6 +53,7 @@
         }
 
         Snackbar.Add("Wniosek wycofany.", Severity.Success);
+        await Counts.RefreshAsync();
         await Changed.InvokeAsync(result.Value);
     }
 }
