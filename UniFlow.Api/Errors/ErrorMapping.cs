@@ -50,7 +50,8 @@ public static class ErrorMapping
             or DomainErrorCode.AttachmentNotArchivable
             or DomainErrorCode.AttachmentAlreadyArchived
             or DomainErrorCode.EnrollmentAlreadyInactive
-            or DomainErrorCode.EnrollmentAlreadyActive => StatusCodes.Status409Conflict,
+            or DomainErrorCode.EnrollmentAlreadyActive
+            or DomainErrorCode.ApplicationAlreadyInProgress => StatusCodes.Status409Conflict,
 
         // New code without a decision - a test catches it
         _ => StatusCodes.Status500InternalServerError

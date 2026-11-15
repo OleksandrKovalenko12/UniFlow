@@ -5,10 +5,16 @@
         <MudRadioGroup T="int" @bind-Value="_selectedId">
             @foreach (var enrollment in Enrollments)
             {
-                <MudRadio Value="enrollment.Id" Color="Color.Primary" Class="mb-2">
+                var reason = Unavailable?.GetValueOrDefault(enrollment.Id);
+
+                <MudRadio Value="enrollment.Id" Color="Color.Primary" Class="mb-2" Disabled="reason is not null">
                     <div>
                         <MudText><b>@enrollment.FieldOfStudyName</b>, @EnrollmentLabels.Details(enrollment)</MudText>
                         <MudText Typo="Typo.body2" Class="mud-text-secondary">@EnrollmentLabels.Faculty(enrollment)</MudText>
+                        @if (reason is not null)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Warning">@reason</MudText>
+                        }
                     </div>
                 </MudRadio>
             }
@@ -33,6 +39,10 @@
     [Parameter]
     public int? SelectedId { get; set; }
 
+    // Studies that cannot be chosen, with the reason shown under them
+    [Parameter]
+    public IReadOnlyDictionary<int, string>? Unavailable { get; set; }
+
     // 0 = nothing chosen yet (database ids start at 1)
     private int _selectedId;
 
@@ -44,13 +54,16 @@
 
     // Opens the dialog and returns the chosen enrollment id, or null when it was cancelled
     public static async Task<int?> ShowAsync(IDialogService dialogs,
-        IReadOnlyList<EnrollmentSummary> enrollments, int? selectedId = null)
+    IReadOnlyList<EnrollmentSummary> enrollments, int? selectedId = null,
+    IReadOnlyDictionary<int, string>? unavailable = null)
     {
         var parameters = new DialogParameters<ChooseEnrollmentDialog>
         {
             { d => d.Enrollments, enrollments },
-            { d => d.SelectedId, selectedId }
+            { d => d.SelectedId, selectedId },
+            { d => d.Unavailable, unavailable }
         };
+
         var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
 
         var dialog = await dialogs.ShowAsync<ChooseEnrollmentDialog>("Wybierz studia", parameters, options);

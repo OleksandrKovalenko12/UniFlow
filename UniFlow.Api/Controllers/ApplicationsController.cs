@@ -88,21 +88,25 @@ public sealed class ApplicationsController : ControllerBase
             .Where(a => a.ApplicantId == userId)
             .OrderByDescending(a => a.Status == ApplicationStatus.NeedsCorrection)
             .ThenByDescending(a => a.CreatedAt)
-            .Select(a => new
-            {
-                a.Id,
-                a.Number,
-                TypeName = a.ApplicationType.Name,
-                a.Status,
-                a.CreatedAt,
-                FieldOfStudyName = a.Enrollment.FieldOfStudy.Name,
-                a.Enrollment.FieldOfStudy.Level
-            })
+                        .Select(a => new
+                        {
+                            a.Id,
+                            a.Number,
+                            TypeCode = a.ApplicationType.Code,
+                            TypeName = a.ApplicationType.Name,
+                            a.Status,
+                            a.CreatedAt,
+                            a.EnrollmentId,
+                            FieldOfStudyName = a.Enrollment.FieldOfStudy.Name,
+                            a.Enrollment.FieldOfStudy.Level
+                        })
             .ToListAsync(cancellationToken);
 
+        // "In progress" is decided here, by Domain - the browser does not repeat the rule
         return rows
-            .Select(r => new MyApplicationItem(r.Id, r.Number, r.TypeName, (ApplicationState)r.Status,
-                r.CreatedAt, r.FieldOfStudyName, StudyTexts.Level(r.Level)))
+            .Select(r => new MyApplicationItem(r.Id, r.Number, r.TypeCode, r.TypeName,
+                (ApplicationState)r.Status, Application.InProgressStatuses.Contains(r.Status),
+                r.CreatedAt, r.EnrollmentId, r.FieldOfStudyName, StudyTexts.Level(r.Level)))
             .ToList();
     }
 

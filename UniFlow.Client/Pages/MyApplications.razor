@@ -41,7 +41,7 @@ else
         {
             <div class="draft-card">
                 <a href="@ContinueUrl(draft)" class="application-card">
-                    <MudPaper Class="pa-4 pr-12" Elevation="0" Outlined="true">
+                    <MudPaper Class="pa-4 pr-16" Elevation="0" Outlined="true">
                         <div class="d-flex flex-wrap align-center gap-2 mb-1">
                             <MudText><b>@draft.TypeName</b></MudText>
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Niedokończony</MudChip>
@@ -113,18 +113,15 @@ else
 }
 
 @code {
-    private static readonly ApplicationState[] ClosedStatuses =
-        [ApplicationState.Approved, ApplicationState.Rejected, ApplicationState.Withdrawn];
-
     private IReadOnlyList<MyApplicationItem>? _items;
     private List<DraftSummary>? _drafts;
     private string? _error;
     private int _tabIndex;
     private bool _deleting;
 
-    // "W toku" - still moving; "Zakończone" - decided or withdrawn
-    private List<MyApplicationItem> Open => _items!.Where(a => !ClosedStatuses.Contains(a.Status)).ToList();
-    private List<MyApplicationItem> Closed => _items!.Where(a => ClosedStatuses.Contains(a.Status)).ToList();
+    // "W toku" - still moving; "Zakończone" - decided or withdrawn (the server decides which)
+    private List<MyApplicationItem> Open => _items!.Where(a => a.InProgress).ToList();
+    private List<MyApplicationItem> Closed => _items!.Where(a => !a.InProgress).ToList();
     private List<MyApplicationItem> Shown => _tabIndex == 0 ? Open : Closed;
 
     protected override async Task OnInitializedAsync()
@@ -150,7 +147,7 @@ else
     // Every type has its own form; "continue" skips the question the form would ask
     private static string ContinueUrl(DraftSummary draft) => draft.TypeCode switch
     {
-        ApplicationTypeCodes.GroupChange => $"new/group-change/{draft.EnrollmentId}?continue=true",
+        ApplicationTypeCodes.GroupChange => $"new/group-change/{draft.EnrollmentId}?continue=true&from=/my",
         _ => "new"
     };
 

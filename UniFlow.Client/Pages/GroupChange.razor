@@ -58,6 +58,18 @@ else if (_submitted is not null)
         </MudButton>
     </MudPaper>
 }
+else if (Blocking is not null)
+{
+    @* Reached by "wstecz" after submitting, an old link or "Zmień" - the server would refuse anyway *@
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+        Masz już wniosek o zmianę grupy w toku na tych studiach: <b>@Blocking.Number</b>.
+        Nowy złożysz, gdy ten zostanie rozpatrzony albo wycofany.
+    </MudAlert>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+               Href="@($"applications/{Blocking.Id}")">
+        Otwórz wniosek
+    </MudButton>
+}
 else
 {
     <MudPaper Class="pa-4 mb-4 d-flex align-center gap-4" Elevation="0" Outlined="true">
@@ -229,12 +241,11 @@ else
                       ErrorText="@_errors.For(nameof(GroupChangeForm.Justification))" />
     </MudPaper>
 
-    
     @if (_maxAttachments > 0)
     {
         <DraftFilesPicker Files="_files" DraftId="_draft?.Id" EnsureDraftAsync="EnsureDraftAsync"
-            MaxFiles="_maxAttachments" BusyChanged="busy => _filesBusy = busy"
-            Hint="Opcjonalnie, np. zaświadczenie od pracodawcy." />
+                          MaxFiles="_maxAttachments" BusyChanged="busy => _filesBusy = busy"
+                          Hint="Opcjonalnie, np. zaświadczenie od pracodawcy." />
     }
 
     @if (_submitError is not null)
@@ -246,7 +257,7 @@ else
         <MudAlert Severity="Severity.Error" Class="mb-4">Popraw zaznaczone pola formularza.</MudAlert>
     }
 
-        <div class="d-flex flex-wrap align-center justify-space-between gap-2">
+    <div class="d-flex flex-wrap align-center justify-space-between gap-2">
         <MudText Typo="Typo.body2" Class="@(_saveFailed ? "mud-error-text" : "mud-text-secondary")">
             @SaveStatus
         </MudText>
@@ -254,7 +265,7 @@ else
                    Disabled="_sending || _filesBusy" OnClick="SubmitAsync">
             @(_sending ? "Wysyłanie..." : "Złóż wniosek")
         </MudButton>
-        </div>
+    </div>
 }
 
 @code {
@@ -286,6 +297,10 @@ else
     private IReadOnlyList<EnrollmentSummary>? _enrollments;
     private EnrollmentSummary? _enrollment;
     private string? _error;
+
+    // This type's applications in progress, by studies: such studies get no new one
+    private Dictionary<int, MyApplicationItem> _inProgress = [];
+    private MyApplicationItem? Blocking => _submitted is null ? _inProgress.GetValueOrDefault(EnrollmentId) : null;
 
     // No scope chosen at the start; one empty row is ready for the "Subjects" scope.
     // Replaced by the draft's form when the student continues a draft.
@@ -350,7 +365,21 @@ else
         _maxAttachments = types.Value
             .FirstOrDefault(t => t.Code == ApplicationTypeCodes.GroupChange)?.MaxAttachments ?? 0;
 
-        await LoadDraftAsync();
+        var mine = await Api.GetMyApplicationsAsync();
+        if (!mine.IsSuccess)
+        {
+            _error = mine.Error.Message;
+            return;
+        }
+
+        _inProgress = mine.Value
+            .Where(a => a.InProgress && a.TypeCode == ApplicationTypeCodes.GroupChange)
+            .GroupBy(a => a.EnrollmentId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // Nothing to continue on studies that cannot take a new application
+        if (Blocking is null)
+            await LoadDraftAsync();
     }
 
     // A draft of this type from before: continue it, or start again and delete it
@@ -412,14 +441,16 @@ else
             _keyEnrollmentId = EnrollmentId;
         }
 
-        // "Zmień": the draft moves to the new studies
-        if (_draft is not null && _draft.EnrollmentId != EnrollmentId)
+        // "Zmień": the draft moves to the new studies - not to ones that cannot take it
+        if (_draft is not null && _draft.EnrollmentId != EnrollmentId && Blocking is null)
             ScheduleSave();
     }
 
     private async Task ChangeEnrollmentAsync()
     {
-        var enrollmentId = await ChooseEnrollmentDialog.ShowAsync(Dialogs, _enrollments!, EnrollmentId);
+        var unavailable = _inProgress.ToDictionary(p => p.Key, p => $"W toku: {p.Value.Number}");
+        var enrollmentId = await ChooseEnrollmentDialog.ShowAsync(Dialogs, _enrollments!, EnrollmentId,
+            unavailable);
 
         // "from" stays, so "Wróć" still leads to where the student came from
         if (enrollmentId is not null && enrollmentId != EnrollmentId)

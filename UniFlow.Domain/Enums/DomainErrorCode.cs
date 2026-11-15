@@ -30,4 +30,7 @@ public enum DomainErrorCode
 
     // Drafts
     DraftNotFound = 17,
+
+    // One application of a type in progress on given studies
+    ApplicationAlreadyInProgress = 18,
 }

@@ -53,6 +53,23 @@ public sealed class ApplicationSubmissionService
         // Before taking a number - a rejected submission must not waste one
         Application.EnsureCanBeSubmitted(userId, submissionKey, enrollment, type);
 
+
+        // One application of a type in progress on given studies
+        var inProgress = await _db.Applications
+            .Where(a => a.EnrollmentId == enrollmentId && a.ApplicationTypeId == type.Id
+                && Application.InProgressStatuses.Contains(a.Status))
+            .Select(a => new { a.Id, a.Number, a.SubmissionKey })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (inProgress is not null)
+        {
+            // This very submission, saved by a twin request a moment ago - not a second application
+            if (inProgress.SubmissionKey == submissionKey)
+                return new SubmittedApplication(inProgress.Id, inProgress.Number);
+
+            throw new DomainException(DomainErrorCode.ApplicationAlreadyInProgress,
+                $"Application {inProgress.Number} of this type is still in progress on these studies.");
+        }
+
         Draft? draft = null;
         if (draftId is not null)
         {
@@ -110,13 +127,22 @@ public sealed class ApplicationSubmissionService
             // Application, status history, attachments and the draft: all or nothing
             await _db.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException exception) when (IsDuplicateSubmission(exception))
+        catch (DbUpdateException exception) when (ViolatedIndex(exception) is not null)
         {
-            // Two identical requests at the same moment: the other one has already won
             _storage.Delete(path);
 
-            return await FindSubmittedAsync(userId, submissionKey, cancellationToken)
-                ?? throw new InvalidOperationException("The winning submission was not found.");
+            // Two identical requests at the same moment: the other one has already won.
+            // Checked first - the same request breaks both indexes, the database names only one.
+            var winner = await FindSubmittedAsync(userId, submissionKey, cancellationToken);
+            if (winner is not null)
+                return winner;
+
+            // Another application of this type at the same moment, e.g. from a second tab
+            if (ViolatedIndex(exception) == ApplicationConfiguration.InProgressIndex)
+                throw new DomainException(DomainErrorCode.ApplicationAlreadyInProgress,
+                    "Another application of this type was submitted at the same moment.");
+
+            throw;
         }
         catch
         {
@@ -136,10 +162,11 @@ public sealed class ApplicationSubmissionService
         .Select(a => new SubmittedApplication(a.Id, a.Number))
         .SingleOrDefaultAsync(cancellationToken);
 
-    private static bool IsDuplicateSubmission(DbUpdateException exception) =>
-        exception.InnerException is PostgresException
-        {
-            SqlState: PostgresErrorCodes.UniqueViolation,
-            ConstraintName: ApplicationConfiguration.SubmissionKeyIndex
-        };
+    // The name of the unique index that stopped the save, or null for any other error
+    private static string? ViolatedIndex(DbUpdateException exception) =>
+        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres
+            && postgres.ConstraintName is ApplicationConfiguration.SubmissionKeyIndex
+                or ApplicationConfiguration.InProgressIndex
+            ? postgres.ConstraintName
+            : null;
 }

@@ -7,6 +7,17 @@ public class Application
     private readonly List<StatusHistoryEntry> _statusHistory = new();
     private readonly List<Attachment> _attachments = new();
 
+    // Still moving through the workflow. A student may have only one application of a type in
+    // progress on given studies; a decided or withdrawn one makes room for a new one.
+    public static readonly IReadOnlyList<ApplicationStatus> InProgressStatuses =
+    [
+        ApplicationStatus.Submitted,
+        ApplicationStatus.UnderReview,
+        ApplicationStatus.NeedsCorrection,
+        ApplicationStatus.Resubmitted,
+        ApplicationStatus.ForwardedToDean
+    ];
+
     public Guid Id { get; private set; }
     public string Number { get; private set; } = null!;
     public string ApplicantId { get; private set; } = null!;

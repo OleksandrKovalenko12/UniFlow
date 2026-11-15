@@ -222,6 +222,11 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_Applications_ApplicantId_SubmissionKey");
 
+                    b.HasIndex("EnrollmentId", "ApplicationTypeId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Applications_EnrollmentId_ApplicationTypeId_InProgress")
+                        .HasFilter("\"Status\" IN (1, 2, 3, 4, 5)");
+
                     b.ToTable("Applications");
                 });
 

@@ -20,6 +20,7 @@ public static class ApiErrorMessages
         ["ApplicationTypeInactive"] = "Tego rodzaju wniosku nie można już złożyć.",
         ["AttachmentLimitReached"] = "Osiągnięto limit załączników dla tego wniosku.",
         ["DraftNotFound"] = "Nie znaleziono niedokończonego wniosku. Odśwież stronę.",
+        ["ApplicationAlreadyInProgress"] = "Masz już wniosek tego rodzaju w toku na tych studiach. " + "Nowy złożysz, gdy tamten zostanie rozpatrzony albo wycofany.",
         ["UnsupportedFileType"] = "Ten rodzaj pliku nie jest obsługiwany. Dozwolone: PDF, DOCX, ODT, JPG, PNG, WebP.",
         ["InvalidFileSize"] = "Plik jest pusty albo większy niż 10 MB.",
         ["FileConversionFailed"] = "Nie udało się przetworzyć pliku. Sprawdź, czy otwiera się poprawnie, albo zapisz go jako PDF."

@@ -32,12 +32,28 @@ else
     <MudGrid>
         @foreach (var type in _types)
         {
+            var blocking = BlockingFor(type.Code);
+
             <MudItem xs="12" sm="6" lg="4">
                 <MudPaper Class="pa-4 d-flex flex-column" Elevation="0" Outlined="true" Style="height: 100%">
                     <MudText Typo="Typo.h6" GutterBottom="true">@type.Name</MudText>
                     <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">@type.Description</MudText>
+                    @if (blocking.Count > 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="mb-4">
+                            Masz już ten wniosek w toku:
+                            @* foreach, not for: the link's content is rendered later, when a "for"
+                               counter would already be past the end of the list *@
+                            @foreach (var application in blocking)
+                            {
+                                @(application == blocking[0] ? "" : ", ")
+                                <MudLink Href="@($"applications/{application.Id}")" Typo="Typo.body2">@application.Number</MudLink>
+                            }.
+                            Nowy złożysz, gdy zostanie rozpatrzony albo wycofany.
+                        </MudText>
+                    }
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-auto align-self-start"
-                               Disabled="_starting" OnClick="() => StartAsync(type)">
+                               Disabled="_starting || blocking.Count > 0" OnClick="() => StartAsync(type)">
                         Wypełnij wniosek
                     </MudButton>
                 </MudPaper>
@@ -54,6 +70,8 @@ else
     };
 
     private IReadOnlyList<ApplicationTypeSummary>? _types;
+    private IReadOnlyList<EnrollmentSummary> _enrollments = [];
+    private IReadOnlyList<MyApplicationItem> _mine = [];
     private string? _error;
 
     private bool _starting;
@@ -67,33 +85,58 @@ else
         _error = null;
         _types = null;
 
-        var result = await Api.GetApplicationTypesAsync();
-        if (!result.IsSuccess)
+        // All three at once - neither waits for the others
+        var types = Api.GetApplicationTypesAsync();
+        var enrollments = Api.GetMyEnrollmentsAsync();
+        var mine = Api.GetMyApplicationsAsync();
+
+        var typesResult = await types;
+        var enrollmentsResult = await enrollments;
+        var mineResult = await mine;
+
+        if (!typesResult.IsSuccess)
         {
-            _error = result.Error.Message;
+            _error = typesResult.Error.Message;
+            return;
+        }
+        if (!enrollmentsResult.IsSuccess)
+        {
+            _error = enrollmentsResult.Error.Message;
+            return;
+        }
+        if (!mineResult.IsSuccess)
+        {
+            _error = mineResult.Error.Message;
             return;
         }
 
-        _types = result.Value.Where(t => FormPages.ContainsKey(t.Code)).ToList();
+        _enrollments = enrollmentsResult.Value;
+        _mine = mineResult.Value;
+        _types = typesResult.Value.Where(t => FormPages.ContainsKey(t.Code)).ToList();
+    }
+
+    // Applications of this type still in progress, by studies - one per studies at most
+    private Dictionary<int, MyApplicationItem> InProgressByEnrollment(string typeCode) =>
+        _mine.Where(a => a.InProgress && a.TypeCode == typeCode)
+            .GroupBy(a => a.EnrollmentId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+    // The type is greyed out only when every studies programme already has one in progress;
+    // otherwise the student picks studies that are still free
+    private List<MyApplicationItem> BlockingFor(string typeCode)
+    {
+        var inProgress = InProgressByEnrollment(typeCode);
+        return _enrollments.Count > 0 && _enrollments.All(e => inProgress.ContainsKey(e.Id))
+            ? inProgress.Values.ToList()
+            : [];
     }
 
     // One study programme: straight to the form, more: the student chooses in a dialog
     private async Task StartAsync(ApplicationTypeSummary type)
     {
-        _starting = true;
         _startMessage = null;
 
-        var result = await Api.GetMyEnrollmentsAsync();
-
-        _starting = false;
-
-        if (!result.IsSuccess)
-        {
-            ShowStartMessage(result.Error.Message, Severity.Error);
-            return;
-        }
-
-        var enrollments = result.Value;
+        var enrollments = _enrollments;
         if (enrollments.Count == 0)
         {
             ShowStartMessage("Nie masz aktywnych studiów, więc nie możesz złożyć wniosku. " +
@@ -101,9 +144,14 @@ else
             return;
         }
 
+        var unavailable = InProgressByEnrollment(type.Code)
+            .ToDictionary(p => p.Key, p => $"W toku: {p.Value.Number}");
+
+        _starting = true;
         var enrollmentId = enrollments.Count == 1
             ? enrollments[0].Id
-            : await ChooseEnrollmentDialog.ShowAsync(Dialogs, enrollments);
+            : await ChooseEnrollmentDialog.ShowAsync(Dialogs, enrollments, unavailable: unavailable);
+        _starting = false;
 
         // "from": the form's "Wróć" brings the student back here
         if (enrollmentId is not null)

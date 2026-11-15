@@ -8,6 +8,7 @@ namespace UniFlow.Infrastructure.Persistence.Configurations;
 public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
 {
     public const string SubmissionKeyIndex = "IX_Applications_ApplicantId_SubmissionKey";
+    public const string InProgressIndex = "IX_Applications_EnrollmentId_ApplicationTypeId_InProgress";
 
     public void Configure(EntityTypeBuilder<Application> builder)
     {
@@ -25,6 +26,18 @@ public class ApplicationConfiguration : IEntityTypeConfiguration<Application>
         builder.HasIndex(a => new { a.ApplicantId, a.SubmissionKey })
             .IsUnique()
             .HasDatabaseName(SubmissionKeyIndex);
+
+        // One application of a type in progress on given studies - also when two tabs submit
+        // at the same moment. A partial index: decided and withdrawn applications do not count.
+        var inProgress = string.Join(", ", Application.InProgressStatuses.Select(s => (int)s));
+        builder.HasIndex(a => new { a.EnrollmentId, a.ApplicationTypeId })
+            .IsUnique()
+            .HasFilter($"\"Status\" IN ({inProgress})")
+            .HasDatabaseName(InProgressIndex);
+
+        // The index above covers only applications in progress, so the foreign key keeps its own
+        // index for all of them - otherwise EF would drop it as "covered"
+        builder.HasIndex(a => a.EnrollmentId);
 
         builder.HasOne<ApplicationUser>()
             .WithMany()

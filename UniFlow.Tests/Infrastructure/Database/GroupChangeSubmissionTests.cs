@@ -261,4 +261,60 @@ public sealed class GroupChangeSubmissionTests : IAsyncLifetime
         Assert.Equal(1, StoredFileCount());
     }
 
+    // One application of a type in progress on given studies
+
+    private async Task<int> AddEnrollmentAsync(string userId)
+    {
+        await using var db = _postgres.CreateContext();
+
+        var suffix = Guid.NewGuid().ToString("N");
+        var faculty = new Faculty(suffix[..8], $"Wydział {suffix}");
+        var field = new FieldOfStudy("Matematyka", StudyLevel.FirstCycle, faculty);
+        var enrollment = new Enrollment(userId, field, 1, StudyMode.FullTime);
+        db.Enrollments.Add(enrollment);
+        await db.SaveChangesAsync();
+
+        return enrollment.Id;
+    }
+
+    [Fact]
+    public async Task Submit_SecondInProgressOnSameStudies_IsConflictAndTakesNoNumber()
+    {
+        var (userId, enrollmentId) = await CreateStudentAsync();
+        Assert.Equal(HttpStatusCode.Created, (await SubmitAsync(userId, enrollmentId, ValidForm)).StatusCode);
+        var numberBefore = await LastNumberAsync();
+
+        var second = await SubmitAsync(userId, enrollmentId, ValidForm);
+
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        Assert.Equal(numberBefore, await LastNumberAsync());
+        Assert.Equal(1, await ApplicationCountAsync(userId));
+    }
+
+    [Fact]
+    public async Task Submit_AfterWithdrawal_IsAllowed()
+    {
+        var (userId, enrollmentId) = await CreateStudentAsync();
+        var first = await SubmitValidAsync(userId, enrollmentId);
+
+        var withdraw = new HttpRequestMessage(HttpMethod.Post, $"/api/applications/{first.Id}/withdraw");
+        withdraw.Headers.Add(TestAuthHandler.UserHeader, userId);
+        Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(withdraw)).StatusCode);
+
+        var second = await SubmitAsync(userId, enrollmentId, ValidForm);
+
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Submit_OnOtherStudies_IsAllowed()
+    {
+        var (userId, enrollmentId) = await CreateStudentAsync();
+        var otherEnrollmentId = await AddEnrollmentAsync(userId);
+        await SubmitValidAsync(userId, enrollmentId);
+
+        var other = await SubmitAsync(userId, otherEnrollmentId, ValidForm);
+
+        Assert.Equal(HttpStatusCode.Created, other.StatusCode);
+    }
 }
