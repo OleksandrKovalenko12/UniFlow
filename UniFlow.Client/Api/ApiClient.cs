@@ -104,6 +104,25 @@ public sealed class ApiClient
         SendAsync<DraftDetails>(() => _http.PutAsJsonAsync($"api/drafts/{typeCode}",
             new SaveDraftRequest { EnrollmentId = enrollmentId, FormData = formData }));
 
+    // Correction: the changes to an application sent back to the student - null when none yet
+    public Task<ApiResult<DraftDetails?>> GetCorrectionAsync(Guid applicationId) =>
+        SendAsync<DraftDetails?>(() => _http.GetAsync($"api/drafts/correction/{applicationId}"));
+
+    public Task<ApiResult<DraftDetails>> SaveCorrectionAsync(Guid applicationId, string formData,
+        IEnumerable<Guid> removedAttachmentIds) =>
+        SendAsync<DraftDetails>(() => _http.PutAsJsonAsync($"api/drafts/correction/{applicationId}",
+            new SaveCorrectionRequest
+            {
+                FormData = formData,
+                RemovedAttachmentIds = removedAttachmentIds.ToList()
+            }));
+
+    // The corrected application with the changes from its correction draft
+    public Task<ApiResult<SubmittedApplication>> ResubmitGroupChangeAsync(Guid applicationId,
+        GroupChangeForm form) =>
+        SendAsync<SubmittedApplication>(() =>
+            _http.PostAsJsonAsync($"api/applications/{applicationId}/group-change/resubmit", form));
+
     public Task<ApiResult<Done>> DeleteDraftAsync(Guid draftId) =>
         SendAsync<Done>(() => _http.DeleteAsync($"api/drafts/{draftId}"));
 

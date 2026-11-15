@@ -13,8 +13,17 @@ public class DraftConfiguration : IEntityTypeConfiguration<Draft>
         builder.Property(d => d.FormData).HasColumnType("jsonb");
         builder.Ignore(d => d.ExpiresAt);
 
-        // One unfinished application of each type per student
-        builder.HasIndex(d => new { d.StudentId, d.ApplicationTypeId }).IsUnique();
+        // One unfinished new application of each type per student - corrections do not count,
+        // a student may correct one application and start another of the same type
+        builder.HasIndex(d => new { d.StudentId, d.ApplicationTypeId })
+            .IsUnique()
+            .HasFilter("\"ApplicationId\" IS NULL");
+
+        // The index above leaves out corrections, so the student's list keeps its own index
+        builder.HasIndex(d => d.StudentId);
+
+        // One correction per application
+        builder.HasIndex(d => d.ApplicationId).IsUnique();
 
         // The cleanup looks for old drafts
         builder.HasIndex(d => d.UpdatedAt);
@@ -33,6 +42,11 @@ public class DraftConfiguration : IEntityTypeConfiguration<Draft>
             .WithMany()
             .HasForeignKey(d => d.ApplicationTypeId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(d => d.Application)
+            .WithMany()
+            .HasForeignKey(d => d.ApplicationId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // The files go with the draft - after submission they belong to attachments instead
         builder.HasMany(d => d.Files)

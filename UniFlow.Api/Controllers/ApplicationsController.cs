@@ -38,10 +38,11 @@ public sealed class ApplicationsController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly UniFlowDbContext _db;
     private readonly IFileStorage _storage;
+    private readonly DraftService _drafts;
 
     public ApplicationsController(ApplicationSubmissionService submission, DocumentRenderer renderer,
     UserManager<ApplicationUser> userManager, UniFlowDbContext db, IFileStorage storage,
-    ApplicationAccess access, ApplicationDetailsQuery details)
+    ApplicationAccess access, ApplicationDetailsQuery details, DraftService drafts)
     {
         _access = access;
         _details = details;
@@ -50,6 +51,7 @@ public sealed class ApplicationsController : ControllerBase
         _userManager = userManager;
         _db = db;
         _storage = storage;
+        _drafts = drafts;
     }
 
     // The form has already been validated by [ApiController]. draftId: the files added to the
@@ -75,6 +77,28 @@ public sealed class ApplicationsController : ControllerBase
             cancellationToken);
 
         return StatusCode(StatusCodes.Status201Created, submitted);
+    }
+
+    // The corrected application: the form validated by [ApiController], the files from the
+    // correction draft. Someone else's application looks like a missing one.
+    [HttpPost("api/applications/{id:guid}/group-change/resubmit")]
+    [Authorize(Roles = RoleNames.Student)]
+    [EnableRateLimiting(SubmissionRateLimit)]
+    public async Task<ActionResult<SubmittedApplication>> ResubmitGroupChange(Guid id,
+        GroupChangeForm form, CancellationToken cancellationToken)
+    {
+        form.Normalize();
+
+        var resubmitted = await _submission.ResubmitAsync(
+            _userManager.GetUserId(User)!,
+            id,
+            ApplicationTypeCodes.GroupChange,
+            FormJson.Serialize(form),
+            header => _renderer.RenderAsync<GroupChangeTemplate, GroupChangeDocument>(
+                new GroupChangeDocument(header, form)),
+            cancellationToken);
+
+        return resubmitted is null ? NotFound() : resubmitted;
     }
 
     // The student's own applications: those waiting for them first, then the newest
@@ -126,6 +150,9 @@ public sealed class ApplicationsController : ControllerBase
 
         application.Withdraw(new Actor(userId, ActorRole.Student), DateTime.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Changes that will never be submitted - otherwise the cleanup would take them in 30 days
+        await _drafts.DeleteCorrectionAsync(id, cancellationToken);
 
         return await _details.GetAsync(id, ApplicationViewer.Applicant, User, cancellationToken);
     }

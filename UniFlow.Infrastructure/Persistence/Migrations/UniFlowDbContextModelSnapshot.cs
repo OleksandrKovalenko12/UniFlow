@@ -366,6 +366,9 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("ApplicationId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("ApplicationTypeId")
                         .HasColumnType("integer");
 
@@ -376,6 +379,10 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb");
 
+                    b.PrimitiveCollection<Guid[]>("RemovedAttachmentIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
                     b.Property<string>("StudentId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -385,14 +392,20 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ApplicationId")
+                        .IsUnique();
+
                     b.HasIndex("ApplicationTypeId");
 
                     b.HasIndex("EnrollmentId");
 
+                    b.HasIndex("StudentId");
+
                     b.HasIndex("UpdatedAt");
 
                     b.HasIndex("StudentId", "ApplicationTypeId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"ApplicationId\" IS NULL");
 
                     b.ToTable("Drafts");
                 });
@@ -816,6 +829,11 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("UniFlow.Domain.Entities.Draft", b =>
                 {
+                    b.HasOne("UniFlow.Domain.Entities.Application", "Application")
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("UniFlow.Domain.Entities.ApplicationType", "ApplicationType")
                         .WithMany()
                         .HasForeignKey("ApplicationTypeId")
@@ -833,6 +851,8 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Application");
 
                     b.Navigation("ApplicationType");
 

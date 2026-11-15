@@ -8,11 +8,13 @@
         @Hint Najwyżej @FileCount(MaxFiles) do 10 MB: PDF, DOCX, ODT, JPG, PNG, WebP.
     </MudText>
 
+    @* Correction: the application's own files, kept or marked for removal *@
+    @ChildContent
     @foreach (var file in Files)
     {
         <div class="attachment-row">
             <MudIcon Icon="@IconFor(file.FileName)" Size="Size.Small" Class="mud-text-secondary" />
-                        <span class="attachment-name" title="@file.FileName">@file.FileName</span>
+            <span class="attachment-name" title="@file.FileName">@file.FileName</span>
             <span class="attachment-size mud-text-secondary">@FileSizeText.Format(file.SizeBytes)</span>
             @* The PDF the dean's office will see. target="_blank": the router lets the link
                through to the server *@
@@ -41,7 +43,7 @@
 
     @* The hidden file input must stay on the page while the files are read -
        the browser reads them through it *@
-    @if (_busy || Files.Count < MaxFiles)
+    @if (_busy || Files.Count + OtherFiles < MaxFiles)
     {
         <MudFileUpload T="IReadOnlyList<IBrowserFile>" FilesChanged="AddAsync"
                        Accept="@Accept" MaximumFileCount="MaxSelection">
@@ -73,6 +75,13 @@
 
     [Parameter]
     public int MaxFiles { get; set; }
+
+    // Correction: the application's files it keeps - they count towards MaxFiles
+    [Parameter]
+    public int OtherFiles { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
 
     // What could be attached to this type of application
     [Parameter]
@@ -106,7 +115,7 @@
 
         foreach (var file in picked)
         {
-            if (Files.Count + _sending.Count >= MaxFiles)
+            if (Files.Count + _sending.Count + OtherFiles >= MaxFiles)
             {
                 _messages.Add($"Można dodać najwyżej {FileCount(MaxFiles)}.");
                 break;

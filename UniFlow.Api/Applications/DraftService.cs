@@ -30,7 +30,8 @@ public sealed class DraftService
             .Include(d => d.ApplicationType)
             .Include(d => d.Enrollment).ThenInclude(e => e.FieldOfStudy)
             .Include(d => d.Files)
-            .Where(d => d.StudentId == userId)
+            // Corrections belong to their application's card, not to "Niedokończone"
+            .Where(d => d.StudentId == userId && d.ApplicationId == null)
             .OrderByDescending(d => d.UpdatedAt)
             .ToListAsync(cancellationToken);
 
@@ -53,15 +54,7 @@ public sealed class DraftService
     public async Task<DraftDetails> SaveAsync(string userId, string typeCode,
         SaveDraftRequest request, CancellationToken cancellationToken)
     {
-        // Any form may be unfinished, but it must be JSON - the column is jsonb
-        try
-        {
-            using var _ = JsonDocument.Parse(request.FormData);
-        }
-        catch (JsonException)
-        {
-            throw new ArgumentException("Form data is not valid JSON.", nameof(request));
-        }
+        EnsureJson(request.FormData);
 
         var enrollment = await _db.Enrollments
             .SingleOrDefaultAsync(e => e.Id == request.EnrollmentId, cancellationToken)
@@ -87,6 +80,64 @@ public sealed class DraftService
 
         await _db.SaveChangesAsync(cancellationToken);
         return ToDetails(draft);
+    }
+
+    // The changes to the student's application sent back for correction; null when there are none
+    public async Task<DraftDetails?> GetCorrectionAsync(string userId, Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var draft = await _db.Drafts
+            .Include(d => d.ApplicationType)
+            .Include(d => d.Files)
+            .SingleOrDefaultAsync(d => d.ApplicationId == applicationId && d.StudentId == userId,
+                cancellationToken);
+
+        return draft is null ? null : ToDetails(draft);
+    }
+
+    // Creates the correction draft on the first save, then keeps updating it.
+    // Null when the student has no such application.
+    public async Task<DraftDetails?> SaveCorrectionAsync(string userId, Guid applicationId,
+        SaveCorrectionRequest request, CancellationToken cancellationToken)
+    {
+        EnsureJson(request.FormData);
+
+        var application = await _db.Applications
+            .Include(a => a.Enrollment)
+            .Include(a => a.ApplicationType)
+            .Include(a => a.Attachments)
+            .SingleOrDefaultAsync(a => a.Id == applicationId && a.ApplicantId == userId,
+                cancellationToken);
+        if (application is null)
+            return null;
+
+        var now = DateTime.UtcNow;
+        var draft = await _db.Drafts
+            .Include(d => d.Files)
+            .SingleOrDefaultAsync(d => d.ApplicationId == applicationId, cancellationToken);
+
+        if (draft is null)
+        {
+            draft = Draft.ForCorrection(application, request.FormData, now);
+            _db.Drafts.Add(draft);
+        }
+
+        // The application is already loaded, so the draft sees its files
+        draft.UpdateCorrection(request.FormData, request.RemovedAttachmentIds, now);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return ToDetails(draft);
+    }
+
+    // The application was withdrawn: its unsent changes and their files go too
+    public async Task DeleteCorrectionAsync(Guid applicationId, CancellationToken cancellationToken)
+    {
+        var draft = await _db.Drafts
+            .Include(d => d.Files)
+            .SingleOrDefaultAsync(d => d.ApplicationId == applicationId, cancellationToken);
+
+        if (draft is not null)
+            await DeleteDraftsAsync([draft], cancellationToken);
     }
 
     // Null when there is no such draft of this student
@@ -184,19 +235,34 @@ public sealed class DraftService
             _intake.Delete(file);
     }
 
+    // Any form may be unfinished, but it must be JSON - the column is jsonb
+    private static void EnsureJson(string formData)
+    {
+        try
+        {
+            using var _ = JsonDocument.Parse(formData);
+        }
+        catch (JsonException)
+        {
+            throw new ArgumentException("Form data is not valid JSON.", nameof(formData));
+        }
+    }
+
     private Task<Draft?> FindByTypeAsync(string userId, string typeCode,
         CancellationToken cancellationToken) =>
         _db.Drafts
             .Include(d => d.ApplicationType)
             .Include(d => d.Files)
-            .SingleOrDefaultAsync(d => d.StudentId == userId && d.ApplicationType.Code == typeCode,
-                cancellationToken);
+            .SingleOrDefaultAsync(d => d.StudentId == userId && d.ApplicationId == null
+                && d.ApplicationType.Code == typeCode, cancellationToken);
 
+    // A correction draft brings its application's files - the file limit depends on them
     private Task<Draft?> FindAsync(string userId, Guid draftId,
         CancellationToken cancellationToken) =>
         _db.Drafts
             .Include(d => d.ApplicationType)
             .Include(d => d.Files)
+            .Include(d => d.Application).ThenInclude(a => a!.Attachments)
             .SingleOrDefaultAsync(d => d.Id == draftId && d.StudentId == userId, cancellationToken);
 
     private static DraftDetails ToDetails(Draft draft) =>
@@ -204,5 +270,6 @@ public sealed class DraftService
             draft.UpdatedAt, draft.ExpiresAt,
             draft.Files.OrderBy(f => f.UploadedAt)
                 .Select(f => new DraftFileInfo(f.Id, f.OriginalFileName, f.SizeBytes))
-                .ToList());
+                .ToList(),
+            draft.RemovedAttachmentIds);
 }

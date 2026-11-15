@@ -82,34 +82,14 @@ public sealed class ApplicationSubmissionService
                 throw new ArgumentException("The draft is of another application type.", nameof(draftId));
         }
 
-        var student = await _db.Users
-            .Where(u => u.Id == userId)
-            .Select(u => new { u.FirstName, u.LastName })
-            .SingleAsync(cancellationToken);
-
-        var albumNumber = await _db.StudentProfiles
-            .Where(p => p.UserId == userId)
-            .Select(p => p.AlbumNumber)
-            .SingleAsync(cancellationToken);
-
         var number = await _numbers.NextAsync(now, cancellationToken);
 
         var application = new Application(number, userId, submissionKey, enrollment, type, formData, now);
-
-        var header = ApplicationHeaderBuilder.Build(number, now, student.FirstName, student.LastName,
-            albumNumber, enrollment);
-        var html = await renderHtml(header);
-        var pdf = await _pdf.ConvertHtmlToPdfAsync(html, cancellationToken);
-
-        using var content = new MemoryStream(pdf);
-        var path = await _storage.SaveAsync(content, $"applications/{application.Id}", ".pdf",
-            cancellationToken);
+        var document = await CreateDocumentAsync(application, now, renderHtml, cancellationToken);
 
         try
         {
-            application.AttachGeneratedDocument(new StoredFile(
-                $"Wniosek_{number.Replace('/', '-')}.pdf", Attachment.PdfContentType, path, null,
-                pdf.Length), now);
+            application.AttachGeneratedDocument(document, now);
 
             // The draft's files become the application's attachments - the same files on disk -
             // and the draft is gone
@@ -129,7 +109,7 @@ public sealed class ApplicationSubmissionService
         }
         catch (DbUpdateException exception) when (ViolatedIndex(exception) is not null)
         {
-            _storage.Delete(path);
+            _storage.Delete(document.StoragePath);
 
             // Two identical requests at the same moment: the other one has already won.
             // Checked first - the same request breaks both indexes, the database names only one.
@@ -147,12 +127,100 @@ public sealed class ApplicationSubmissionService
         catch
         {
             // The database transaction does not cover the disk
-            _storage.Delete(path);
+            _storage.Delete(document.StoragePath);
             throw;
         }
 
 
         return new SubmittedApplication(application.Id, application.Number);
+    }
+
+
+    // The application sent back for correction, submitted again: the files removed and added in
+    // the correction draft, the corrected form, a new PDF (the old one stays archived) and the
+    // status - in one save. Null when the student has no such application.
+    public async Task<SubmittedApplication?> ResubmitAsync(string userId, Guid applicationId,
+        string typeCode, string formData, Func<ApplicationHeader, Task<string>> renderHtml,
+        CancellationToken cancellationToken)
+    {
+        var application = await _db.Applications
+            .Include(a => a.ApplicationType)
+            .Include(a => a.Enrollment).ThenInclude(e => e.FieldOfStudy).ThenInclude(f => f.Faculty)
+            .Include(a => a.Attachments)
+            .SingleOrDefaultAsync(a => a.Id == applicationId && a.ApplicantId == userId,
+                cancellationToken);
+        if (application is null)
+            return null;
+
+        if (application.ApplicationType.Code != typeCode)
+            throw new ArgumentException("The application is of another type.", nameof(typeCode));
+
+        var draft = await _db.Drafts
+            .Include(d => d.Files)
+            .SingleOrDefaultAsync(d => d.ApplicationId == applicationId, cancellationToken);
+
+        var now = DateTime.UtcNow;
+        var applicant = new Actor(userId, ActorRole.Student);
+
+        // Domain first, before the PDF: a wrong status or too many files stop it here.
+        // Files are archived before new ones come - the limit counts the active ones.
+        if (draft is not null)
+        {
+            foreach (var attachmentId in draft.RemovedAttachmentIds)
+                application.ArchiveAttachment(applicant, attachmentId, now);
+
+            foreach (var file in draft.Files.OrderBy(f => f.UploadedAt))
+                application.AddAttachment(applicant, file.ToStoredFile(), now);
+
+            _db.Drafts.Remove(draft);
+        }
+
+        application.Resubmit(applicant, formData, now);
+
+        var document = await CreateDocumentAsync(application, now, renderHtml, cancellationToken);
+
+        try
+        {
+            application.AttachGeneratedDocument(document, now);
+
+            // Files, form, status, the new PDF and the draft: all or nothing
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            _storage.Delete(document.StoragePath);
+            throw;
+        }
+
+        return new SubmittedApplication(application.Id, application.Number);
+    }
+
+    // The application's official PDF, saved on disk. The caller attaches it and deletes the file
+    // when saving to the database fails.
+    private async Task<StoredFile> CreateDocumentAsync(Application application, DateTime now,
+        Func<ApplicationHeader, Task<string>> renderHtml, CancellationToken cancellationToken)
+    {
+        var student = await _db.Users
+            .Where(u => u.Id == application.ApplicantId)
+            .Select(u => new { u.FirstName, u.LastName })
+            .SingleAsync(cancellationToken);
+
+        var albumNumber = await _db.StudentProfiles
+            .Where(p => p.UserId == application.ApplicantId)
+            .Select(p => p.AlbumNumber)
+            .SingleAsync(cancellationToken);
+
+        var header = ApplicationHeaderBuilder.Build(application.Number, now, student.FirstName,
+            student.LastName, albumNumber, application.Enrollment);
+        var html = await renderHtml(header);
+        var pdf = await _pdf.ConvertHtmlToPdfAsync(html, cancellationToken);
+
+        using var content = new MemoryStream(pdf);
+        var path = await _storage.SaveAsync(content, $"applications/{application.Id}", ".pdf",
+            cancellationToken);
+
+        return new StoredFile($"Wniosek_{application.Number.Replace('/', '-')}.pdf",
+            Attachment.PdfContentType, path, null, pdf.Length);
     }
 
     private Task<SubmittedApplication?> FindSubmittedAsync(string userId, Guid submissionKey,

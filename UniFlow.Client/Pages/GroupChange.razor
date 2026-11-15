@@ -84,166 +84,11 @@ else
         }
     </MudPaper>
 
-    @* Scope *@
-    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
-        <MudText Typo="Typo.h6" GutterBottom="true">Zakres zmiany</MudText>
-        <MudRadioGroup T="GroupChangeScope" @bind-Value="_form.Scope" @bind-Value:after="OnFieldChanged"
-                       Error="_errors.Has(nameof(GroupChangeForm.Scope))"
-                       ErrorText="@_errors.For(nameof(GroupChangeForm.Scope))">
-            <div class="d-flex flex-column">
-                <MudRadio Value="GroupChangeScope.General" Color="Color.Primary">
-                    Wszystkie przedmioty danego rodzaju zajęć, np. grupa dziekańska albo wszystkie laboratoria
-                </MudRadio>
-                <MudRadio Value="GroupChangeScope.Subjects" Color="Color.Primary">
-                    Wybrane przedmioty
-                </MudRadio>
-            </div>
-        </MudRadioGroup>
-    </MudPaper>
-
-    @* Scope = General *@
-    @if (_form.Scope == GroupChangeScope.General)
-    {
-        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
-            <MudText Typo="Typo.h6" GutterBottom="true">Grupa</MudText>
-            <MudGrid Spacing="2">
-                <MudItem xs="12" md="4">
-                    <label class="field-label" for="general-type">Rodzaj grupy</label>
-                    <MudSelect T="GroupType" @bind-Value="_form.GroupType" @bind-Value:after="OnFieldChanged"
-                               InputId="general-type" Variant="Variant.Outlined" Margin="Margin.Dense"
-                               ToStringFunc="GroupTypeLabel" Placeholder="Wybierz"
-                               Error="_errors.Has(nameof(GroupChangeForm.GroupType))"
-                               ErrorText="@_errors.For(nameof(GroupChangeForm.GroupType))">
-                        @foreach (var type in AllGroupTypes)
-                        {
-                            <MudSelectItem Value="type" />
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="6" md="4">
-                    <label class="field-label" for="general-current">Obecna<br class="phone-break" /> grupa</label>
-                    <MudTextField @bind-Value="_form.CurrentGroup" @bind-Value:after="OnFieldChanged"
-                                  InputId="general-current" Placeholder="np. 3"
-                                  MaxLength="GroupChangeForm.MaxGroupLength"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Error="_errors.Has(nameof(GroupChangeForm.CurrentGroup))"
-                                  ErrorText="@_errors.For(nameof(GroupChangeForm.CurrentGroup))" />
-                </MudItem>
-                <MudItem xs="6" md="4">
-                    <label class="field-label" for="general-requested">Wnioskowana<br class="phone-break" /> grupa</label>
-                    <MudTextField @bind-Value="_form.RequestedGroup" @bind-Value:after="OnFieldChanged"
-                                  InputId="general-requested" Placeholder="np. 5"
-                                  MaxLength="GroupChangeForm.MaxGroupLength"
-                                  Variant="Variant.Outlined" Margin="Margin.Dense"
-                                  Error="_errors.Has(nameof(GroupChangeForm.RequestedGroup))"
-                                  ErrorText="@_errors.For(nameof(GroupChangeForm.RequestedGroup))" />
-                </MudItem>
-            </MudGrid>
-        </MudPaper>
-    }
-
-    @* Scope = Subjects *@
-    @if (_form.Scope == GroupChangeScope.Subjects)
-    {
-        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
-            <MudText Typo="Typo.h6" GutterBottom="true">Przedmioty</MudText>
-
-            @for (var i = 0; i < _form.Subjects.Count; i++)
-            {
-                // A copy for the lambdas below - "i" itself changes while the loop runs
-                var index = i;
-                var row = _form.Subjects[index];
-                var prefix = $"{nameof(GroupChangeForm.Subjects)}[{index}].";
-
-                <div class="subject-row">
-                    <div class="d-flex align-center mb-2">
-                        <MudText Typo="Typo.subtitle2" Class="flex-grow-1">Przedmiot @(index + 1)</MudText>
-                        @if (_form.Subjects.Count > 1)
-                        {
-                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small"
-                                           aria-label="@($"Usuń przedmiot {index + 1}")"
-                                           OnClick="() => RemoveSubject(index)" />
-                        }
-                    </div>
-                    <MudGrid Spacing="2">
-                        <MudItem xs="12" md="5">
-                            <label class="field-label" for="subject-@index">Nazwa przedmiotu</label>
-                            <MudTextField @bind-Value="row.Subject" @bind-Value:after="OnFieldChanged"
-                                          InputId="@($"subject-{index}")" Placeholder="np. Bazy danych"
-                                          MaxLength="GroupChangeForm.MaxSubjectLength"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense"
-                                          Error="_errors.Has(prefix + nameof(row.Subject))"
-                                          ErrorText="@_errors.For(prefix + nameof(row.Subject))" />
-                        </MudItem>
-                        <MudItem xs="12" md="3">
-                            <label class="field-label" for="subject-type-@index">Rodzaj zajęć</label>
-                            <MudSelect T="GroupType" @bind-Value="row.GroupType" @bind-Value:after="OnFieldChanged"
-                                       InputId="@($"subject-type-{index}")"
-                                       Variant="Variant.Outlined" Margin="Margin.Dense"
-                                       ToStringFunc="GroupTypeLabel" Placeholder="Wybierz"
-                                       Error="_errors.Has(prefix + nameof(row.GroupType))"
-                                       ErrorText="@_errors.For(prefix + nameof(row.GroupType))">
-                                @foreach (var type in SubjectGroupTypes)
-                                {
-                                    <MudSelectItem Value="type" />
-                                }
-                            </MudSelect>
-                        </MudItem>
-                        <MudItem xs="6" md="2">
-                            <label class="field-label" for="subject-current-@index">Obecna<br class="phone-break" /> grupa</label>
-                            <MudTextField @bind-Value="row.CurrentGroup" @bind-Value:after="OnFieldChanged"
-                                          InputId="@($"subject-current-{index}")" Placeholder="np. 2"
-                                          MaxLength="GroupChangeForm.MaxGroupLength"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense"
-                                          Error="_errors.Has(prefix + nameof(row.CurrentGroup))"
-                                          ErrorText="@_errors.For(prefix + nameof(row.CurrentGroup))" />
-                        </MudItem>
-                        <MudItem xs="6" md="2">
-                            <label class="field-label" for="subject-requested-@index">Wnioskowana<br class="phone-break" /> grupa</label>
-                            <MudTextField @bind-Value="row.RequestedGroup" @bind-Value:after="OnFieldChanged"
-                                          InputId="@($"subject-requested-{index}")" Placeholder="np. 4"
-                                          MaxLength="GroupChangeForm.MaxGroupLength"
-                                          Variant="Variant.Outlined" Margin="Margin.Dense"
-                                          Error="_errors.Has(prefix + nameof(row.RequestedGroup))"
-                                          ErrorText="@_errors.For(prefix + nameof(row.RequestedGroup))" />
-                        </MudItem>
-                    </MudGrid>
-                </div>
-            }
-
-            @if (_errors.Has(nameof(GroupChangeForm.Subjects)))
-            {
-                <MudText Typo="Typo.body2" Color="Color.Error" Class="mb-2">
-                    @_errors.For(nameof(GroupChangeForm.Subjects))
-                </MudText>
-            }
-
-            @if (_form.Subjects.Count < GroupChangeForm.MaxSubjects)
-            {
-                <MudButton Variant="Variant.Text" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Add" OnClick="AddSubject">
-                    Dodaj przedmiot
-                </MudButton>
-            }
-        </MudPaper>
-    }
-
-    @* Justification *@
-    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
-        <label class="field-label" for="justification">Uzasadnienie</label>
-        <MudTextField @bind-Value="_form.Justification" @bind-Value:after="OnFieldChanged"
-                      InputId="justification" Lines="5" Immediate="true"
-                      Placeholder="Napisz, dlaczego prosisz o zmianę grupy."
-                      Counter="GroupChangeForm.MaxJustificationLength"
-                      MaxLength="GroupChangeForm.MaxJustificationLength"
-                      Variant="Variant.Outlined"
-                      Error="_errors.Has(nameof(GroupChangeForm.Justification))"
-                      ErrorText="@_errors.For(nameof(GroupChangeForm.Justification))" />
-    </MudPaper>
+    <GroupChangeFields Form="_form" Errors="_errors" OnChanged="OnFieldChanged" />
 
     @if (_maxAttachments > 0)
     {
-        <DraftFilesPicker Files="_files" DraftId="_draft?.Id" EnsureDraftAsync="EnsureDraftAsync"
+        <DraftFilesPicker Files="_files" DraftId="_autosave.Draft?.Id" EnsureDraftAsync="_autosave.EnsureDraftAsync"
                           MaxFiles="_maxAttachments" BusyChanged="busy => _filesBusy = busy"
                           Hint="Opcjonalnie, np. zaświadczenie od pracodawcy." />
     }
@@ -258,8 +103,8 @@ else
     }
 
     <div class="d-flex flex-wrap align-center justify-space-between gap-2">
-        <MudText Typo="Typo.body2" Class="@(_saveFailed ? "mud-error-text" : "mud-text-secondary")">
-            @SaveStatus
+        <MudText Typo="Typo.body2" Class="@(_autosave.SaveFailed ? "mud-error-text" : "mud-text-secondary")">
+            @_autosave.Status
         </MudText>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Size="Size.Large"
                    Disabled="_sending || _filesBusy" OnClick="SubmitAsync">
@@ -269,16 +114,6 @@ else
 }
 
 @code {
-    private static readonly GroupType[] AllGroupTypes =
-        [GroupType.Dean, GroupType.Exercises, GroupType.Laboratory, GroupType.Project];
-
-    // A dean group is changed with the general scope, so a row does not offer it
-    private static readonly GroupType[] SubjectGroupTypes =
-        [GroupType.Exercises, GroupType.Laboratory, GroupType.Project];
-
-    // How long after the last change the draft is saved
-    private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(1.5);
-
     [Parameter]
     public int EnrollmentId { get; set; }
 
@@ -315,16 +150,8 @@ else
     // After the first "Złóż wniosek" every change is checked at once
     private bool _attempted;
 
-    // The draft: saved a moment after each change. _changes counts the changes, so a change
-    // made while a save is on its way is not taken as saved.
-    private DraftDetails? _draft;
-    private bool _dirty;
-    private int _changes;
-    private bool _saving;
-    private bool _saveFailed;
-    private DateTime? _savedAt;
-    private CancellationTokenSource? _saveDelay;
-    private readonly SemaphoreSlim _saveLock = new(1, 1);
+    // The draft, saved a moment after each change
+    private DraftAutosave _autosave = null!;
 
     // One key per filled-in form: if the answer is lost and the student sends again,
     // the server recognises the key and returns the application it already created
@@ -335,13 +162,13 @@ else
     private string? _submitError;
     private SubmittedApplication? _submitted;
 
-    private bool HasUnsavedChanges => _submitted is null && (_dirty || _saving || _filesBusy);
+    private bool HasUnsavedChanges => _submitted is null && (_autosave.HasUnsavedChanges || _filesBusy);
 
-    private string SaveStatus =>
-        _saveFailed ? "Nie udało się zapisać szkicu - spróbujemy przy następnej zmianie."
-        : _saving ? "Zapisywanie..."
-        : _savedAt is not null ? $"Szkic zapisany {DateText.Format(_savedAt.Value)}"
-        : "";
+    // Before the first render - the page asks it about unsaved changes from the start
+    protected override void OnInitialized() =>
+        _autosave = new DraftAutosave(
+            () => Api.SaveDraftAsync(ApplicationTypeCodes.GroupChange, EnrollmentId, FormJson.Serialize(_form)),
+            () => InvokeAsync(StateHasChanged));
 
     protected override async Task OnInitializedAsync()
     {
@@ -407,7 +234,7 @@ else
             }
         }
 
-        _draft = draft;
+        _autosave.Load(draft);
         try
         {
             _form = FormJson.Deserialize<GroupChangeForm>(draft.FormData);
@@ -419,7 +246,6 @@ else
         if (_form.Subjects.Count == 0)
             _form.Subjects.Add(new SubjectGroupChange());
         _files.AddRange(draft.Files);
-        _savedAt = draft.UpdatedAt;
 
         // Started on other studies: OnParametersSet moves the draft to the studies chosen now
     }
@@ -442,8 +268,8 @@ else
         }
 
         // "Zmień": the draft moves to the new studies - not to ones that cannot take it
-        if (_draft is not null && _draft.EnrollmentId != EnrollmentId && Blocking is null)
-            ScheduleSave();
+        if (_autosave.Draft is not null && _autosave.Draft.EnrollmentId != EnrollmentId && Blocking is null)
+            _autosave.Changed();
     }
 
     private async Task ChangeEnrollmentAsync()
@@ -458,113 +284,13 @@ else
                 (From is null ? "" : $"?from={Uri.EscapeDataString(From)}"));
     }
 
-    // "grupa dziekańska" -> "Grupa dziekańska"; nothing chosen yet (0) -> empty field
-    private static string GroupTypeLabel(GroupType type)
-    {
-        if (!Enum.IsDefined(type))
-            return "";
-
-        var name = GroupTypeText.Name(type);
-        return char.ToUpper(name[0]) + name[1..];
-    }
-
     private void OnFieldChanged()
     {
         _submitError = null;
         if (_attempted)
             _errors.Validate(_form);
 
-        ScheduleSave();
-    }
-
-    // Saved a moment after the last change, not after every key
-    private void ScheduleSave()
-    {
-        _dirty = true;
-        _changes++;
-
-        _saveDelay?.Cancel();
-        _saveDelay = new CancellationTokenSource();
-        _ = SaveLaterAsync(_saveDelay.Token);
-    }
-
-    private async Task SaveLaterAsync(CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(SaveDelay, token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        await SaveNowAsync();
-        await InvokeAsync(StateHasChanged);
-    }
-
-    // One save at a time; false when the server did not take it
-    private async Task<bool> SaveNowAsync()
-    {
-        await _saveLock.WaitAsync();
-        try
-        {
-            // Submitted in the meantime: the server has deleted the draft, it must not come back
-            if (_submitted is not null)
-                return true;
-            if (!_dirty && _draft is not null)
-                return true;
-
-            var changes = _changes;
-            _saving = true;
-            var result = await Api.SaveDraftAsync(ApplicationTypeCodes.GroupChange, EnrollmentId,
-                FormJson.Serialize(_form));
-            _saving = false;
-
-            if (!result.IsSuccess)
-            {
-                _saveFailed = true;
-                return false;
-            }
-
-            _draft = result.Value;
-            _savedAt = result.Value.UpdatedAt;
-            _saveFailed = false;
-
-            // Changed while saving: still dirty, the scheduled save will take it
-            if (_changes == changes)
-                _dirty = false;
-
-            return true;
-        }
-        finally
-        {
-            _saveLock.Release();
-        }
-    }
-
-    // A file needs a draft to go to - saved now if there is none yet
-    private async Task<Guid?> EnsureDraftAsync()
-    {
-        if (_draft is null)
-        {
-            _dirty = true;
-            await SaveNowAsync();
-        }
-
-        return _draft?.Id;
-    }
-
-    private void AddSubject()
-    {
-        _form.Subjects.Add(new SubjectGroupChange());
-        OnFieldChanged();
-    }
-
-    private void RemoveSubject(int index)
-    {
-        _form.Subjects.RemoveAt(index);
-        OnFieldChanged();
+        _autosave.Changed();
     }
 
     private async Task SubmitAsync()
@@ -586,26 +312,16 @@ else
         if (confirmed != true)
             return;
 
-        // No draft save may run alongside: after submission the draft is gone for good
-        _saveDelay?.Cancel();
-        await _saveLock.WaitAsync();
-
         _sending = true;
-        ApiResult<SubmittedApplication> result;
-        try
-        {
-            result = await Api.SubmitGroupChangeAsync(EnrollmentId, _submissionKey, _form, _draft?.Id);
-            if (result.IsSuccess)
-                _submitted = result.Value;
-        }
-        finally
-        {
-            _sending = false;
-            _saveLock.Release();
-        }
+        var result = await _autosave.SubmitAsync(() =>
+            Api.SubmitGroupChangeAsync(EnrollmentId, _submissionKey, _form, _autosave.Draft?.Id));
+        _sending = false;
 
         if (result.IsSuccess)
+        {
+            _submitted = result.Value;
             return;
+        }
 
         // Field errors from the server land under the same fields as the browser's own
         _errors.Set(result.Error.FieldErrors);
@@ -621,12 +337,8 @@ else
             return;
 
         // Typed a moment ago: saved now instead of asking
-        if (_dirty && !_filesBusy)
-        {
-            _saveDelay?.Cancel();
-            if (await SaveNowAsync())
-                return;
-        }
+        if (_autosave.IsDirty && !_filesBusy && await _autosave.SaveNowAsync())
+            return;
 
         var leave = await Dialogs.ShowMessageBoxAsync(
             "Opuścić formularz?",
@@ -639,5 +351,5 @@ else
             context.PreventNavigation();
     }
 
-    public void Dispose() => _saveDelay?.Cancel();
+    public void Dispose() => _autosave.Dispose();
 }

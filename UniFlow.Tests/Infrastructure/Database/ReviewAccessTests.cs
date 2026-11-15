@@ -8,6 +8,7 @@ using UniFlow.Shared;
 using UniFlow.Shared.Applications;
 using UniFlow.Shared.ApplicationTypes;
 using UniFlow.Shared.Review;
+using UniFlow.Shared.Drafts;
 
 namespace UniFlow.Tests.Infrastructure.Database;
 
@@ -349,5 +350,126 @@ public sealed class ReviewAccessTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Forbidden,
             (await GetAsync("/api/review", student, RoleNames.Student)).StatusCode);
+    }
+
+    // Correction: the student's changes wait in a correction draft and go in one save
+
+    private static readonly object CorrectedForm = new
+    {
+        scope = "General",
+        groupType = "Laboratory",
+        currentGroup = "3",
+        requestedGroup = "5",
+        justification = "Kolizja z pracą - zaświadczenie w załączniku."
+    };
+
+    private async Task SendBackAsync(Guid applicationId, string employee)
+    {
+        var url = $"/api/applications/{applicationId}";
+        Assert.Equal(HttpStatusCode.OK, (await PostAsync($"{url}/take", employee, DeanOffice)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await PostAsync($"{url}/request-correction", employee, DeanOffice,
+            new { comment = "Dołącz zaświadczenie." })).StatusCode);
+    }
+
+    private async Task<DraftDetails> SaveCorrectionAsync(Guid applicationId, string student,
+        params Guid[] removed)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/drafts/correction/{applicationId}")
+        {
+            Content = JsonContent.Create(new SaveCorrectionRequest
+            {
+                FormData = System.Text.Json.JsonSerializer.Serialize(CorrectedForm),
+                RemovedAttachmentIds = [.. removed]
+            })
+        };
+        request.Headers.Add(TestAuthHandler.UserHeader, student);
+        request.Headers.Add(TestAuthHandler.RolesHeader, RoleNames.Student);
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<DraftDetails>())!;
+    }
+
+    private async Task UploadToDraftAsync(Guid draftId, string student)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/api/drafts/{draftId}/files")
+        {
+            Content = new MultipartFormDataContent
+            {
+                { new ByteArrayContent("%PDF-1.4 test"u8.ToArray()), "file", "zaswiadczenie.pdf" }
+            }
+        };
+        request.Headers.Add(TestAuthHandler.UserHeader, student);
+        request.Headers.Add(TestAuthHandler.RolesHeader, RoleNames.Student);
+        Assert.Equal(HttpStatusCode.Created, (await _client.SendAsync(request)).StatusCode);
+    }
+
+    private Task<HttpResponseMessage> ResubmitAsync(Guid applicationId, string student) =>
+        PostAsync($"/api/applications/{applicationId}/group-change/resubmit", student, RoleNames.Student,
+            CorrectedForm);
+
+    [Fact]
+    public async Task Resubmit_AddsAndArchivesFiles_WithANewDocument_InOneSave()
+    {
+        var faculty = await CreateFacultyAsync();
+        var student = await CreateUserAsync();
+        var employee = await CreateUserAsync(staffOf: faculty);
+        var submitted = await SubmitAsync(student, faculty);
+
+        // First correction: a new file and a changed form
+        await SendBackAsync(submitted.Id, employee);
+        var draft = await SaveCorrectionAsync(submitted.Id, student);
+        await UploadToDraftAsync(draft.Id, student);
+        Assert.Equal(HttpStatusCode.OK, (await ResubmitAsync(submitted.Id, student)).StatusCode);
+
+        Guid fileId;
+        await using (var db = _postgres.CreateContext())
+        {
+            var application = await db.Applications.Include(a => a.Attachments)
+                .SingleAsync(a => a.Id == submitted.Id);
+
+            Assert.Equal(ApplicationStatus.Resubmitted, application.Status);
+            Assert.Contains("\"requestedGroup\": \"5\"", application.FormData);
+            fileId = Assert.Single(application.Attachments, a => a.Kind == AttachmentKind.StudentUpload).Id;
+            // The new PDF; the first one stays, archived
+            Assert.Equal(2, application.Attachments.Count(a => a.Kind == AttachmentKind.GeneratedDocument));
+            Assert.Single(application.Attachments, a => a.Kind == AttachmentKind.GeneratedDocument && !a.IsArchived);
+            Assert.False(await db.Drafts.AnyAsync(d => d.ApplicationId == submitted.Id));
+        }
+
+        // Second correction: that file removed - archived, not deleted
+        await SendBackAsync(submitted.Id, employee);
+        await SaveCorrectionAsync(submitted.Id, student, fileId);
+        Assert.Equal(HttpStatusCode.OK, (await ResubmitAsync(submitted.Id, student)).StatusCode);
+
+        await using (var db = _postgres.CreateContext())
+        {
+            var file = await db.Applications.Where(a => a.Id == submitted.Id)
+                .SelectMany(a => a.Attachments).SingleAsync(a => a.Id == fileId);
+            Assert.True(file.IsArchived);
+        }
+    }
+
+    [Fact]
+    public async Task Resubmit_SomeoneElsesApplication_IsNotFound()
+    {
+        var faculty = await CreateFacultyAsync();
+        var submitted = await SubmitAsync(await CreateUserAsync(), faculty);
+        await SendBackAsync(submitted.Id, await CreateUserAsync(staffOf: faculty));
+
+        var response = await ResubmitAsync(submitted.Id, await CreateUserAsync());
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Resubmit_NotSentBack_IsConflict()
+    {
+        var student = await CreateUserAsync();
+        var submitted = await SubmitAsync(student, await CreateFacultyAsync());
+
+        var response = await ResubmitAsync(submitted.Id, student);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 }

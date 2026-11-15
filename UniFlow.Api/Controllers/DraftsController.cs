@@ -51,6 +51,24 @@ public sealed class DraftsController : ControllerBase
         CancellationToken cancellationToken) =>
         _drafts.SaveAsync(UserId, typeCode, request, cancellationToken);
 
+    // The changes to an application sent back for correction - 204 when there are none yet
+    [HttpGet("correction/{applicationId:guid}")]
+    public async Task<IActionResult> GetCorrection(Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        var draft = await _drafts.GetCorrectionAsync(UserId, applicationId, cancellationToken);
+        return draft is null ? NoContent() : Ok(draft);
+    }
+
+    // Someone else's application looks like a missing one
+    [HttpPut("correction/{applicationId:guid}")]
+    public async Task<ActionResult<DraftDetails>> SaveCorrection(Guid applicationId,
+        SaveCorrectionRequest request, CancellationToken cancellationToken)
+    {
+        var draft = await _drafts.SaveCorrectionAsync(UserId, applicationId, request, cancellationToken);
+        return draft is null ? NotFound() : draft;
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
         await _drafts.DeleteAsync(UserId, id, cancellationToken) ? NoContent() : NotFound();
