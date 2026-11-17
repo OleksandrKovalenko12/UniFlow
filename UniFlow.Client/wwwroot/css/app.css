@@ -496,3 +496,8 @@ code {
 .audit-details {
     overflow-wrap: anywhere;
 }
+
+/* The attachment limit of a kind of application - a number, not a whole row */
+.type-attachments {
+    max-width: 160px;
+}

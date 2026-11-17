@@ -183,16 +183,9 @@ else
         if (!CanCorrect)
             return;
 
-        // How many files this type allows - the server checks the application's own limit
-        var types = await Api.GetApplicationTypesAsync();
-        if (!types.IsSuccess)
-        {
-            _error = types.Error.Message;
-            return;
-        }
-
-        _maxAttachments = types.Value
-            .FirstOrDefault(t => t.Code == ApplicationTypeCodes.GroupChange)?.MaxAttachments ?? 0;
+        // The application's own limit, the one the server checks - not the kind's current one,
+        // which the administrator may have changed (or the kind switched off) since
+        _maxAttachments = _details.MaxAttachments;
 
         var draft = await Api.GetCorrectionAsync(Id);
         if (!draft.IsSuccess)

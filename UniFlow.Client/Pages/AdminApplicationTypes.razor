@@ -1,0 +1,71 @@
+﻿@page "/admin/application-types"
+@attribute [Authorize(Roles = RoleNames.Administrator)]
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Rodzaje wniosków - UniFlow</PageTitle>
+
+<MudText Typo="Typo.h5" HtmlTag="h1">Rodzaje wniosków</MudText>
+<MudText Class="mt-1 mb-4 mud-text-secondary">
+    Nowe rodzaje dodaje programista - każdy potrzebuje własnego formularza i szablonu PDF.
+</MudText>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_types is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    @foreach (var type in _types)
+    {
+        <MudPaper Class="pa-4 mb-3" Elevation="0" Outlined="true">
+            <div class="d-flex flex-wrap align-center gap-2 mb-1">
+                <MudText Typo="Typo.h6" Class="flex-grow-1">
+                    @type.Name
+                    @if (!type.IsActive)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="ml-1">Wyłączony</MudChip>
+                    }
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Edit"
+                           OnClick="() => EditAsync(type)">
+                    Edytuj
+                </MudButton>
+            </div>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">@type.Description</MudText>
+            <MudText Typo="Typo.body2">
+                Decyzja: @(type.RequiresDeanDecision ? "prodziekan, po weryfikacji w dziekanacie" : "dziekanat")
+                · Załączniki: @(type.MaxAttachments == 0 ? "bez załączników" : $"do {type.MaxAttachments}")
+            </MudText>
+        </MudPaper>
+    }
+}
+
+@code {
+    private List<ApplicationTypeDetails>? _types;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetAdminApplicationTypesAsync();
+        if (result.IsSuccess)
+            _types = [.. result.Value];
+        else
+            _error = result.Error.Message;
+    }
+
+    private async Task EditAsync(ApplicationTypeDetails type)
+    {
+        var saved = await ApplicationTypeDialog.ShowAsync(Dialogs, type);
+        if (saved is null)
+            return;
+
+        _types![_types.IndexOf(type)] = saved;
+        Snackbar.Add("Zapisano zmiany.", Severity.Success);
+    }
+}

@@ -8,6 +8,8 @@ namespace UniFlow.Shared.Applications;
 // ForApplicant: the author's view (a student working in the dean's office is both).
 // StudentEmail and OtherApplications: only for staff - to write to the student and to see
 // what else they have asked for; empty in the author's view.
+// MaxAttachments: the application's own limit, copied when it was submitted - a later change
+// of the kind does not touch it.
 public sealed record ApplicationDetails(
     Guid Id,
     string Number,
@@ -27,7 +29,8 @@ public sealed record ApplicationDetails(
         bool ForApplicant,
     bool CanWithdraw,
     string? StudentEmail,
-    IReadOnlyList<RelatedApplication> OtherApplications);
+    IReadOnlyList<RelatedApplication> OtherApplications,
+    int MaxAttachments);
 
 // Another application of the same student - only one the employee could open anyway.
 // InProgress: decided on the server, like on the student's own list.

@@ -30,8 +30,11 @@ public sealed class ApiClient
         _navigation = navigation;
     }
 
-    public Task<ApiResult<IReadOnlyList<ApplicationTypeSummary>>> GetApplicationTypesAsync() =>
-        SendAsync<IReadOnlyList<ApplicationTypeSummary>>(() => _http.GetAsync("api/application-types"));
+    // includeInactive: also the kinds that can no longer be submitted - for the dean's office filter
+    public Task<ApiResult<IReadOnlyList<ApplicationTypeSummary>>> GetApplicationTypesAsync(
+        bool includeInactive = false) =>
+        SendAsync<IReadOnlyList<ApplicationTypeSummary>>(() =>
+            _http.GetAsync("api/application-types" + (includeInactive ? "?all=true" : "")));
 
     public Task<ApiResult<IReadOnlyList<EnrollmentSummary>>> GetMyEnrollmentsAsync() =>
     SendAsync<IReadOnlyList<EnrollmentSummary>>(() => _http.GetAsync("api/enrollments/mine"));
@@ -99,6 +102,13 @@ public sealed class ApiClient
     // The user's own password in place of the temporary one
     public Task<ApiResult<CurrentUser>> ChangePasswordAsync(ChangePasswordRequest request) =>
         SendAsync<CurrentUser>(() => _http.PostAsJsonAsync("api/auth/password", request));
+
+    // Administrator: kinds of applications
+    public Task<ApiResult<IReadOnlyList<ApplicationTypeDetails>>> GetAdminApplicationTypesAsync() =>
+        SendAsync<IReadOnlyList<ApplicationTypeDetails>>(() => _http.GetAsync("api/admin/application-types"));
+
+    public Task<ApiResult<ApplicationTypeDetails>> UpdateApplicationTypeAsync(int id, ApplicationTypeForm form) =>
+        SendAsync<ApplicationTypeDetails>(() => _http.PutAsJsonAsync($"api/admin/application-types/{id}", form));
 
     // Administrator: the audit log. from, to: days, both included.
     public Task<ApiResult<PagedList<AuditLogItem>>> GetAuditLogAsync(string? search, AuditGroup? group,

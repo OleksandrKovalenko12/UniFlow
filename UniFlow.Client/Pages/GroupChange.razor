@@ -71,6 +71,18 @@ else if (Blocking is not null)
         Otwórz wniosek
     </MudButton>
 }
+else if (_typeInactive)
+{
+    @* The administrator has switched the kind off - e.g. a draft from before. The server would
+       refuse it, so the form is not shown at all. *@
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+        Wniosków o zmianę grupy nie można już składać. Niedokończony wniosek możesz usunąć na liście
+        „Moje wnioski”.
+    </MudAlert>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="my">
+        Moje wnioski
+    </MudButton>
+}
 else
 {
     <MudPaper Class="pa-4 mb-4 d-flex align-center gap-4" Elevation="0" Outlined="true">
@@ -133,6 +145,7 @@ else
     private IReadOnlyList<EnrollmentSummary>? _enrollments;
     private EnrollmentSummary? _enrollment;
     private string? _error;
+    private bool _typeInactive;
 
     // This type's applications in progress, by studies: such studies get no new one
     private Dictionary<int, MyApplicationItem> _inProgress = [];
@@ -190,8 +203,10 @@ else
             return;
         }
 
-        _maxAttachments = types.Value
-            .FirstOrDefault(t => t.Code == ApplicationTypeCodes.GroupChange)?.MaxAttachments ?? 0;
+        // Only active kinds come back - none means the administrator has switched it off
+        var type = types.Value.FirstOrDefault(t => t.Code == ApplicationTypeCodes.GroupChange);
+        _typeInactive = type is null;
+        _maxAttachments = type?.MaxAttachments ?? 0;
 
         var mine = await Api.GetMyApplicationsAsync();
         if (!mine.IsSuccess)

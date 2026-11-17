@@ -195,7 +195,9 @@
         if (State.Tab is not null && !_tabs.Contains(State.Tab.Value))
             State.Tab = null;
 
-        var types = await Api.GetApplicationTypesAsync();
+        // Switched-off kinds too - their applications in progress are still handled here
+        var types = await Api.GetApplicationTypesAsync(includeInactive: true);
+
         if (types.IsSuccess)
             _types = types.Value;
 

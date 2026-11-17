@@ -131,7 +131,8 @@ public sealed class ApplicationDetailsQuery
             ForApplicant: !staff,
             CanWithdraw: !staff && ReviewRules.CanWithdraw(application.Status),
             StudentEmail: studentEmail,
-            OtherApplications: related);
+            OtherApplications: related,
+            MaxAttachments: application.MaxAttachments);
     }
 
     // The student is told which office acted, not which employee - as on paper
