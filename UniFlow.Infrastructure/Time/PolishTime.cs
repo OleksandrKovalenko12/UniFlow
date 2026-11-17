@@ -12,4 +12,8 @@ public static class PolishTime
 
         return TimeZoneInfo.ConvertTimeFromUtc(utc, Zone);
     }
+
+    // Midnight of a Polish day, in UTC - e.g. where "from" in a date filter begins
+    public static DateTime StartOfDayUtc(DateOnly day) =>
+        TimeZoneInfo.ConvertTimeToUtc(day.ToDateTime(TimeOnly.MinValue), Zone);
 }

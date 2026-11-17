@@ -25,5 +25,6 @@ builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<ReviewListState>();
 builder.Services.AddScoped<MyApplicationCounts>();
 builder.Services.AddScoped<AccountListState>();
+builder.Services.AddScoped<AuditLogState>();
 
 await builder.Build().RunAsync();

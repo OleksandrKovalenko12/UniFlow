@@ -100,8 +100,18 @@ public sealed class ApiClient
     public Task<ApiResult<CurrentUser>> ChangePasswordAsync(ChangePasswordRequest request) =>
         SendAsync<CurrentUser>(() => _http.PostAsJsonAsync("api/auth/password", request));
 
-    // Administrator: accounts
+    // Administrator: the audit log. from, to: days, both included.
+    public Task<ApiResult<PagedList<AuditLogItem>>> GetAuditLogAsync(string? search, AuditGroup? group,
+        string? account, DateTime? from, DateTime? to, int page) =>
+        SendAsync<PagedList<AuditLogItem>>(() => _http.GetAsync(
+            $"api/admin/audit-log?page={page}" +
+            (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}") +
+            (group is null ? "" : $"&group={group}") +
+            (string.IsNullOrWhiteSpace(account) ? "" : $"&account={Uri.EscapeDataString(account)}") +
+            (from is null ? "" : $"&from={from.Value:yyyy-MM-dd}") +
+            (to is null ? "" : $"&to={to.Value:yyyy-MM-dd}")));
 
+    // Administrator: accounts
     public Task<ApiResult<PagedList<AccountListItem>>> GetAccountsAsync(string? search, string? role,
         bool? active, int page) =>
         SendAsync<PagedList<AccountListItem>>(() => _http.GetAsync(

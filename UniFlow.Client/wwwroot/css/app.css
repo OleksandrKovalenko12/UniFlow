@@ -481,3 +481,18 @@ code {
     .studies-row + .studies-row {
         border-top: 1px solid var(--mud-palette-lines-default);
     }
+
+
+/* Audit log: date filters fit their content, the date and time stay on one line, details
+   (e.g. two e-mails) break when long */
+.audit-date {
+    flex: 0 1 180px;
+}
+
+.audit-when {
+    white-space: nowrap;
+}
+
+.audit-details {
+    overflow-wrap: anywhere;
+}

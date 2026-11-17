@@ -38,4 +38,15 @@ public class PolishTimeTests
 
         Assert.Equal("utc", ex.ParamName);
     }
+
+    // A summer day in Poland begins at 22:00 UTC the day before
+    [Fact]
+    public void StartOfDayUtc_Summer_IsTheEveningBefore()
+    {
+        var result = PolishTime.StartOfDayUtc(new DateOnly(2026, 7, 15));
+
+        Assert.Equal(new DateTime(2026, 7, 14, 22, 0, 0, DateTimeKind.Utc), result);
+        Assert.Equal(DateTimeKind.Utc, result.Kind);
+    }
+
 }

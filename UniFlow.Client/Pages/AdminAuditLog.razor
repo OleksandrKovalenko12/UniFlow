@@ -1,0 +1,179 @@
+﻿@page "/admin/log"
+@attribute [Authorize(Roles = RoleNames.Administrator)]
+@inject ApiClient Api
+@inject NavigationManager Navigation
+@inject AuditLogState State
+
+<PageTitle>Dziennik zmian - UniFlow</PageTitle>
+
+@* Opened from an account's "Historia zmian" - back to that account *@
+@if (Account is not null)
+{
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+               Href="@($"admin/accounts/{Account}")" Class="mb-2 ml-n2">
+        Wróć do konta
+    </MudButton>
+}
+
+<MudText Typo="Typo.h5" HtmlTag="h1">Dziennik zmian</MudText>
+<MudText Class="mt-1 mb-4 mud-text-secondary">
+    Zmiany uprawnień, danych kont i struktury uczelni. Wpisów nie można zmieniać ani usuwać.
+</MudText>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+}
+
+@if (Account is not null)
+{
+    <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4 ml-0"
+             OnClose="ClearAccount">
+        Konto: @(_accountName ?? "...")
+    </MudChip>
+}
+
+<div class="d-flex flex-wrap gap-4 mb-4">
+    @if (Account is null)
+    {
+        <MudTextField T="string" Value="State.Search" ValueChanged="SearchAsync" Immediate="true"
+                      DebounceInterval="400" Clearable="true" Placeholder="Szukaj konta: nazwisko, e-mail"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+                      aria-label="Szukaj konta po nazwisku lub e-mailu" />
+    }
+    <MudSelect T="string" Value="State.Group" ValueChanged="FilterGroupAsync"
+               Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+               aria-label="Rodzaj czynności">
+        <MudSelectItem Value="@("")">Wszystkie czynności</MudSelectItem>
+        @foreach (var group in Enum.GetValues<AuditGroup>())
+        {
+            <MudSelectItem Value="@group.ToString()">@AuditTexts.Group(group)</MudSelectItem>
+        }
+    </MudSelect>
+    @* The browser's own date picker - in the browser's language *@
+    <MudTextField T="DateTime?" Value="State.From" ValueChanged="FilterFromAsync" Label="Od"
+                  InputType="InputType.Date" Format="yyyy-MM-dd" Variant="Variant.Outlined"
+                  Margin="Margin.Dense" Class="audit-date" />
+    <MudTextField T="DateTime?" Value="State.To" ValueChanged="FilterToAsync" Label="Do"
+                  InputType="InputType.Date" Format="yyyy-MM-dd" Variant="Variant.Outlined"
+                  Margin="Margin.Dense" Class="audit-date" />
+</div>
+
+<MudTable @ref="_table" T="AuditLogItem" ServerData="LoadAsync" RowsPerPage="AuditPageSize"
+          Elevation="0" Outlined="true" Breakpoint="Breakpoint.Sm">
+    <HeaderContent>
+        <MudTh>Kiedy</MudTh>
+        <MudTh>Kto</MudTh>
+        <MudTh>Czynność</MudTh>
+        <MudTh>Konto</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Kiedy" Class="audit-when">@DateText.Format(context.CreatedAt)</MudTd>
+        <MudTd DataLabel="Kto">@context.ActorName</MudTd>
+        <MudTd DataLabel="Czynność" Class="audit-details">@AuditTexts.Describe(context)</MudTd>
+        <MudTd DataLabel="Konto">
+            @if (context.TargetUserId is not null)
+            {
+                <MudLink Href="@($"admin/accounts/{context.TargetUserId}")">@context.TargetName</MudLink>
+            }
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="mud-text-secondary">Brak wpisów.</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Class="mud-text-secondary">Wczytywanie...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}-{last_item} z {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    // The server returns pages of this size (AdminAuditLogController.PageSize)
+    private const int AuditPageSize = 25;
+
+    // One account's entries - from "Historia zmian" on its page
+    [SupplyParameterFromQuery(Name = "account")]
+    public string? Account { get; set; }
+
+    private MudTable<AuditLogItem>? _table;
+    private string? _shownAccount;
+    private string? _accountName;
+    private string? _error;
+
+    // The same page with another account (or none) - the name and the entries change
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Account == _shownAccount)
+            return;
+
+        _shownAccount = Account;
+        _accountName = null;
+
+        if (Account is not null)
+        {
+            var account = await Api.GetAccountAsync(Account);
+            if (account.IsSuccess)
+                _accountName = $"{account.Value.FirstName} {account.Value.LastName}";
+        }
+
+        if (_table is not null)
+            await ReloadAsync();
+    }
+
+    private async Task<TableData<AuditLogItem>> LoadAsync(TableState state, CancellationToken token)
+    {
+        AuditGroup? group = Enum.TryParse<AuditGroup>(State.Group, out var chosen) ? chosen : null;
+
+        var result = await Api.GetAuditLogAsync(Account is null ? State.Search : null, group, Account,
+            State.From, State.To, state.Page + 1);
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error.Message;
+            return new TableData<AuditLogItem> { Items = [], TotalItems = 0 };
+        }
+
+        _error = null;
+        return new TableData<AuditLogItem>
+        {
+            Items = result.Value.Items,
+            TotalItems = result.Value.TotalCount
+        };
+    }
+
+    private async Task SearchAsync(string? search)
+    {
+        State.Search = search;
+        await ReloadAsync();
+    }
+
+    private async Task FilterGroupAsync(string group)
+    {
+        State.Group = group;
+        await ReloadAsync();
+    }
+
+    private async Task FilterFromAsync(DateTime? from)
+    {
+        State.From = from;
+        await ReloadAsync();
+    }
+
+    private async Task FilterToAsync(DateTime? to)
+    {
+        State.To = to;
+        await ReloadAsync();
+    }
+
+    private void ClearAccount() => Navigation.NavigateTo("admin/log");
+
+    // Another filter starts again from the first page
+    private async Task ReloadAsync()
+    {
+        _table!.NavigateTo(Page.First);
+        await _table.ReloadServerData();
+    }
+}

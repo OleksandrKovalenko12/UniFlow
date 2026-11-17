@@ -96,6 +96,11 @@ else
                             Włącz konto
                         </MudButton>
                     }
+                    @* Who changed this account and when - the audit log limited to it *@
+                    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.History"
+                               Href="@($"admin/log?account={Id}")">
+                        Historia zmian
+                    </MudButton>
                 </div>
             </MudPaper>
         </MudItem>
