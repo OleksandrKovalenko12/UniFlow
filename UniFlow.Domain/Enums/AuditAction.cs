@@ -15,4 +15,6 @@ public enum AuditAction
     FieldOfStudyCreated = 11,
     FieldOfStudyChanged = 12,
     ApplicationTypeChanged = 13,
+    UserCreated = 14,
+    PasswordReset = 15,
 }

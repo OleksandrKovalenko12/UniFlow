@@ -28,6 +28,12 @@ public class StudentProfile
         PrivateEmail = NormalizeEmail(newEmail);
     }
 
+    // A correction by the administrator - e.g. a typo made when the account was created
+    public void ChangeAlbumNumber(string albumNumber)
+    {
+        AlbumNumber = ValidateAlbumNumber(albumNumber);
+    }
+
     private static string ValidateAlbumNumber(string albumNumber)
     {
         if (string.IsNullOrEmpty(albumNumber)

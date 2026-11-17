@@ -37,7 +37,8 @@ public static class ErrorMapping
         DomainErrorCode.RoleNotAllowed
             or DomainErrorCode.NotApplicant
             or DomainErrorCode.ConflictOfInterest
-            or DomainErrorCode.NotOwnEnrollment => StatusCodes.Status403Forbidden,
+            or DomainErrorCode.NotOwnEnrollment
+            or DomainErrorCode.OwnAccountProtected => StatusCodes.Status403Forbidden,
 
         DomainErrorCode.AttachmentNotFound
             or DomainErrorCode.EnrollmentNotFound

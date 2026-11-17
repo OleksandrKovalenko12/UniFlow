@@ -15,6 +15,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using UniFlow.Api.Controllers;
 using UniFlow.Api.Auth;
+using UniFlow.Api.Admin;
 using UniFlow.Shared.Auth;
 
 
@@ -91,6 +92,7 @@ builder.Services.AddHostedService<DraftCleanupService>();
 builder.Services.AddScoped<ApplicationAccess>();
 builder.Services.AddScoped<ApplicationDetailsQuery>();
 builder.Services.AddSingleton<DocumentRenderer>();
+builder.Services.AddScoped<AccountService>();
 
 // Per account
 builder.Services.AddRateLimiter(options =>

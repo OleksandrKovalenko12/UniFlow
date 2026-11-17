@@ -18,6 +18,7 @@ public class ErrorMappingTests
     [InlineData(DomainErrorCode.NotApplicant)]
     [InlineData(DomainErrorCode.ConflictOfInterest)]
     [InlineData(DomainErrorCode.NotOwnEnrollment)]
+    [InlineData(DomainErrorCode.OwnAccountProtected)]
     public void Map_WhoIsActingErrors_Return403(DomainErrorCode code)
     {
         Assert.Equal((StatusCodes.Status403Forbidden, code.ToString()), ErrorMapping.Map(Domain(code)));

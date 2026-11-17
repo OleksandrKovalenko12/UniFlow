@@ -33,4 +33,7 @@ public enum DomainErrorCode
 
     // One application of a type in progress on given studies
     ApplicationAlreadyInProgress = 18,
+
+    // Accounts: administrators cannot remove their own role or deactivate themselves
+    OwnAccountProtected = 19,
 }

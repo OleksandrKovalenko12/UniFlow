@@ -61,4 +61,23 @@ public class StudentProfileTests
 
         Assert.Null(profile.PrivateEmail);
     }
+
+    [Fact]
+    public void ChangeAlbumNumber_Valid_ChangesIt()
+    {
+        var profile = new StudentProfile("user-1", "123456");
+
+        profile.ChangeAlbumNumber("654321");
+
+        Assert.Equal("654321", profile.AlbumNumber);
+    }
+
+    [Fact]
+    public void ChangeAlbumNumber_Invalid_ThrowsAndKeepsTheOldOne()
+    {
+        var profile = new StudentProfile("user-1", "123456");
+
+        Assert.Throws<ArgumentException>(() => profile.ChangeAlbumNumber("12a"));
+        Assert.Equal("123456", profile.AlbumNumber);
+    }
 }
