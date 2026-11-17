@@ -1,0 +1,100 @@
+﻿<h3>Profile</h3>
+
+@code {
+
+}
+@page "/profile"
+@attribute [Authorize]
+@inject ApiClient Api
+
+<PageTitle>Mój profil - UniFlow</PageTitle>
+
+<MudText Typo="Typo.h5" HtmlTag="h1" Class="mb-4">Mój profil</MudText>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_profile is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <div class="d-flex align-center gap-4 mb-4">
+            <MudAvatar Color="Color.Primary" Size="Size.Large">@UserTexts.Initials(_profile.FullName)</MudAvatar>
+            <div>
+                <MudText Typo="Typo.h6">@_profile.FullName</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @string.Join(" · ", _profile.Roles.Select(UserTexts.Role))
+                </MudText>
+            </div>
+        </div>
+
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">E-mail uczelniany</MudText>
+        <MudText Class="mb-3">@_profile.Email</MudText>
+
+        @if (_profile.AlbumNumber is not null)
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Nr albumu</MudText>
+            <MudText>@_profile.AlbumNumber</MudText>
+        }
+    </MudPaper>
+
+    @if (_profile.Studies.Count > 0)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" GutterBottom="true">Studia</MudText>
+            @foreach (var studies in _profile.Studies)
+            {
+                <div class="mb-2">
+                    <MudText><b>@studies.FieldOfStudyName</b>, @EnrollmentLabels.Details(studies)</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@EnrollmentLabels.Faculty(studies)</MudText>
+                </div>
+            }
+        </MudPaper>
+    }
+
+    @if (_profile.Faculties.Count > 0)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.h6" GutterBottom="true">Wydziały</MudText>
+            @foreach (var faculty in _profile.Faculties)
+            {
+                <MudText>@faculty</MudText>
+            }
+        </MudPaper>
+    }
+
+    @* In a real deployment the data comes from the university's system (USOS) - UniFlow does
+       not change it. Who to ask depends on the role; the administrator gets no note. *@
+    @if (WhoCorrects is not null)
+    {
+        <MudAlert Severity="Severity.Info" Dense="true">
+            Dane pochodzą z systemu uczelni. Jeśli coś się nie zgadza, skontaktuj się @WhoCorrects.
+        </MudAlert>
+    }
+}
+
+@code {
+    private ProfileDetails? _profile;
+    private string? _error;
+    
+    // Who corrects the data: the dean's office a student's, the administrator an employee's.
+    // The administrator manages the accounts - nobody to point to, so no note.
+    private string? WhoCorrects =>
+        _profile!.Roles.Contains(RoleNames.Student) ? "z dziekanatem"
+        : _profile.Roles.Contains(RoleNames.DeanOffice) || _profile.Roles.Contains(RoleNames.ViceDean)
+            ? "z administratorem"
+        : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetProfileAsync();
+        if (result.IsSuccess)
+            _profile = result.Value;
+        else
+            _error = result.Error.Message;
+    }
+}

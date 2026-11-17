@@ -9,6 +9,7 @@ using UniFlow.Shared.Applications;
 using UniFlow.Shared.ApplicationTypes;
 using UniFlow.Shared.Review;
 using UniFlow.Shared.Drafts;
+using UniFlow.Shared.Profile;
 
 namespace UniFlow.Tests.Infrastructure.Database;
 
@@ -471,5 +472,37 @@ public sealed class ReviewAccessTests : IAsyncLifetime
         var response = await ResubmitAsync(submitted.Id, student);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    // "Mój profil": the user's own data only
+
+    [Fact]
+    public async Task Profile_Student_ShowsAlbumNumberAndStudies()
+    {
+        var student = await CreateUserAsync();
+        await SubmitAsync(student, await CreateFacultyAsync());
+
+        var profile = await (await GetAsync("/api/profile", student, RoleNames.Student))
+            .Content.ReadFromJsonAsync<ProfileDetails>();
+
+        Assert.Equal([RoleNames.Student], profile!.Roles);
+        Assert.NotNull(profile.AlbumNumber);
+        Assert.Single(profile.Studies);
+        Assert.Empty(profile.Faculties);
+    }
+
+    [Fact]
+    public async Task Profile_Employee_ShowsFacultiesWithoutStudentData()
+    {
+        var faculty = await CreateFacultyAsync();
+        var employee = await CreateUserAsync(staffOf: faculty);
+
+        var profile = await (await GetAsync("/api/profile", employee, DeanOffice))
+            .Content.ReadFromJsonAsync<ProfileDetails>();
+
+        Assert.Equal([DeanOffice], profile!.Roles);
+        Assert.Null(profile.AlbumNumber);
+        Assert.Empty(profile.Studies);
+        Assert.Equal([faculty.Name], profile.Faculties);
     }
 }

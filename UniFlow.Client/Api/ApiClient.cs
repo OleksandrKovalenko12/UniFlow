@@ -8,6 +8,7 @@ using UniFlow.Shared.Applications;
 using UniFlow.Shared.Forms;
 using Microsoft.AspNetCore.Components.Forms;
 using UniFlow.Shared.Drafts;
+using UniFlow.Shared.Profile;
 using UniFlow.Shared.Review;
 
 namespace UniFlow.Client.Api;
@@ -62,6 +63,9 @@ public sealed class ApiClient
 
     public Task<ApiResult<ReviewCounts>> GetReviewCountsAsync() =>
         SendAsync<ReviewCounts>(() => _http.GetAsync("api/review/counts"));
+
+    public Task<ApiResult<ProfileDetails>> GetProfileAsync() =>
+    SendAsync<ProfileDetails>(() => _http.GetAsync("api/profile"));
 
     public Task<ApiResult<IReadOnlyList<MyApplicationItem>>> GetMyApplicationsAsync() =>
     SendAsync<IReadOnlyList<MyApplicationItem>>(() => _http.GetAsync("api/applications/mine"));
