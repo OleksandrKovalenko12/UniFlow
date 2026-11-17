@@ -132,6 +132,35 @@ public sealed class ApiClient
     public Task<ApiResult<IReadOnlyList<FacultyOption>>> GetFacultiesAsync() =>
         SendAsync<IReadOnlyList<FacultyOption>>(() => _http.GetAsync("api/admin/faculties"));
 
+    // Administrator: a student's studies - every change returns the whole list
+
+    public Task<ApiResult<IReadOnlyList<StudiesItem>>> GetStudiesAsync(string accountId) =>
+        SendAsync<IReadOnlyList<StudiesItem>>(() => _http.GetAsync(StudiesUrl(accountId)));
+
+    public Task<ApiResult<IReadOnlyList<StudiesItem>>> AddStudiesAsync(string accountId,
+        AddStudiesRequest request) =>
+        SendAsync<IReadOnlyList<StudiesItem>>(() => _http.PostAsJsonAsync(StudiesUrl(accountId), request));
+
+    public Task<ApiResult<IReadOnlyList<StudiesItem>>> ChangeStudiesAsync(string accountId, int id,
+        ChangeStudiesRequest request) =>
+        SendAsync<IReadOnlyList<StudiesItem>>(() =>
+            _http.PutAsJsonAsync($"{StudiesUrl(accountId)}/{id}", request));
+
+    public Task<ApiResult<IReadOnlyList<StudiesItem>>> EndStudiesAsync(string accountId, int id) =>
+        SendAsync<IReadOnlyList<StudiesItem>>(() =>
+            _http.PostAsync($"{StudiesUrl(accountId)}/{id}/end", content: null));
+
+    public Task<ApiResult<IReadOnlyList<StudiesItem>>> ResumeStudiesAsync(string accountId, int id,
+        ResumeStudiesRequest request) =>
+        SendAsync<IReadOnlyList<StudiesItem>>(() =>
+            _http.PostAsJsonAsync($"{StudiesUrl(accountId)}/{id}/resume", request));
+
+    public Task<ApiResult<IReadOnlyList<FieldOfStudyOption>>> GetFieldsOfStudyAsync() =>
+        SendAsync<IReadOnlyList<FieldOfStudyOption>>(() => _http.GetAsync("api/admin/fields-of-study"));
+
+    private static string StudiesUrl(string accountId) =>
+        $"api/admin/accounts/{Uri.EscapeDataString(accountId)}/studies";
+
     // Drafts: the form saved as it is typed, and the files added to it
     public Task<ApiResult<IReadOnlyList<DraftSummary>>> GetMyDraftsAsync() =>
         SendAsync<IReadOnlyList<DraftSummary>>(() => _http.GetAsync("api/drafts"));

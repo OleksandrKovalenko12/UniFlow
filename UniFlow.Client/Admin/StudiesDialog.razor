@@ -1,0 +1,164 @@
+﻿@* One dialog for three things: adding studies (field, semester, mode), changing active ones
+   (semester, mode) and resuming ended ones (semester). It only collects the values - the card
+   sends them. *@
+
+<MudDialog>
+    <DialogContent>
+        @if (Studies is null)
+        {
+            <label class="field-label" for="studies-field">Kierunek</label>
+            <MudSelect T="int?" Value="_fieldId" ValueChanged="ChooseField" InputId="studies-field"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="Wybierz"
+                       ToStringFunc="FieldText" Class="mb-4"
+                       Error="@(_attempted && _fieldId is null)" ErrorText="Wybierz kierunek.">
+                @foreach (var field in Fields)
+                {
+                    var taken = Taken.FirstOrDefault(t => t.FieldOfStudyId == field.Id);
+                    @* Taken fields stay visible - with a word on why they cannot be chosen *@
+                    <MudSelectItem T="int?" Value="field.Id" Disabled="taken is not null">
+                        @FieldText(field.Id)@TakenText(taken)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+        }
+        else
+        {
+            <MudText Class="mb-4"><b>@Studies.FieldOfStudyName</b>, @Studies.StudyLevel</MudText>
+        }
+
+        <label class="field-label" for="studies-semester">Semestr</label>
+        <MudSelect T="int?" @bind-Value="_semester" InputId="studies-semester"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="Wybierz"
+                   Disabled="MaxSemester == 0" Class="mb-4"
+                   Error="@(_attempted && _semester is null)" ErrorText="Wybierz semestr.">
+            @* foreach, not for: the items keep the variable, and "for" would leave them all with
+               its last value *@
+            @foreach (var semester in Enumerable.Range(1, MaxSemester))
+            {
+                <MudSelectItem T="int?" Value="semester">@semester</MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (!Resume)
+        {
+            <MudText Class="field-label">Tryb</MudText>
+            <MudRadioGroup T="StudyModeOption" @bind-Value="_mode">
+                <MudRadio Value="StudyModeOption.FullTime" Color="Color.Primary">
+                    @StudyModeLabels.Text(StudyModeOption.FullTime)
+                </MudRadio>
+                <MudRadio Value="StudyModeOption.PartTime" Color="Color.Primary">
+                    @StudyModeLabels.Text(StudyModeOption.PartTime)
+                </MudRadio>
+            </MudRadioGroup>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Anuluj</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" OnClick="Submit">
+            @SubmitText
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    // Adding: the fields to choose from and the student's studies (their fields are taken)
+    [Parameter]
+    public IReadOnlyList<FieldOfStudyOption> Fields { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<StudiesItem> Taken { get; set; } = [];
+
+    // Changing or resuming: the studies in question
+    [Parameter]
+    public StudiesItem? Studies { get; set; }
+
+    [Parameter]
+    public bool Resume { get; set; }
+
+    private int? _fieldId;
+    private int? _semester;
+    private StudyModeOption _mode = StudyModeOption.FullTime;
+    private bool _attempted;
+
+    // The semester list ends where the level ends (e.g. 8 for first-cycle studies)
+    private int MaxSemester => Studies?.MaxSemester
+        ?? Fields.FirstOrDefault(f => f.Id == _fieldId)?.MaxSemester
+        ?? 0;
+
+    private string SubmitText => Studies is null ? "Dodaj" : Resume ? "Wznów" : "Zapisz";
+
+    protected override void OnInitialized()
+    {
+        if (Studies is not null)
+        {
+            _semester = Studies.Semester;
+            _mode = Studies.StudyMode;
+        }
+    }
+
+    // "Informatyka - studia pierwszego stopnia (WIiT)"
+    private string FieldText(int? id) =>
+        Fields.FirstOrDefault(f => f.Id == id) is { } field
+            ? $"{field.Name} - {field.StudyLevel} ({field.FacultyCode})"
+            : "";
+
+    private static string TakenText(StudiesItem? taken) =>
+        taken is null ? ""
+        : taken.IsActive ? " - już dodane"
+        : " - zakończone, wznów na liście";
+
+    // Another field may have fewer semesters - a semester beyond them is cleared
+    private void ChooseField(int? id)
+    {
+        _fieldId = id;
+        if (_semester > MaxSemester)
+            _semester = null;
+    }
+
+    private void Submit()
+    {
+        _attempted = true;
+        if (_semester is null || (Studies is null && _fieldId is null))
+            return;
+
+        MudDialog.Close(DialogResult.Ok(
+            new StudiesChoice(_fieldId ?? Studies!.FieldOfStudyId, _semester.Value, _mode)));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    public static Task<StudiesChoice?> ShowAddAsync(IDialogService dialogs,
+        IReadOnlyList<FieldOfStudyOption> fields, IReadOnlyList<StudiesItem> taken) =>
+        ShowAsync(dialogs, "Dodaj studia", new DialogParameters<StudiesDialog>
+        {
+            { d => d.Fields, fields },
+            { d => d.Taken, taken }
+        });
+
+    public static Task<StudiesChoice?> ShowChangeAsync(IDialogService dialogs, StudiesItem studies) =>
+        ShowAsync(dialogs, "Zmień studia", new DialogParameters<StudiesDialog>
+        {
+            { d => d.Studies, studies }
+        });
+
+    public static Task<StudiesChoice?> ShowResumeAsync(IDialogService dialogs, StudiesItem studies) =>
+        ShowAsync(dialogs, "Wznów studia", new DialogParameters<StudiesDialog>
+        {
+            { d => d.Studies, studies },
+            { d => d.Resume, true }
+        });
+
+    // Null when the dialog was cancelled
+    private static async Task<StudiesChoice?> ShowAsync(IDialogService dialogs, string title,
+        DialogParameters<StudiesDialog> parameters)
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true };
+        var dialog = await dialogs.ShowAsync<StudiesDialog>(title, parameters, options);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false, Data: StudiesChoice choice } ? choice : null;
+    }
+}

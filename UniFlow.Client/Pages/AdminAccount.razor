@@ -41,9 +41,17 @@ else
             }
 
             <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
-                       Disabled="_busy" OnClick="SaveAsync">
+                Disabled="_busy" OnClick="SaveAsync">
                 @(_saving ? "Zapisywanie..." : "Zapisz zmiany")
             </MudButton>
+
+            @* Only for a saved Student role - the card works on its own, without "Zapisz zmiany" *@
+            @if (_account.Roles.Contains(RoleNames.Student))
+            {
+                <div class="mt-6">
+                    <StudiesCard AccountId="@Id" />
+                </div>
+            }
         </MudItem>
 
         <MudItem xs="12" md="4">

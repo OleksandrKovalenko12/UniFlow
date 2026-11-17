@@ -1,0 +1,168 @@
+﻿@* A student's studies on their account page. Each change goes to the server at once -
+   "Zapisz zmiany" above is only for the account's own data. *@
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <div class="d-flex flex-wrap align-center gap-2 mb-2">
+        <MudText Typo="Typo.h6" Class="flex-grow-1">Studia</MudText>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Add" Disabled="@(_busy || _studies is null)"
+                   OnClick="AddAsync">
+            Dodaj studia
+        </MudButton>
+    </div>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+    }
+    else if (_studies is null)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_studies.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            Brak studiów - student nie może jeszcze złożyć wniosku.
+        </MudText>
+    }
+    else
+    {
+        @foreach (var studies in _studies)
+        {
+            <div class="studies-row">
+                <div class="flex-grow-1">
+                    <MudText>
+                        <b>@studies.FieldOfStudyName</b>, @studies.StudyLevel
+                        @if (!studies.IsActive)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="ml-1">Zakończone</MudChip>
+                        }
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        @studies.FacultyName · semestr @studies.Semester · @StudyModeLabels.Text(studies.StudyMode)
+                    </MudText>
+                </div>
+                <div class="d-flex gap-1">
+                    @if (studies.IsActive)
+                    {
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="_busy"
+                                   OnClick="() => ChangeAsync(studies)">
+                            Zmień
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" Disabled="_busy"
+                                   OnClick="() => EndAsync(studies)">
+                            Zakończ
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Disabled="_busy"
+                                   OnClick="() => ResumeAsync(studies)">
+                            Wznów
+                        </MudButton>
+                    }
+                </div>
+            </div>
+        }
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public string AccountId { get; set; } = "";
+
+    private IReadOnlyList<StudiesItem>? _studies;
+    private IReadOnlyList<FieldOfStudyOption> _fields = [];
+    private string? _error;
+
+    // One change at a time
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var studies = await Api.GetStudiesAsync(AccountId);
+        if (!studies.IsSuccess)
+        {
+            _error = studies.Error.Message;
+            return;
+        }
+
+        _studies = studies.Value;
+
+        var fields = await Api.GetFieldsOfStudyAsync();
+        if (fields.IsSuccess)
+            _fields = fields.Value;
+    }
+
+    private async Task AddAsync()
+    {
+        var choice = await StudiesDialog.ShowAddAsync(Dialogs, _fields, _studies!);
+        if (choice is null)
+            return;
+
+        await SendAsync(() => Api.AddStudiesAsync(AccountId, new AddStudiesRequest
+        {
+            FieldOfStudyId = choice.FieldOfStudyId,
+            Semester = choice.Semester,
+            StudyMode = choice.StudyMode
+        }), "Dodano studia.");
+    }
+
+    private async Task ChangeAsync(StudiesItem studies)
+    {
+        var choice = await StudiesDialog.ShowChangeAsync(Dialogs, studies);
+        if (choice is null)
+            return;
+
+        await SendAsync(() => Api.ChangeStudiesAsync(AccountId, studies.Id, new ChangeStudiesRequest
+        {
+            Semester = choice.Semester,
+            StudyMode = choice.StudyMode
+        }), "Zapisano zmiany.");
+    }
+
+    private async Task EndAsync(StudiesItem studies)
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Zakończyć studia?",
+            $"{studies.FieldOfStudyName}, {studies.StudyLevel}. Student nie złoży już na nich nowych " +
+            "wniosków, a wnioski w toku zostaną rozpatrzone do końca. Studia można później wznowić.",
+            yesText: "Zakończ studia", cancelText: "Anuluj");
+
+        if (confirmed == true)
+            await SendAsync(() => Api.EndStudiesAsync(AccountId, studies.Id), "Studia zostały zakończone.");
+    }
+
+    private async Task ResumeAsync(StudiesItem studies)
+    {
+        var choice = await StudiesDialog.ShowResumeAsync(Dialogs, studies);
+        if (choice is null)
+            return;
+
+        await SendAsync(() => Api.ResumeStudiesAsync(AccountId, studies.Id,
+            new ResumeStudiesRequest { Semester = choice.Semester }), "Studia zostały wznowione.");
+    }
+
+    // Every answer is the whole list as it is now
+    private async Task SendAsync(Func<Task<ApiResult<IReadOnlyList<StudiesItem>>>> send, string done)
+    {
+        _busy = true;
+        var result = await send();
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            _studies = result.Value;
+            Snackbar.Add(done, Severity.Success);
+            return;
+        }
+
+        // E.g. "Te studia są zakończone - wznów je na liście." - more useful than "Popraw pola"
+        var message = result.Error.FieldErrors.Values.SelectMany(m => m).FirstOrDefault()
+            ?? result.Error.Message;
+        Snackbar.Add(message, Severity.Error);
+    }
+}

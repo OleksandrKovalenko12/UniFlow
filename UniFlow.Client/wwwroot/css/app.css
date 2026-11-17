@@ -467,3 +467,17 @@ code {
         color: inherit;
         overflow-wrap: anywhere;
     }
+
+
+/* A student's studies on their account page */
+.studies-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+    .studies-row + .studies-row {
+        border-top: 1px solid var(--mud-palette-lines-default);
+    }

@@ -53,7 +53,7 @@
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
-    @* Only when there is somewhere to go - an employee alone has one page, and the logo leadsback to it *@
+    @* Only when there is somewhere to go - an employee alone has one page, and the logo leads back to it *@
     <AuthorizeView Context="auth">
         @if (HasMenu(auth.User))
         {

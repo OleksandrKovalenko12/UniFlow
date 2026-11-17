@@ -75,7 +75,7 @@ public class Enrollment
                 "Cannot modify an inactive enrollment.");
     }
 
-    private static int GetMaxSemester(StudyLevel level) => level switch
+    public static int MaxSemester(StudyLevel level) => level switch
     {
         StudyLevel.FirstCycle => 8,
         StudyLevel.SecondCycle => 4,
@@ -85,7 +85,7 @@ public class Enrollment
 
     private static int ValidateSemester(int semester, StudyLevel level)
     {
-        var max = GetMaxSemester(level);
+        var max = MaxSemester(level);
 
         if (semester < 1 || semester > max)
             throw new ArgumentOutOfRangeException(nameof(semester), semester,
