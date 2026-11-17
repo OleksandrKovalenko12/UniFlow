@@ -94,19 +94,34 @@
 
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
-            @Body
+            @* With a temporary password nothing is shown - the user is on the way to setting a new one *@
+            @if (!_passwordChangeRequired)
+            {
+                @Body
+            }
         </MudContainer>
     </MudMainContent>
 </MudLayout>
 
 @code {
     private bool _drawerOpen = true;
-    
+    private bool _passwordChangeRequired;
+
     protected override async Task OnInitializedAsync()
     {
+        var user = (await AuthState.GetAuthenticationStateAsync()).User;
+
+        // Logged in with a temporary password: first a password of one's own. The server
+        // refuses everything else anyway.
+        if (user.HasClaim(c => c.Type == UniFlowClaims.MustChangePassword))
+        {
+            _passwordChangeRequired = true;
+            Navigation.NavigateTo("change-password", replace: true);
+            return;
+        }
+
         Counts.Changed += CountsChanged;
 
-        var user = (await AuthState.GetAuthenticationStateAsync()).User;
         if (user.IsInRole(RoleNames.Student))
             await Counts.RefreshAsync();
     }

@@ -14,6 +14,8 @@ using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using UniFlow.Api.Controllers;
+using UniFlow.Api.Auth;
+using UniFlow.Shared.Auth;
 
 
 
@@ -35,8 +37,13 @@ builder.Services
     {
         options.Lockout.MaxFailedAccessAttempts = 5;
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+        // The other rules (letters, digit, special character) are Identity's defaults
+        options.Password.RequiredLength = PasswordRules.MinLength;
     })
     .AddRoles<IdentityRole>()
+    // After AddRoles - it would otherwise replace ours with its own
+    .AddClaimsPrincipalFactory<UniFlowClaimsPrincipalFactory>()
+    .AddErrorDescriber<PolishIdentityErrorDescriber>()
     .AddEntityFrameworkStores<UniFlowDbContext>()
     .AddSignInManager();
 
@@ -148,6 +155,7 @@ app.UseHttpsRedirection();
 app.MapStaticAssets().AllowAnonymous();
 
 app.UseAuthentication();
+app.UseMiddleware<PasswordChangeGate>();
 app.UseAuthorization();
 app.UseRateLimiter();
 

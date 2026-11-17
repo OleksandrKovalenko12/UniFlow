@@ -63,6 +63,41 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    // Replaces the temporary password with the user's own. Not limited to temporary passwords -
+    // the current one is asked for anyway.
+    [HttpPost("password")]
+    public async Task<ActionResult<CurrentUser>> ChangePassword(ChangePasswordRequest request)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user is null || !user.IsActive)
+            return Unauthorized();
+
+        // Saved together with the new password - ChangePasswordAsync saves the whole user
+        user.MustChangePassword = false;
+
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword,
+            request.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            // A wrong current password under its field, the password rules under the new one
+            foreach (var error in result.Errors)
+                ModelState.AddModelError(
+                    error.Code == nameof(IdentityErrorDescriber.PasswordMismatch)
+                        ? nameof(request.CurrentPassword)
+                        : nameof(request.NewPassword),
+                    error.Description);
+
+            return ValidationProblem(ModelState);
+        }
+
+        // A new cookie: without the temporary password mark and with the new security stamp
+        await _signInManager.RefreshSignInAsync(user);
+        _logger.LogInformation("User {UserId} changed their password.", user.Id);
+
+        return await ToCurrentUserAsync(user);
+    }
+
     [HttpGet("me")]
     public async Task<ActionResult<CurrentUser>> Me()
     {
@@ -79,6 +114,7 @@ public sealed class AuthController : ControllerBase
     private async Task<CurrentUser> ToCurrentUserAsync(ApplicationUser user)
     {
         var roles = await _userManager.GetRolesAsync(user);
-        return new CurrentUser(user.Id, user.Email!, user.FirstName, user.LastName, [.. roles]);
+        return new CurrentUser(user.Id, user.Email!, user.FirstName, user.LastName, [.. roles],
+             user.MustChangePassword);
     }
 }

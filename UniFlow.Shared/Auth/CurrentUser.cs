@@ -5,4 +5,5 @@ public sealed record CurrentUser(
     string Email,
     string FirstName,
     string LastName,
-    IReadOnlyList<string> Roles);
+    IReadOnlyList<string> Roles,
+    bool MustChangePassword);

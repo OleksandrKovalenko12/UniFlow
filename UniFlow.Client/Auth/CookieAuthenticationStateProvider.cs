@@ -47,6 +47,14 @@ public sealed class CookieAuthenticationStateProvider : AuthenticationStateProvi
         }
     }
 
+    // The user as the server sees them after a change - e.g. a new password set in place of
+    // the temporary one
+    public void SetUser(CurrentUser user)
+    {
+        _state = Task.FromResult(ToState(user));
+        NotifyAuthenticationStateChanged(_state);
+    }
+
     // Returns false when the server could not be reached and the cookie may still be valid
     public async Task<bool> LogoutAsync()
     {
@@ -89,6 +97,9 @@ public sealed class CookieAuthenticationStateProvider : AuthenticationStateProvi
             new(ClaimTypes.Email, user.Email)
         };
         claims.AddRange(user.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        if (user.MustChangePassword)
+            claims.Add(new Claim(UniFlowClaims.MustChangePassword, "true"));
 
         // Passing the authentication type is what makes IsAuthenticated true
         var identity = new ClaimsIdentity(claims, authenticationType: "Cookie");

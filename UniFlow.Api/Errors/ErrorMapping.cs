@@ -13,6 +13,9 @@ public static class ErrorMapping
     public const string PdfServiceUnavailable = "PdfServiceUnavailable";
     public const string ServerError = "ServerError";
 
+    // Logged in with a temporary password - nothing works until a new one is set
+    public const string PasswordChangeRequired = "PasswordChangeRequired";
+
     // Attachments - the file itself is the problem
     public const string UnsupportedFileType = "UnsupportedFileType";
     public const string InvalidFileSize = "InvalidFileSize";

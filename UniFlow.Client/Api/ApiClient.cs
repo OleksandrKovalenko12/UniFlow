@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using UniFlow.Shared.Drafts;
 using UniFlow.Shared.Profile;
 using UniFlow.Shared.Review;
+using UniFlow.Shared.Auth;
 
 namespace UniFlow.Client.Api;
 
@@ -94,8 +95,11 @@ public sealed class ApiClient
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unknown action.")
     };
 
-    // Drafts: the form saved as it is typed, and the files added to it
+    // The user's own password in place of the temporary one
+    public Task<ApiResult<CurrentUser>> ChangePasswordAsync(ChangePasswordRequest request) =>
+        SendAsync<CurrentUser>(() => _http.PostAsJsonAsync("api/auth/password", request));
 
+    // Drafts: the form saved as it is typed, and the files added to it
     public Task<ApiResult<IReadOnlyList<DraftSummary>>> GetMyDraftsAsync() =>
         SendAsync<IReadOnlyList<DraftSummary>>(() => _http.GetAsync("api/drafts"));
 
