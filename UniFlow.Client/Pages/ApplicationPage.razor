@@ -4,13 +4,23 @@
 
 <PageTitle>@(_details?.Number ?? "Wniosek") - UniFlow</PageTitle>
 
-@* Back to where this view belongs - not by role: a student working in the office has both *@
+@* Back to where this view belongs - not by role: a student working in the office has both.
+   Opened from "Inne wnioski": back to the application the employee started from, and the list
+   one click away too. Going back step by step is the browser's own back button. *@
 @if (_details is not null)
 {
-    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
-               Href="@(_details.ForApplicant ? "my" : "review")" Class="mb-2 ml-n2">
-        Wróć
-    </MudButton>
+    <div class="d-flex flex-wrap gap-2 mb-2 ml-n2">
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                   Href="@(OriginId is null ? ListUrl : $"applications/{OriginId}")">
+            @BackText
+        </MudButton>
+        @if (OriginId is not null)
+        {
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.List" Href="@ListUrl">
+                Lista wniosków
+            </MudButton>
+        }
+    </div>
 }
 
 @if (_error is not null)
@@ -43,7 +53,7 @@ else
         </MudAlert>
     }
 
-    <ApplicationView Details="_details">
+       <ApplicationView Details="_details" OriginId="OriginId ?? Id">
         <Actions>
             @if (_details.Actions.Count > 0)
             {
@@ -66,6 +76,27 @@ else
 
     [Parameter]
     public Guid Id { get; set; }
+    
+    
+    // The application the employee started from, when this one was opened from "Inne wnioski".
+    // Only an address of an application is used - the link could be changed by anyone.
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    private Guid? OriginId =>
+        LocalUrl.IsLocal(From) && From!.StartsWith("/applications/")
+            && Guid.TryParse(From["/applications/".Length..], out var id) && id != Id
+            ? id
+            : null;
+
+    // "Wróć do UF/2026/0001" - the number is on this page's list of the student's applications
+    private string BackText =>
+        OriginId is null ? "Wróć"
+        : _details!.OtherApplications.FirstOrDefault(a => a.Id == OriginId)?.Number is { } number
+            ? $"Wróć do {number}"
+            : "Poprzedni wniosek";
+
+    private string ListUrl => _details!.ForApplicant ? "my" : "review";
 
     private ApplicationDetails? _details;
     private string? _error;

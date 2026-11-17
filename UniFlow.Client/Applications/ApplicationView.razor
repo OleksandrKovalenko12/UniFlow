@@ -26,6 +26,21 @@
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">Student</MudText>
                     <MudText><b>@Details.StudentName</b></MudText>
                     <MudText Typo="Typo.body2">nr albumu @Details.AlbumNumber</MudText>
+                    @* Staff only - to ask the student instead of sending the case back *@
+                    @if (Details.StudentEmail is not null)
+                    {
+                        <MudLink Href="@($"mailto:{Details.StudentEmail}")" Typo="Typo.body2"
+                                 Class="student-email">@Details.StudentEmail</MudLink>
+                    }
+                    @* Staff only, and only when there is something to see - the number says so without a click *@
+                    @if (Details.OtherApplications.Count > 0)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Outlined.FolderOpen" Class="ml-n2 mt-1"
+                                   OnClick="ShowOtherApplicationsAsync">
+                            Inne wnioski (@Details.OtherApplications.Count)
+                        </MudButton>
+                    }
                 </MudItem>
                 <MudItem xs="12" sm="7">
                     <MudText Typo="Typo.body2" Class="mud-text-secondary">Studia</MudText>
@@ -98,10 +113,12 @@
                             <div class="@(change.IsInternal ? "history-comment internal" : "history-comment")">
                                 @if (change.IsInternal)
                                 {
-                                    <div class="d-flex align-center gap-1 mb-1">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />
-                                        <MudText Typo="Typo.caption">Notatka wewnętrzna - student jej nie widzi</MudText>
-                                    </div>
+                                    <MudTooltip Text="Student jej nie widzi">
+                                        <div class="d-flex align-center gap-1 mb-1">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />
+                                            <MudText Typo="Typo.caption">Notatka wewnętrzna</MudText>
+                                        </div>
+                                    </MudTooltip>
                                 }
                                 <MudText Typo="Typo.body2" Class="pre-line">@change.Comment</MudText>
                             </div>
@@ -114,8 +131,15 @@
 </MudGrid>
 
 @code {
+    [Inject]
+    private IDialogService Dialogs { get; set; } = null!;
+
     [Parameter, EditorRequired]
     public ApplicationDetails Details { get; set; } = null!;
+    
+    // The application the employee started from - links in "Inne wnioski" lead back to it
+    [Parameter]
+    public Guid OriginId { get; set; }
 
     // Decision buttons of the dean's office or the vice-dean (step D.3)
     [Parameter]
@@ -124,4 +148,7 @@
     private IEnumerable<AttachmentInfo> Current => Details.Attachments.Where(f => f.ArchivedAt is null);
 
     private List<AttachmentInfo> Archived => Details.Attachments.Where(f => f.ArchivedAt is not null).ToList();
+    
+    private Task ShowOtherApplicationsAsync() =>
+        OtherApplicationsDialog.ShowAsync(Dialogs, OriginId, Details.StudentName, Details.OtherApplications);
 }

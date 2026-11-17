@@ -409,3 +409,18 @@ code {
     font-size: 0.75rem;
     color: var(--mud-palette-text-secondary);
 }
+
+/* The student's e-mail can be long - it breaks instead of widening the page on a phone */
+.student-email {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+/* Other applications of the student, in the dialog on the application page */
+.related-application {
+    padding: 6px 0;
+}
+
+    .related-application + .related-application {
+        border-top: 1px solid var(--mud-palette-lines-default);
+    }

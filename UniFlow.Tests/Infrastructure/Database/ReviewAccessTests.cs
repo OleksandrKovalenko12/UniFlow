@@ -87,10 +87,13 @@ public sealed class ReviewAccessTests : IAsyncLifetime
             var field = await db.FieldsOfStudy.FirstOrDefaultAsync(f => f.FacultyId == faculty.Id)
                 ?? new FieldOfStudy("Informatyka", StudyLevel.FirstCycle,
                     db.Faculties.Attach(faculty).Entity);
-            var enrollment = new Enrollment(userId, field, 3, StudyMode.FullTime);
-            db.Enrollments.Add(enrollment);
-            db.StudentProfiles.Add(new StudentProfile(userId,
-                Random.Shared.Next(1_000_000, 9_999_999).ToString()));
+            // A second application of the same student there uses the same studies and profile
+            var enrollment = await db.Enrollments
+                .FirstOrDefaultAsync(e => e.StudentId == userId && e.FieldOfStudyId == field.Id)
+                ?? db.Enrollments.Add(new Enrollment(userId, field, 3, StudyMode.FullTime)).Entity;
+            if (!await db.StudentProfiles.AnyAsync(p => p.UserId == userId))
+                db.StudentProfiles.Add(new StudentProfile(userId,
+                    Random.Shared.Next(1_000_000, 9_999_999).ToString()));
             await db.SaveChangesAsync();
             enrollmentId = enrollment.Id;
         }
@@ -504,5 +507,44 @@ public sealed class ReviewAccessTests : IAsyncLifetime
         Assert.Null(profile.AlbumNumber);
         Assert.Empty(profile.Studies);
         Assert.Equal([faculty.Name], profile.Faculties);
+    }
+
+    // The student's e-mail and other applications - for staff, within what they may open
+
+    [Fact]
+    public async Task Details_ForStaff_ShowEmailAndOnlyOtherApplicationsTheyMayOpen()
+    {
+        var faculty = await CreateFacultyAsync();
+        var student = await CreateUserAsync();
+        var employee = await CreateUserAsync(staffOf: faculty);
+        // One application in progress per type and studies: the first is withdrawn - and still
+        // listed, the history of the student's cases matters
+        var first = await SubmitAsync(student, faculty);
+        await PostAsync($"/api/applications/{first.Id}/withdraw", student, RoleNames.Student);
+        var second = await SubmitAsync(student, faculty);
+        // The same student on another faculty - not this employee's business
+        var elsewhere = await SubmitAsync(student, await CreateFacultyAsync());
+
+        var details = await (await GetAsync($"/api/applications/{second.Id}", employee, DeanOffice))
+            .Content.ReadFromJsonAsync<ApplicationDetails>();
+
+        Assert.Equal($"{student}@test.local", details!.StudentEmail);
+        Assert.Equal([first.Number], details.OtherApplications.Select(a => a.Number));
+        Assert.DoesNotContain(details.OtherApplications, a => a.Number == elsewhere.Number);
+    }
+
+    [Fact]
+    public async Task Details_ForTheStudent_ShowNoEmailNorOtherApplications()
+    {
+        var faculty = await CreateFacultyAsync();
+        var student = await CreateUserAsync();
+        var first = await SubmitAsync(student, faculty);
+        await SubmitAsync(student, await CreateFacultyAsync());
+
+        var details = await (await GetAsync($"/api/applications/{first.Id}", student, RoleNames.Student))
+            .Content.ReadFromJsonAsync<ApplicationDetails>();
+
+        Assert.Null(details!.StudentEmail);
+        Assert.Empty(details.OtherApplications);
     }
 }

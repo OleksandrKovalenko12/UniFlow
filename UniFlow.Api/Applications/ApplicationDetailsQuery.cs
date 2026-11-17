@@ -16,10 +16,12 @@ namespace UniFlow.Api.Applications;
 public sealed class ApplicationDetailsQuery
 {
     private readonly UniFlowDbContext _db;
+    private readonly ApplicationAccess _access;
 
-    public ApplicationDetailsQuery(UniFlowDbContext db)
+    public ApplicationDetailsQuery(UniFlowDbContext db, ApplicationAccess access)
     {
         _db = db;
+        _access = access;
     }
 
     public async Task<ApplicationDetails> GetAsync(Guid applicationId, ApplicationViewer viewer,
@@ -84,6 +86,29 @@ public sealed class ApplicationDetailsQuery
                 user.IsInRole(RoleNames.DeanOffice), user.IsInRole(RoleNames.ViceDean))
             : [];
 
+        // For staff: the university e-mail to write to the student, and the student's other
+        // applications - through the same filter as the list, so nothing beyond what the
+        // employee could open anyway (a vice-dean sees only the forwarded ones)
+        var studentEmail = staff
+            ? await _db.Users
+                .Where(u => u.Id == application.ApplicantId)
+                .Select(u => u.Email)
+                .SingleAsync(cancellationToken)
+            : null;
+
+        var otherApplications = staff
+            ? await _access.VisibleToStaff(user)
+                .Where(a => a.ApplicantId == application.ApplicantId && a.Id != application.Id)
+                .OrderByDescending(a => a.CreatedAt)
+                                .Select(a => new { a.Id, a.Number, TypeName = a.ApplicationType.Name, a.Status, a.CreatedAt })
+                .ToListAsync(cancellationToken)
+            : [];
+
+        var related = otherApplications
+            .Select(a => new RelatedApplication(a.Id, a.Number, a.TypeName, (ApplicationState)a.Status,
+                Application.InProgressStatuses.Contains(a.Status), a.CreatedAt))
+            .ToList();
+
         return new ApplicationDetails(
             application.Id,
             application.Number,
@@ -104,7 +129,9 @@ public sealed class ApplicationDetailsQuery
             history,
             actions,
             ForApplicant: !staff,
-            CanWithdraw: !staff && ReviewRules.CanWithdraw(application.Status));
+            CanWithdraw: !staff && ReviewRules.CanWithdraw(application.Status),
+            StudentEmail: studentEmail,
+            OtherApplications: related);
     }
 
     // The student is told which office acted, not which employee - as on paper

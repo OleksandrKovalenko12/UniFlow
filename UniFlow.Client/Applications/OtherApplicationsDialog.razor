@@ -1,0 +1,72 @@
+﻿@* The student's other applications, for an employee - opened from the student's details.
+   Split like the student's own list; no filters: one application of a type in progress at a
+   time keeps the list short. *@
+
+<MudDialog>
+    <DialogContent>
+        @foreach (var (title, group) in Groups)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mt-2">@title (@group.Count)</MudText>
+            @foreach (var other in group)
+            {
+                <div class="related-application">
+                    <div class="d-flex flex-wrap align-center gap-2">
+                        @* Closes the dialog too - it would otherwise stay open over the new page *@
+                        <MudLink Href="@LinkTo(other)" OnClick="Close">
+                            <b>@other.Number</b>
+                        </MudLink>
+                        <StatusChip Status="other.Status" />
+                    </div>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        @other.TypeName · złożony @DateText.Day(other.SubmittedAt)
+                    </MudText>
+                </div>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close">Zamknij</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter]
+    public IReadOnlyList<RelatedApplication> Applications { get; set; } = [];
+
+    // The application the employee started from - kept while they look further
+    [Parameter]
+    public Guid OriginId { get; set; }
+
+    // "from": "Wróć" there leads back to where the employee started. The starting application
+    // itself gets no "from" - it would lead to itself.
+    private string LinkTo(RelatedApplication other) =>
+        other.Id == OriginId
+            ? $"applications/{other.Id}"
+            : $"applications/{other.Id}?from=/applications/{OriginId}";
+
+    // Only the groups that have something in them
+    private IEnumerable<(string Title, List<RelatedApplication> Group)> Groups =>
+        new[]
+        {
+            ("W toku", Applications.Where(a => a.InProgress).ToList()),
+            ("Zakończone", Applications.Where(a => !a.InProgress).ToList())
+        }.Where(g => g.Item2.Count > 0);
+
+    private void Close() => MudDialog.Close();
+
+    public static Task ShowAsync(IDialogService dialogs, Guid originId, string studentName,
+        IReadOnlyList<RelatedApplication> applications)
+    {
+        var parameters = new DialogParameters<OtherApplicationsDialog>
+        {
+            { d => d.Applications, applications },
+            { d => d.OriginId, originId }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+
+        return dialogs.ShowAsync<OtherApplicationsDialog>($"Inne wnioski: {studentName}", parameters, options);
+    }
+}
