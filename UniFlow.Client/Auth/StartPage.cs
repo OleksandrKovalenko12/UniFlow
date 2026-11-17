@@ -11,6 +11,6 @@ public static class StartPage
     public static string? For(ClaimsPrincipal user) =>
         user.IsInRole(RoleNames.DeanOffice) || user.IsInRole(RoleNames.ViceDean) ? "review"
         : user.IsInRole(RoleNames.Student) ? "my"
-        : user.IsInRole(RoleNames.Administrator) ? "admin"
+        : user.IsInRole(RoleNames.Administrator) ? "admin/accounts"
         : null;
 }

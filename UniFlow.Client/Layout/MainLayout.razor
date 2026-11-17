@@ -53,9 +53,7 @@
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
-
-    @* Only when there is somewhere to go - an employee or the administrator alone has one page,
-       and the logo leads back to it *@
+    @* Only when there is somewhere to go - an employee alone has one page, and the logo leadsback to it *@
     <AuthorizeView Context="auth">
         @if (HasMenu(auth.User))
         {
@@ -68,10 +66,10 @@
                         </MudNavLink>
                     </AuthorizeView>
                     <AuthorizeView Roles="@RoleNames.Administrator">
-                        <MudNavLink Href="admin" Match="NavLinkMatch.Prefix"
-                                    Icon="@Icons.Material.Outlined.AdminPanelSettings">
-                            Panel administratora
-                        </MudNavLink>
+                        <MudNavGroup Title="Administracja" Icon="@Icons.Material.Outlined.AdminPanelSettings"
+                                     Expanded="true">
+                            <MudNavLink Href="admin/accounts" Match="NavLinkMatch.Prefix">Konta</MudNavLink>
+                        </MudNavGroup>
                     </AuthorizeView>
                     <AuthorizeView Roles="@RoleNames.Student">
                         @* All, not Prefix: "my" would also light up on "my/zakonczone" *@
@@ -132,11 +130,9 @@
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
 
-    // A student has two pages to choose from; an employee or the administrator alone only one
+    // A student and the administrator have several pages to choose from; an employee only one
     private static bool HasMenu(ClaimsPrincipal user) =>
-        user.IsInRole(RoleNames.Student)
-        || ((user.IsInRole(RoleNames.DeanOffice) || user.IsInRole(RoleNames.ViceDean))
-            && user.IsInRole(RoleNames.Administrator));
+        user.IsInRole(RoleNames.Student) || user.IsInRole(RoleNames.Administrator);
 
     private async Task LogoutAsync()
     {

@@ -1,0 +1,148 @@
+﻿@page "/admin"
+@page "/admin/accounts"
+@attribute [Authorize(Roles = RoleNames.Administrator)]
+@inject ApiClient Api
+@inject NavigationManager Navigation
+@inject AccountListState State
+
+<PageTitle>Konta - UniFlow</PageTitle>
+
+<div class="d-flex flex-wrap align-center gap-2 mb-4">
+    <MudText Typo="Typo.h5" HtmlTag="h1" Class="flex-grow-1">Konta</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Filled.PersonAdd" Href="admin/accounts/new">
+        Nowe konto
+    </MudButton>
+</div>
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+}
+
+<div class="d-flex flex-wrap gap-4 mb-4">
+    <MudTextField T="string" Value="State.Search" ValueChanged="SearchAsync" Immediate="true"
+                  DebounceInterval="400" Clearable="true"
+                  Placeholder="Szukaj: nazwisko, e-mail, nr albumu"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+                  aria-label="Szukaj po nazwisku, e-mailu lub numerze albumu" />
+    <MudSelect T="string" Value="State.Role" ValueChanged="FilterRoleAsync"
+               Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+               aria-label="Rola">
+        <MudSelectItem Value="@("")">Wszystkie role</MudSelectItem>
+        @foreach (var role in RoleNames.All)
+        {
+            <MudSelectItem Value="@role">@UserTexts.Role(role)</MudSelectItem>
+        }
+    </MudSelect>
+    <MudSelect T="string" Value="State.Status" ValueChanged="FilterStatusAsync"
+               Variant="Variant.Outlined" Margin="Margin.Dense" Class="review-filter"
+               aria-label="Stan konta">
+        <MudSelectItem Value="@("")">Wszystkie konta</MudSelectItem>
+        <MudSelectItem Value="@Active">Aktywne</MudSelectItem>
+        <MudSelectItem Value="@Inactive">Wyłączone</MudSelectItem>
+    </MudSelect>
+</div>
+
+<MudTable @ref="_table" T="AccountListItem" ServerData="LoadAsync" RowsPerPage="AccountsPageSize"
+          Hover="true" Elevation="0" Outlined="true" Breakpoint="Breakpoint.Sm"
+          OnRowClick="args => Open(args.Item)" RowClass="cursor-pointer">
+    <HeaderContent>
+        <MudTh>Imię i nazwisko</MudTh>
+        <MudTh>E-mail</MudTh>
+        <MudTh>Role</MudTh>
+        <MudTh>Nr albumu</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Imię i nazwisko">
+            <b>@context.FullName</b>
+            @if (!context.IsActive)
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="ml-2">Wyłączone</MudChip>
+            }
+        </MudTd>
+        <MudTd DataLabel="E-mail" Class="account-email">@context.Email</MudTd>
+        <MudTd DataLabel="Role">@string.Join(", ", context.Roles.Select(UserTexts.Role))</MudTd>
+        @* Only students have one - on a phone an empty row would just take space *@
+        <MudTd DataLabel="Nr albumu" Class="@(context.AlbumNumber is null ? "account-no-album" : "")">
+            @context.AlbumNumber
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="mud-text-secondary">Brak kont.</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Class="mud-text-secondary">Wczytywanie...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager HideRowsPerPage="true" InfoFormat="{first_item}-{last_item} z {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    // The server returns pages of this size (AdminAccountsController.PageSize)
+    private const int AccountsPageSize = 25;
+
+    private const string Active = "active";
+    private const string Inactive = "inactive";
+
+    private MudTable<AccountListItem> _table = null!;
+    private string? _error;
+
+    private async Task<TableData<AccountListItem>> LoadAsync(TableState state, CancellationToken token)
+    {
+        bool? active = State.Status switch
+        {
+            Active => true,
+            Inactive => false,
+            _ => null
+        };
+
+        var result = await Api.GetAccountsAsync(State.Search, State.Role, active, state.Page + 1);
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error.Message;
+            return new TableData<AccountListItem> { Items = [], TotalItems = 0 };
+        }
+
+        _error = null;
+        return new TableData<AccountListItem>
+        {
+            Items = result.Value.Items,
+            TotalItems = result.Value.TotalCount
+        };
+    }
+
+    private async Task SearchAsync(string? search)
+    {
+        State.Search = search;
+        await ReloadAsync();
+    }
+
+    private async Task FilterRoleAsync(string role)
+    {
+        State.Role = role;
+        await ReloadAsync();
+    }
+
+    private async Task FilterStatusAsync(string status)
+    {
+        State.Status = status;
+        await ReloadAsync();
+    }
+
+    // Another filter starts again from the first page
+    private async Task ReloadAsync()
+    {
+        _table.NavigateTo(Page.First);
+        await _table.ReloadServerData();
+    }
+
+    private void Open(AccountListItem? item)
+    {
+        if (item is not null)
+            Navigation.NavigateTo($"admin/accounts/{item.Id}");
+    }
+}

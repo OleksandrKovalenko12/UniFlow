@@ -22,6 +22,7 @@ public static class ApiErrorMessages
         ["DraftNotFound"] = "Nie znaleziono niedokończonego wniosku. Odśwież stronę.",
         ["ApplicationAlreadyInProgress"] = "Masz już wniosek tego rodzaju w toku na tych studiach. " + "Nowy złożysz, gdy tamten zostanie rozpatrzony albo wycofany.",
         ["PasswordChangeRequired"] = "Najpierw ustaw nowe hasło.",
+        ["OwnAccountProtected"] = "Nie możesz odebrać sobie roli administratora ani wyłączyć własnego konta.",
         ["UnsupportedFileType"] = "Ten rodzaj pliku nie jest obsługiwany. Dozwolone: PDF, DOCX, ODT, JPG, PNG, WebP.",
         ["InvalidFileSize"] = "Plik jest pusty albo większy niż 10 MB.",
         ["FileConversionFailed"] = "Nie udało się przetworzyć pliku. Sprawdź, czy otwiera się poprawnie, albo zapisz go jako PDF."

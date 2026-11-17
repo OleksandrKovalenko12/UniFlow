@@ -1,0 +1,99 @@
+﻿@page "/admin/accounts/new"
+@attribute [Authorize(Roles = RoleNames.Administrator)]
+@inject ApiClient Api
+@inject NavigationManager Navigation
+@inject IDialogService Dialogs
+
+<PageTitle>Nowe konto - UniFlow</PageTitle>
+
+<MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Href="admin/accounts"
+           Class="mb-2 ml-n2">
+    Wróć
+</MudButton>
+
+<MudText Typo="Typo.h5" HtmlTag="h1">Nowe konto</MudText>
+<MudText Class="mt-1 mb-4 mud-text-secondary">
+    System nada hasło tymczasowe. Użytkownik ustawi własne przy pierwszym logowaniu.
+</MudText>
+
+@if (_faculties is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <AccountFields Form="_form" Errors="_errors" Faculties="_faculties" OnChanged="OnFieldChanged" />
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                       Disabled="_sending" OnClick="CreateAsync">
+                @(_sending ? "Tworzenie..." : "Utwórz konto")
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private readonly AccountForm _form = new();
+    private readonly FormErrors _errors = new();
+    private IReadOnlyList<FacultyOption>? _faculties;
+    private string? _error;
+    private bool _sending;
+
+    // Errors show from the first "Utwórz konto" on - not while the form is being filled in
+    private bool _attempted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetFacultiesAsync();
+        if (result.IsSuccess)
+        {
+            _faculties = result.Value;
+        }
+        else
+        {
+            _faculties = [];
+            _error = result.Error.Message;
+        }
+    }
+
+    private void OnFieldChanged()
+    {
+        _error = null;
+        if (_attempted)
+            _errors.Validate(_form);
+    }
+
+    private async Task CreateAsync()
+    {
+        _attempted = true;
+        _error = null;
+
+        if (!_errors.Validate(_form))
+            return;
+
+        _sending = true;
+        var result = await Api.CreateAccountAsync(_form);
+        _sending = false;
+
+        if (!result.IsSuccess)
+        {
+            // Field errors from the server (e.g. a taken e-mail) land under the same fields
+            _errors.Set(result.Error.FieldErrors);
+            _error = result.Error.Message;
+            return;
+        }
+
+        await TemporaryPasswordDialog.ShowAsync(Dialogs, $"{_form.FirstName.Trim()} {_form.LastName.Trim()}",
+            result.Value.Password);
+
+        // The new account's page; "back" leads to the list, not to an empty form
+        Navigation.NavigateTo($"admin/accounts/{result.Value.AccountId}", replace: true);
+    }
+}

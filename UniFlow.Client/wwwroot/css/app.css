@@ -424,3 +424,46 @@ code {
     .related-application + .related-application {
         border-top: 1px solid var(--mud-palette-lines-default);
     }
+
+
+/* Account form: the album number and faculties under the role list */
+.account-role-details {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+.account-album {
+    max-width: 320px;
+}
+
+/* On a phone the list turns into cards - a long e-mail breaks instead of widening the page */
+@media (max-width: 599.98px) {
+    .account-email {
+        overflow-wrap: anywhere;
+    }
+
+    .mud-table-cell.account-no-album {
+        display: none;
+    }
+}
+
+/* The temporary password: large, monospaced, easy to read out */
+.temporary-password {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 8px 8px 16px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 4px;
+    background: var(--mud-palette-background-gray);
+}
+
+    .temporary-password code {
+        font-size: 1.25rem;
+        letter-spacing: 0.08em;
+        background: none;
+        color: inherit;
+        overflow-wrap: anywhere;
+    }

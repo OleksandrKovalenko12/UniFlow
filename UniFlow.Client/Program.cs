@@ -6,6 +6,7 @@ using UniFlow.Client;
 using UniFlow.Client.Api;
 using UniFlow.Client.Applications;
 using UniFlow.Client.Auth;
+using UniFlow.Client.Admin;
 
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -23,5 +24,6 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
 builder.Services.AddScoped<ApiClient>();
 builder.Services.AddScoped<ReviewListState>();
 builder.Services.AddScoped<MyApplicationCounts>();
+builder.Services.AddScoped<AccountListState>();
 
 await builder.Build().RunAsync();

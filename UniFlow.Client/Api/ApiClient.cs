@@ -11,6 +11,7 @@ using UniFlow.Shared.Drafts;
 using UniFlow.Shared.Profile;
 using UniFlow.Shared.Review;
 using UniFlow.Shared.Auth;
+using UniFlow.Shared.Admin;
 
 namespace UniFlow.Client.Api;
 
@@ -98,6 +99,38 @@ public sealed class ApiClient
     // The user's own password in place of the temporary one
     public Task<ApiResult<CurrentUser>> ChangePasswordAsync(ChangePasswordRequest request) =>
         SendAsync<CurrentUser>(() => _http.PostAsJsonAsync("api/auth/password", request));
+
+    // Administrator: accounts
+
+    public Task<ApiResult<PagedList<AccountListItem>>> GetAccountsAsync(string? search, string? role,
+        bool? active, int page) =>
+        SendAsync<PagedList<AccountListItem>>(() => _http.GetAsync(
+            $"api/admin/accounts?page={page}" +
+            (string.IsNullOrWhiteSpace(search) ? "" : $"&search={Uri.EscapeDataString(search)}") +
+            (string.IsNullOrWhiteSpace(role) ? "" : $"&role={Uri.EscapeDataString(role)}") +
+            (active is null ? "" : $"&active={(active.Value ? "true" : "false")}")));
+
+    public Task<ApiResult<AccountDetails>> GetAccountAsync(string id) =>
+        SendAsync<AccountDetails>(() => _http.GetAsync($"api/admin/accounts/{Uri.EscapeDataString(id)}"));
+
+    public Task<ApiResult<IssuedPassword>> CreateAccountAsync(AccountForm form) =>
+        SendAsync<IssuedPassword>(() => _http.PostAsJsonAsync("api/admin/accounts", form));
+
+    public Task<ApiResult<AccountDetails>> UpdateAccountAsync(string id, AccountForm form) =>
+        SendAsync<AccountDetails>(() =>
+            _http.PutAsJsonAsync($"api/admin/accounts/{Uri.EscapeDataString(id)}", form));
+
+    public Task<ApiResult<AccountDetails>> SetAccountActiveAsync(string id, bool active) =>
+        SendAsync<AccountDetails>(() => _http.PostAsync(
+            $"api/admin/accounts/{Uri.EscapeDataString(id)}/{(active ? "activate" : "deactivate")}",
+            content: null));
+
+    public Task<ApiResult<IssuedPassword>> ResetPasswordAsync(string id) =>
+        SendAsync<IssuedPassword>(() => _http.PostAsync(
+            $"api/admin/accounts/{Uri.EscapeDataString(id)}/reset-password", content: null));
+
+    public Task<ApiResult<IReadOnlyList<FacultyOption>>> GetFacultiesAsync() =>
+        SendAsync<IReadOnlyList<FacultyOption>>(() => _http.GetAsync("api/admin/faculties"));
 
     // Drafts: the form saved as it is typed, and the files added to it
     public Task<ApiResult<IReadOnlyList<DraftSummary>>> GetMyDraftsAsync() =>

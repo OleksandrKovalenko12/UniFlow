@@ -1,0 +1,141 @@
+﻿@* The fields of an account - the same when it is created and when it is edited.
+   Checking and saving stay with the page: it hears about every change. *@
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.h6" GutterBottom="true">Dane</MudText>
+    <MudGrid Spacing="2">
+        <MudItem xs="12" sm="6">
+            <label class="field-label" for="account-first-name">Imię</label>
+            <MudTextField @bind-Value="Form.FirstName" @bind-Value:after="ChangedAsync"
+                          InputId="account-first-name" MaxLength="AccountForm.MaxNameLength"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Error="Errors.Has(nameof(AccountForm.FirstName))"
+                          ErrorText="@Errors.For(nameof(AccountForm.FirstName))" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <label class="field-label" for="account-last-name">Nazwisko</label>
+            <MudTextField @bind-Value="Form.LastName" @bind-Value:after="ChangedAsync"
+                          InputId="account-last-name" MaxLength="AccountForm.MaxNameLength"
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Error="Errors.Has(nameof(AccountForm.LastName))"
+                          ErrorText="@Errors.For(nameof(AccountForm.LastName))" />
+        </MudItem>
+        <MudItem xs="12">
+            <label class="field-label" for="account-email">E-mail uczelniany</label>
+            <MudTextField @bind-Value="Form.Email" @bind-Value:after="ChangedAsync"
+                          InputId="account-email" InputType="InputType.Email"
+                          MaxLength="AccountForm.MaxEmailLength" HelperText="Służy też do logowania."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Error="Errors.Has(nameof(AccountForm.Email))"
+                          ErrorText="@Errors.For(nameof(AccountForm.Email))" />
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.h6">Role</MudText>
+    @foreach (var role in RoleNames.All)
+    {
+        @* The administrator's own role stays - so there is always someone to manage accounts *@
+        <MudCheckBox T="bool" Value="Form.Has(role)" ValueChanged="checkedNow => ToggleRoleAsync(role, checkedNow)"
+                     Color="Color.Primary" Disabled="@(IsYou && role == RoleNames.Administrator)">
+            @UserTexts.Role(role) <span class="mud-text-secondary">- @RoleDescription(role)</span>
+        </MudCheckBox>
+    }
+    @if (IsYou)
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+            Nie możesz odebrać sobie roli administratora.
+        </MudText>
+    }
+    @if (Errors.Has(nameof(AccountForm.Roles)))
+    {
+        <MudText Typo="Typo.caption" Color="Color.Error" Class="d-block">@Errors.For(nameof(AccountForm.Roles))</MudText>
+    }
+
+    @if (Form.Has(RoleNames.Student))
+    {
+        <div class="account-role-details">
+            <label class="field-label" for="account-album">Nr albumu</label>
+            <MudTextField @bind-Value="Form.AlbumNumber" @bind-Value:after="ChangedAsync"
+                          InputId="account-album" MaxLength="AccountForm.MaxAlbumNumberLength"
+                          InputMode="InputMode.numeric" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Class="account-album"
+                          Error="Errors.Has(nameof(AccountForm.AlbumNumber))"
+                          ErrorText="@Errors.For(nameof(AccountForm.AlbumNumber))" />
+        </div>
+    }
+
+    @if (Form.IsStaff())
+    {
+        <div class="account-role-details">
+            <MudText Typo="Typo.subtitle2">Wydziały</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                Pracownik widzi wnioski studentów tych wydziałów.
+            </MudText>
+            @foreach (var faculty in Faculties)
+            {
+                <MudCheckBox T="bool" Value="Form.FacultyIds.Contains(faculty.Id)"
+                             ValueChanged="checkedNow => ToggleFacultyAsync(faculty.Id, checkedNow)"
+                             Color="Color.Primary">
+                    @faculty.Name (@faculty.Code)
+                </MudCheckBox>
+            }
+            @if (Errors.Has(nameof(AccountForm.FacultyIds)))
+            {
+                <MudText Typo="Typo.caption" Color="Color.Error" Class="d-block">
+                    @Errors.For(nameof(AccountForm.FacultyIds))
+                </MudText>
+            }
+        </div>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public AccountForm Form { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public FormErrors Errors { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<FacultyOption> Faculties { get; set; } = [];
+
+    // The administrator's own account
+    [Parameter]
+    public bool IsYou { get; set; }
+
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    private static string RoleDescription(string role) => role switch
+    {
+        RoleNames.Student => "składa wnioski",
+        RoleNames.DeanOffice => "weryfikuje wnioski studentów swoich wydziałów",
+        RoleNames.ViceDean => "decyduje o wnioskach przekazanych przez dziekanat",
+        RoleNames.Administrator => "zarządza kontami",
+        _ => ""
+    };
+
+    private Task ToggleRoleAsync(string role, bool checkedNow)
+    {
+        if (checkedNow)
+            Form.Roles.Add(role);
+        else
+            Form.Roles.Remove(role);
+
+        return ChangedAsync();
+    }
+
+    private Task ToggleFacultyAsync(int facultyId, bool checkedNow)
+    {
+        if (checkedNow)
+            Form.FacultyIds.Add(facultyId);
+        else
+            Form.FacultyIds.Remove(facultyId);
+
+        return ChangedAsync();
+    }
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+}

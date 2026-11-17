@@ -1,0 +1,223 @@
+﻿@page "/admin/accounts/{Id}"
+@attribute [Authorize(Roles = RoleNames.Administrator)]
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_account is null ? "Konto" : FullName) - UniFlow</PageTitle>
+
+<MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Href="admin/accounts"
+           Class="mb-2 ml-n2">
+    Wróć
+</MudButton>
+
+@if (_loadError is not null)
+{
+    <MudAlert Severity="Severity.Error">@_loadError</MudAlert>
+}
+else if (_account is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <div class="d-flex flex-wrap align-center gap-2">
+        <MudText Typo="Typo.h5" HtmlTag="h1">@FullName</MudText>
+        @if (!_account.IsActive)
+        {
+            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">Wyłączone</MudChip>
+        }
+    </div>
+    <MudText Class="mt-1 mb-4 mud-text-secondary">Konto utworzone @DateText.Day(_account.CreatedAt)</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <AccountFields Form="_form" Errors="_errors" Faculties="_faculties" IsYou="_account.IsYou"
+                           OnChanged="OnFieldChanged" />
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+                       Disabled="_busy" OnClick="SaveAsync">
+                @(_saving ? "Zapisywanie..." : "Zapisz zmiany")
+            </MudButton>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="0" Outlined="true">
+                <MudText Typo="Typo.h6" GutterBottom="true">Dostęp</MudText>
+                <MudText Typo="Typo.body2">
+                    @(_account.IsActive
+                        ? "Konto aktywne - użytkownik może się logować."
+                        : "Konto wyłączone - użytkownik nie może się zalogować.")
+                </MudText>
+                @if (_account.MustChangePassword)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">
+                        Użytkownik nie ustawił jeszcze własnego hasła.
+                    </MudText>
+                }
+
+                <div class="d-flex flex-column align-start gap-2 mt-4">
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Key"
+                               Disabled="_busy" OnClick="ResetPasswordAsync">
+                        Zresetuj hasło
+                    </MudButton>
+                    @if (_account.IsActive)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                   StartIcon="@Icons.Material.Outlined.Block"
+                                   Disabled="@(_busy || _account.IsYou)" OnClick="DeactivateAsync">
+                            Wyłącz konto
+                        </MudButton>
+                        @if (_account.IsYou)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Nie możesz wyłączyć własnego konta.
+                            </MudText>
+                        }
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Outlined.CheckCircle"
+                                   Disabled="_busy" OnClick="ActivateAsync">
+                            Włącz konto
+                        </MudButton>
+                    }
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = "";
+
+    private AccountDetails? _account;
+    private AccountForm _form = new();
+    private readonly FormErrors _errors = new();
+    private IReadOnlyList<FacultyOption> _faculties = [];
+    private string? _loadError;
+    private string? _error;
+    private bool _saving;
+
+    // Saving, a reset or switching the account on/off - one at a time
+    private bool _busy;
+
+    private bool _attempted;
+
+    private string FullName => $"{_account!.FirstName} {_account.LastName}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var faculties = await Api.GetFacultiesAsync();
+        if (faculties.IsSuccess)
+            _faculties = faculties.Value;
+
+        var account = await Api.GetAccountAsync(Id);
+        if (account.IsSuccess)
+            Show(account.Value);
+        else
+            _loadError = account.Error.Message;
+    }
+
+    // The account as the server has it now - the form starts again from it
+    private void Show(AccountDetails account)
+    {
+        _account = account;
+        _form = AccountForm.From(account);
+        _errors.Set(new Dictionary<string, string[]>());
+        _attempted = false;
+    }
+
+    private void OnFieldChanged()
+    {
+        _error = null;
+        if (_attempted)
+            _errors.Validate(_form);
+    }
+
+    private async Task SaveAsync()
+    {
+        _attempted = true;
+        _error = null;
+
+        if (!_errors.Validate(_form))
+            return;
+
+        _busy = _saving = true;
+        var result = await Api.UpdateAccountAsync(Id, _form);
+        _busy = _saving = false;
+
+        if (!result.IsSuccess)
+        {
+            _errors.Set(result.Error.FieldErrors);
+            _error = result.Error.Message;
+            return;
+        }
+
+        Show(result.Value);
+        Snackbar.Add("Zapisano zmiany.", Severity.Success);
+    }
+
+    private async Task ResetPasswordAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Zresetować hasło?",
+            "Obecne hasło przestanie działać. System nada hasło tymczasowe, które przekażesz " +
+            "użytkownikowi.",
+            yesText: "Zresetuj hasło", cancelText: "Anuluj");
+
+        if (confirmed != true)
+            return;
+
+        _busy = true;
+        var result = await Api.ResetPasswordAsync(Id);
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error.Message, Severity.Error);
+            return;
+        }
+
+        await TemporaryPasswordDialog.ShowAsync(Dialogs, FullName, result.Value.Password);
+        _account = _account! with { MustChangePassword = true };
+    }
+
+    private async Task DeactivateAsync()
+    {
+        var confirmed = await Dialogs.ShowMessageBoxAsync(
+            "Wyłączyć konto?",
+            $"{FullName} nie zaloguje się do systemu, a otwarta sesja wygaśnie w ciągu kilku minut. " +
+            "Wnioski i ich historia zostają. Konto można później włączyć.",
+            yesText: "Wyłącz konto", cancelText: "Anuluj");
+
+        if (confirmed == true)
+            await SetActiveAsync(false);
+    }
+
+    private Task ActivateAsync() => SetActiveAsync(true);
+
+    private async Task SetActiveAsync(bool active)
+    {
+        _busy = true;
+        var result = await Api.SetAccountActiveAsync(Id, active);
+        _busy = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.Error.Message, Severity.Error);
+            return;
+        }
+
+        // Only the status - changes typed into the form and not saved yet stay
+        _account = result.Value;
+        Snackbar.Add(active ? "Konto zostało włączone." : "Konto zostało wyłączone.", Severity.Success);
+    }
+}
