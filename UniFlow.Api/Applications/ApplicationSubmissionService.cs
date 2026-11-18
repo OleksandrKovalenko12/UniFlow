@@ -30,10 +30,13 @@ public sealed class ApplicationSubmissionService
         _storage = storage;
     }
 
-    // draftId: the student's draft whose files become the application's attachments
+    // draftId: the student's draft whose files become the application's attachments.
+    // at: when it happens - now for a student; an earlier moment only for the demo data
+    // (DemoDataSeeder), which goes through the same steps.
     public async Task<SubmittedApplication> SubmitAsync(string userId, Guid submissionKey,
         int enrollmentId, string typeCode, string formData, Guid? draftId,
-        Func<ApplicationHeader, Task<string>> renderHtml, CancellationToken cancellationToken)
+        Func<ApplicationHeader, Task<string>> renderHtml, CancellationToken cancellationToken,
+        DateTime? at = null)
     {
         // A repeated submission gets the first result and takes no new number
         var alreadySubmitted = await FindSubmittedAsync(userId, submissionKey, cancellationToken);
@@ -41,7 +44,7 @@ public sealed class ApplicationSubmissionService
             return alreadySubmitted;
 
         // One reading of the clock: the number, the document and the database must agree
-        var now = DateTime.UtcNow;
+        var now = at ?? DateTime.UtcNow;
 
         var enrollment = await _db.Enrollments
             .Include(e => e.FieldOfStudy).ThenInclude(f => f.Faculty)
@@ -141,7 +144,7 @@ public sealed class ApplicationSubmissionService
     // status - in one save. Null when the student has no such application.
     public async Task<SubmittedApplication?> ResubmitAsync(string userId, Guid applicationId,
         string typeCode, string formData, Func<ApplicationHeader, Task<string>> renderHtml,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, DateTime? at = null)
     {
         var application = await _db.Applications
             .Include(a => a.ApplicationType)
@@ -159,7 +162,7 @@ public sealed class ApplicationSubmissionService
             .Include(d => d.Files)
             .SingleOrDefaultAsync(d => d.ApplicationId == applicationId, cancellationToken);
 
-        var now = DateTime.UtcNow;
+        var now = at ?? DateTime.UtcNow;
         var applicant = new Actor(userId, ActorRole.Student);
 
         // Domain first, before the PDF: a wrong status or too many files stop it here.

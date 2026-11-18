@@ -14,6 +14,7 @@ using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using UniFlow.Api.Controllers;
+using UniFlow.Api.Demo;
 using UniFlow.Api.Auth;
 using UniFlow.Api.Admin;
 using UniFlow.Shared.Auth;
@@ -83,6 +84,7 @@ builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
 builder.Services.AddScoped<DevelopmentSeeder>();
+builder.Services.AddScoped<DemoDataSeeder>();
 builder.Services.AddScoped<IApplicationNumberGenerator, ApplicationNumberGenerator>();
 
 builder.Services.AddScoped<ApplicationSubmissionService>();
@@ -142,6 +144,10 @@ if (app.Environment.IsDevelopment())
     using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentSeeder>();
     await seeder.SeedAsync(seedPassword);
+
+    // Demo applications in an empty database - "Seed:DemoData": false keeps it empty
+    if (app.Configuration.GetValue("Seed:DemoData", false))
+        await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync(seedPassword);
 }
 
 // Configure the HTTP request pipeline.
