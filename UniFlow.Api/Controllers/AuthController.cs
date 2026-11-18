@@ -52,6 +52,11 @@ public sealed class AuthController : ControllerBase
             return LoginFailed();
         }
 
+        // "Since the previous login" on the start page
+        user.PreviousLoginAt = user.LastLoginAt;
+        user.LastLoginAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
         _logger.LogInformation("User {UserId} logged in.", user.Id);
         return await ToCurrentUserAsync(user);
     }

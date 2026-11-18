@@ -660,6 +660,9 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -690,6 +693,9 @@ namespace UniFlow.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("PreviousLoginAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");

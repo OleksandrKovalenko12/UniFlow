@@ -12,6 +12,7 @@ using UniFlow.Shared.Profile;
 using UniFlow.Shared.Review;
 using UniFlow.Shared.Auth;
 using UniFlow.Shared.Admin;
+using UniFlow.Shared.Welcome;
 
 namespace UniFlow.Client.Api;
 
@@ -68,7 +69,8 @@ public sealed class ApiClient
 
     public Task<ApiResult<ReviewCounts>> GetReviewCountsAsync() =>
         SendAsync<ReviewCounts>(() => _http.GetAsync("api/review/counts"));
-
+    public Task<ApiResult<WelcomeDetails>> GetWelcomeAsync() =>
+        SendAsync<WelcomeDetails>(() => _http.GetAsync("api/welcome"));
     public Task<ApiResult<ProfileDetails>> GetProfileAsync() =>
     SendAsync<ProfileDetails>(() => _http.GetAsync("api/profile"));
 

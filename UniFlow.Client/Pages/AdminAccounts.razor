@@ -81,6 +81,16 @@
 </MudTable>
 
 @code {
+        // "?status=inactive" - e.g. from the start page's "Wyłączone konta"
+    [SupplyParameterFromQuery(Name = "status")]
+    public string? StatusFromLink { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (StatusFromLink is Active or Inactive)
+            State.Status = StatusFromLink;
+    }
+
     // The server returns pages of this size (AdminAccountsController.PageSize)
     private const int AccountsPageSize = 25;
 
