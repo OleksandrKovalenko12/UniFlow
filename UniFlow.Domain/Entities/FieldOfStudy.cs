@@ -10,6 +10,9 @@ public class FieldOfStudy
     public StudyLevel Level { get; private set; }
     public Faculty Faculty { get; private set; } = null!;
 
+    // Switched off (phased out): no new studies - students already on it finish as usual
+    public bool IsActive { get; private set; }
+
     public FieldOfStudy(string name, StudyLevel level, Faculty faculty)
     {
         ArgumentNullException.ThrowIfNull(faculty);
@@ -21,6 +24,7 @@ public class FieldOfStudy
         Level = level;
         Faculty = faculty;
         FacultyId = faculty.Id;
+        IsActive = true;
     }
 
     private FieldOfStudy() { }
@@ -28,6 +32,15 @@ public class FieldOfStudy
     public void Rename(string newName)
     {
         Name = NormalizeName(newName);
+    }
+    public void Activate()
+    {
+        IsActive = true;
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
     }
 
     public void MoveToFaculty(Faculty newFaculty)

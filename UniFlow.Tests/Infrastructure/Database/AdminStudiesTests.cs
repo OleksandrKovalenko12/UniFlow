@@ -8,6 +8,7 @@ using UniFlow.Domain.Enums;
 using UniFlow.Infrastructure.Identity;
 using UniFlow.Shared;
 using UniFlow.Shared.Admin;
+using Microsoft.EntityFrameworkCore;
 
 namespace UniFlow.Tests.Infrastructure.Database;
 
@@ -117,5 +118,26 @@ public sealed class AdminStudiesTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();
         Assert.Contains("wznów", Assert.Single(problem!.Errors[nameof(AddStudiesRequest.FieldOfStudyId)]));
+    }
+
+    // A phased-out field takes nobody new
+    [Fact]
+    public async Task Add_SwitchedOffFieldOfStudy_IsRefused()
+    {
+        await using (var db = _postgres.CreateContext())
+        {
+            var field = await db.FieldsOfStudy.SingleAsync(f => f.Id == _field.Id);
+            field.Deactivate();
+            await db.SaveChangesAsync();
+        }
+
+        var response = await SendAsync(HttpMethod.Post, "", new AddStudiesRequest
+        {
+            FieldOfStudyId = _field.Id,
+            Semester = 1,
+            StudyMode = StudyModeOption.FullTime
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

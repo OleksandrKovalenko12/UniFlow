@@ -6,10 +6,14 @@ public class Faculty
     public string Code { get; private set; } = null!;
     public string Name { get; private set; } = null!;
 
+    // Switched off: no new fields of study or staff - what is already there carries on
+    public bool IsActive { get; private set; }
+
     public Faculty(string code, string name)
     {
         Name = NormalizeName(name);
         Code = NormalizeCode(code);
+        IsActive = true;
     }
 
     private Faculty() { }
@@ -22,6 +26,15 @@ public class Faculty
     public void ChangeCode(string newCode)
     {
         Code = NormalizeCode(newCode);
+    }
+    public void Activate()
+    {
+        IsActive = true;
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
     }
 
     private static string NormalizeCode(string code)

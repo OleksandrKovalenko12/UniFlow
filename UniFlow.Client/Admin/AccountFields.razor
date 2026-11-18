@@ -73,12 +73,16 @@
             <MudText Typo="Typo.body2" Class="mud-text-secondary">
                 Pracownik widzi wnioski studentów tych wydziałów.
             </MudText>
-            @foreach (var faculty in Faculties)
+            @foreach (var faculty in VisibleFaculties)
             {
                 <MudCheckBox T="bool" Value="Form.FacultyIds.Contains(faculty.Id)"
                              ValueChanged="checkedNow => ToggleFacultyAsync(faculty.Id, checkedNow)"
                              Color="Color.Primary">
                     @faculty.Name (@faculty.Code)
+                    @if (!faculty.IsActive)
+                    {
+                        <span class="mud-text-secondary"> - wyłączony</span>
+                    }
                 </MudCheckBox>
             }
             @if (Errors.Has(nameof(AccountForm.FacultyIds)))
@@ -104,6 +108,14 @@
     // The administrator's own account
     [Parameter]
     public bool IsYou { get; set; }
+
+    // The faculties the account has now. A switched-off one stays visible for it - hidden, it
+    // would be taken away unnoticed by "Zapisz zmiany".
+    [Parameter]
+    public IReadOnlyList<int> SavedFacultyIds { get; set; } = [];
+
+    private IEnumerable<FacultyOption> VisibleFaculties =>
+        Faculties.Where(f => f.IsActive || SavedFacultyIds.Contains(f.Id));
 
     [Parameter]
     public EventCallback OnChanged { get; set; }

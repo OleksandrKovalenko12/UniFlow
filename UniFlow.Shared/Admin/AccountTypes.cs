@@ -28,5 +28,6 @@ public sealed record AccountDetails(
 // A temporary password, shown to the administrator once - it is not stored anywhere readable
 public sealed record IssuedPassword(string AccountId, string Password);
 
-// A faculty to choose for an employee
-public sealed record FacultyOption(int Id, string Code, string Name);
+// A faculty to choose for an employee. A switched-off one is shown only to an employee who
+// already has it - otherwise saving the form would take it away unnoticed.
+public sealed record FacultyOption(int Id, string Code, string Name, bool IsActive);

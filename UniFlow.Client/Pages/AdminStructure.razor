@@ -1,0 +1,223 @@
+﻿@page "/admin/structure"
+@attribute [Authorize(Roles = RoleNames.Administrator)]
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Struktura uczelni - UniFlow</PageTitle>
+
+<div class="d-flex flex-wrap align-center gap-2">
+    <MudText Typo="Typo.h5" HtmlTag="h1" Class="flex-grow-1">Struktura uczelni</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
+               StartIcon="@Icons.Material.Filled.Add" Disabled="@(_faculties is null)" OnClick="AddFacultyAsync">
+        Dodaj wydział
+    </MudButton>
+</div>
+<MudText Class="mt-1 mb-2 mud-text-secondary">
+    Wydziały i kierunki. Niczego się nie usuwa, tylko wyłącza - wskazują na nie studia, wnioski i pracownicy.
+</MudText>
+
+@* Switched-off faculties are history - shown only on request. Fields of study: in each card. *@
+@if (InactiveFaculties > 0)
+{
+    <MudSwitch T="bool" @bind-Value="_showInactiveFaculties" Color="Color.Primary" Class="mb-3"
+               Label="@($"Pokaż wyłączone wydziały ({InactiveFaculties})")" />
+}
+
+@if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_faculties is null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    @foreach (var faculty in _faculties.Where(f => f.IsActive || _showInactiveFaculties))
+    {
+        var showInactive = _expanded.Contains(faculty.Id);
+        var inactiveFields = faculty.FieldsOfStudy.Count(f => !f.IsActive);
+        var fields = faculty.FieldsOfStudy.Where(f => f.IsActive || showInactive).ToList();
+
+        <MudPaper Class="pa-4 mb-3" Elevation="0" Outlined="true">
+            <div class="d-flex flex-wrap align-center gap-2 mb-2">
+                <MudText Typo="Typo.h6" Class="flex-grow-1">
+                    @faculty.Name <span class="mud-text-secondary">(@faculty.Code)</span>
+                    @if (!faculty.IsActive)
+                    {
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="ml-1">Wyłączony</MudChip>
+                    }
+                </MudText>
+                <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Edit"
+                           Disabled="_busy" OnClick="() => EditFacultyAsync(faculty)">
+                    Edytuj
+                </MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="_busy"
+                           Color="@(faculty.IsActive ? Color.Error : Color.Primary)"
+                           OnClick="() => ToggleFacultyAsync(faculty)">
+                    @(faculty.IsActive ? "Wyłącz" : "Włącz")
+                </MudButton>
+                @* A switched-off faculty takes no new fields of study *@
+                @if (faculty.IsActive)
+                {
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Add"
+                               Disabled="_busy" OnClick="() => AddFieldAsync(faculty)">
+                        Dodaj kierunek
+                    </MudButton>
+                }
+            </div>
+
+            @if (fields.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @(faculty.FieldsOfStudy.Count == 0 ? "Brak kierunków." : "Brak włączonych kierunków.")
+                </MudText>
+            }
+            @foreach (var field in fields)
+            {
+                <div class="studies-row">
+                    <MudText Class="flex-grow-1">
+                        <b>@field.Name</b>, @field.LevelText
+                        @if (!field.IsActive)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="ml-1">Wyłączony</MudChip>
+                        }
+                    </MudText>
+                    <div class="d-flex gap-1">
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="_busy"
+                                   OnClick="() => EditFieldAsync(field)">
+                            Edytuj
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" Disabled="_busy"
+                                   Color="@(field.IsActive ? Color.Error : Color.Primary)"
+                                   OnClick="() => ToggleFieldAsync(field)">
+                            @(field.IsActive ? "Wyłącz" : "Włącz")
+                        </MudButton>
+                    </div>
+                </div>
+            }
+
+            @* Switched-off fields of study of this faculty - hidden until asked for *@
+            @if (inactiveFields > 0)
+            {
+                <MudButton Variant="Variant.Text" Size="Size.Small" Class="mt-2 ml-n2"
+                           StartIcon="@(showInactive ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                           OnClick="() => ToggleExpanded(faculty.Id)">
+                    @(showInactive ? "Ukryj wyłączone kierunki" : $"Pokaż wyłączone kierunki ({inactiveFields})")
+                </MudButton>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    private IReadOnlyList<FacultyItem>? _faculties;
+    private string? _error;
+    private bool _showInactiveFaculties;
+
+    // Faculties whose switched-off fields of study are shown
+    private readonly HashSet<int> _expanded = [];
+
+    // One switch at a time
+    private bool _busy;
+
+    private int InactiveFaculties => _faculties?.Count(f => !f.IsActive) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetStructureAsync();
+        if (result.IsSuccess)
+            _faculties = result.Value;
+        else
+            _error = result.Error.Message;
+    }
+
+    private void ToggleExpanded(int facultyId)
+    {
+        if (!_expanded.Remove(facultyId))
+            _expanded.Add(facultyId);
+    }
+
+    private async Task AddFacultyAsync() =>
+        Show(await FacultyDialog.ShowAsync(Dialogs, faculty: null), "Dodano wydział.");
+
+    private async Task EditFacultyAsync(FacultyItem faculty) =>
+        Show(await FacultyDialog.ShowAsync(Dialogs, faculty), "Zapisano zmiany.");
+
+    private async Task AddFieldAsync(FacultyItem faculty) =>
+        Show(await FieldOfStudyDialog.ShowAsync(Dialogs, _faculties!, field: null, faculty.Id), "Dodano kierunek.");
+
+    private async Task EditFieldAsync(FieldOfStudyItem field) =>
+        Show(await FieldOfStudyDialog.ShowAsync(Dialogs, _faculties!, field, field.FacultyId), "Zapisano zmiany.");
+
+    // Switching off asks first - it changes what can be done from now on; switching on does not
+    private async Task ToggleFacultyAsync(FacultyItem faculty)
+    {
+        // The server would refuse it anyway - no point asking first
+        if (faculty.IsActive && faculty.FieldsOfStudy.Any(f => f.IsActive))
+        {
+            Snackbar.Add("Najpierw wyłącz wszystkie kierunki tego wydziału.", Severity.Warning);
+            return;
+        }
+
+        if (faculty.IsActive && !await ConfirmAsync("Wyłączyć wydział?",
+                $"{faculty.Name}. Nie da się dodać do niego kierunków ani przypisać nowych pracowników. " +
+                "Obecni pracownicy dalej rozpatrują wnioski jego studentów.", "Wyłącz wydział"))
+            return;
+
+        await SendAsync(() => Api.UpdateFacultyAsync(faculty.Id, new FacultyForm
+        {
+            Code = faculty.Code,
+            Name = faculty.Name,
+            IsActive = !faculty.IsActive
+        }), faculty.IsActive ? "Wydział został wyłączony." : "Wydział został włączony.");
+    }
+
+    private async Task ToggleFieldAsync(FieldOfStudyItem field)
+    {
+        if (field.IsActive && !await ConfirmAsync("Wyłączyć kierunek?",
+                $"{field.Name}, {field.LevelText}. Nie da się zapisać na niego nowych studentów. " +
+                "Studenci, którzy już na nim studiują, kończą studia normalnie.", "Wyłącz kierunek"))
+            return;
+
+        await SendAsync(() => Api.UpdateFieldOfStudyAsync(field.Id, new FieldOfStudyForm
+        {
+            Name = field.Name,
+            Level = field.Level,
+            FacultyId = field.FacultyId,
+            IsActive = !field.IsActive
+        }), field.IsActive ? "Kierunek został wyłączony." : "Kierunek został włączony.");
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string text, string yesText) =>
+        await Dialogs.ShowMessageBoxAsync(title, text, yesText: yesText, cancelText: "Anuluj") == true;
+
+    // E.g. "Wydział jest wyłączony - najpierw go włącz." - more useful than "Popraw pola"
+    private async Task SendAsync(Func<Task<ApiResult<IReadOnlyList<FacultyItem>>>> send, string done)
+    {
+        _busy = true;
+        var result = await send();
+        _busy = false;
+
+        if (result.IsSuccess)
+        {
+            Show(result.Value, done);
+            return;
+        }
+
+        var message = result.Error.FieldErrors.Values.SelectMany(m => m).FirstOrDefault()
+            ?? result.Error.Message;
+        Snackbar.Add(message, Severity.Error);
+    }
+
+    // Every change returns the whole structure - a moved field lands under its new faculty
+    private void Show(IReadOnlyList<FacultyItem>? structure, string done)
+    {
+        if (structure is null)
+            return;
+
+        _faculties = structure;
+        Snackbar.Add(done, Severity.Success);
+    }
+}

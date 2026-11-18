@@ -103,6 +103,22 @@ public sealed class ApiClient
     public Task<ApiResult<CurrentUser>> ChangePasswordAsync(ChangePasswordRequest request) =>
         SendAsync<CurrentUser>(() => _http.PostAsJsonAsync("api/auth/password", request));
 
+    // Administrator: faculties and fields of study - every change returns the whole structure
+    public Task<ApiResult<IReadOnlyList<FacultyItem>>> GetStructureAsync() =>
+        SendAsync<IReadOnlyList<FacultyItem>>(() => _http.GetAsync("api/admin/structure"));
+
+    public Task<ApiResult<IReadOnlyList<FacultyItem>>> AddFacultyAsync(FacultyForm form) =>
+        SendAsync<IReadOnlyList<FacultyItem>>(() => _http.PostAsJsonAsync("api/admin/faculties", form));
+
+    public Task<ApiResult<IReadOnlyList<FacultyItem>>> UpdateFacultyAsync(int id, FacultyForm form) =>
+        SendAsync<IReadOnlyList<FacultyItem>>(() => _http.PutAsJsonAsync($"api/admin/faculties/{id}", form));
+
+    public Task<ApiResult<IReadOnlyList<FacultyItem>>> AddFieldOfStudyAsync(FieldOfStudyForm form) =>
+        SendAsync<IReadOnlyList<FacultyItem>>(() => _http.PostAsJsonAsync("api/admin/fields-of-study", form));
+
+    public Task<ApiResult<IReadOnlyList<FacultyItem>>> UpdateFieldOfStudyAsync(int id, FieldOfStudyForm form) =>
+        SendAsync<IReadOnlyList<FacultyItem>>(() => _http.PutAsJsonAsync($"api/admin/fields-of-study/{id}", form));
+
     // Administrator: kinds of applications
     public Task<ApiResult<IReadOnlyList<ApplicationTypeDetails>>> GetAdminApplicationTypesAsync() =>
         SendAsync<IReadOnlyList<ApplicationTypeDetails>>(() => _http.GetAsync("api/admin/application-types"));

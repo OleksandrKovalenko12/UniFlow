@@ -48,6 +48,12 @@ public sealed class AccountService
         if (existing != form.FacultyIds.Count)
             errors[nameof(AccountForm.FacultyIds)] = "Wybrany wydział nie istnieje. Odśwież stronę.";
 
+        // A switched-off faculty may stay with an employee who has it, but nobody gets it anew
+        var assigned = _db.StaffAssignments.Where(s => s.UserId == accountId).Select(s => s.FacultyId);
+        if (await _db.Faculties.AnyAsync(f => form.FacultyIds.Contains(f.Id) && !f.IsActive
+                && !assigned.Contains(f.Id), cancellationToken))
+            errors[nameof(AccountForm.FacultyIds)] = "Wybrany wydział jest wyłączony.";
+
         return errors;
     }
 

@@ -32,8 +32,8 @@ else
 
     <MudGrid>
         <MudItem xs="12" md="8">
-            <AccountFields Form="_form" Errors="_errors" Faculties="_faculties" IsYou="_account.IsYou"
-                           OnChanged="OnFieldChanged" />
+                <AccountFields Form="_form" Errors="_errors" Faculties="_faculties" IsYou="_account.IsYou"
+                    SavedFacultyIds="_account.FacultyIds" OnChanged="OnFieldChanged" />
 
             @if (_error is not null)
             {

@@ -1,0 +1,108 @@
+﻿@* Adding or editing a faculty. Saves by itself, so errors (e.g. a taken code) stay next to
+   their fields; closes with the whole structure as the server has it now. *@
+@inject ApiClient Api
+
+<MudDialog>
+    <DialogContent>
+        <label class="field-label" for="faculty-name">Nazwa</label>
+        <MudTextField @bind-Value="_form.Name" @bind-Value:after="OnFieldChanged" InputId="faculty-name"
+                      MaxLength="FacultyForm.MaxNameLength" Placeholder="np. Wydział Informatyki"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-4"
+                      Error="_errors.Has(nameof(FacultyForm.Name))"
+                      ErrorText="@_errors.For(nameof(FacultyForm.Name))" />
+
+        <label class="field-label" for="faculty-code">Kod</label>
+        <MudTextField @bind-Value="_form.Code" @bind-Value:after="OnFieldChanged" InputId="faculty-code"
+                      MaxLength="FacultyForm.MaxCodeLength" Placeholder="np. WI"
+                      HelperText="Skrót widoczny na listach, 2-8 liter lub cyfr."
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Class="faculty-code"
+                      Error="_errors.Has(nameof(FacultyForm.Code))"
+                      ErrorText="@_errors.For(nameof(FacultyForm.Code))" />
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Anuluj</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Disabled="_saving"
+                   OnClick="SaveAsync">
+            @(_saving ? "Zapisywanie..." : Faculty is null ? "Dodaj" : "Zapisz")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    // Null for a new faculty
+    [Parameter]
+    public FacultyItem? Faculty { get; set; }
+
+    private readonly FacultyForm _form = new();
+    private readonly FormErrors _errors = new();
+    private string? _error;
+    private bool _saving;
+    private bool _attempted;
+
+    protected override void OnInitialized()
+    {
+        if (Faculty is not null)
+        {
+            _form.Code = Faculty.Code;
+            _form.Name = Faculty.Name;
+            // Switched on and off on the page itself - kept as it is
+            _form.IsActive = Faculty.IsActive;
+        }
+    }
+
+    private void OnFieldChanged()
+    {
+        _error = null;
+        if (_attempted)
+            _errors.Validate(_form);
+    }
+
+    private async Task SaveAsync()
+    {
+        _attempted = true;
+        _error = null;
+
+        if (!_errors.Validate(_form))
+            return;
+
+        _saving = true;
+        var result = Faculty is null
+            ? await Api.AddFacultyAsync(_form)
+            : await Api.UpdateFacultyAsync(Faculty.Id, _form);
+        _saving = false;
+
+        if (!result.IsSuccess)
+        {
+            _errors.Set(result.Error.FieldErrors);
+            _error = result.Error.Message;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    // The structure after saving, or null when the dialog was cancelled
+    public static async Task<IReadOnlyList<FacultyItem>?> ShowAsync(IDialogService dialogs,
+        FacultyItem? faculty)
+    {
+        var parameters = new DialogParameters<FacultyDialog> { { d => d.Faculty, faculty } };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+        var dialog = await dialogs.ShowAsync<FacultyDialog>(
+            faculty is null ? "Dodaj wydział" : "Edytuj wydział", parameters, options);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false, Data: IReadOnlyList<FacultyItem> structure } ? structure : null;
+    }
+}

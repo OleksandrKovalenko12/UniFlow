@@ -154,13 +154,13 @@ public sealed class AdminAccountsController : ControllerBase
         return await _accounts.ResetPasswordAsync(ActorId, user, cancellationToken);
     }
 
-    // For choosing an employee's faculties
+    // For choosing an employee's faculties - switched-off ones too, the page decides which to show
     [HttpGet("/api/admin/faculties")]
     public async Task<IReadOnlyList<FacultyOption>> GetFaculties(
         CancellationToken cancellationToken) =>
         await _db.Faculties
             .OrderBy(f => f.Name)
-            .Select(f => new FacultyOption(f.Id, f.Code, f.Name))
+            .Select(f => new FacultyOption(f.Id, f.Code, f.Name, f.IsActive))
             .ToListAsync(cancellationToken);
 
     private string ActorId => _userManager.GetUserId(User)!;

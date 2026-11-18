@@ -101,4 +101,22 @@ public class FacultyTests
 
         Assert.Throws<ArgumentException>(() => faculty.Rename(name!));
     }
+
+    [Fact]
+    public void NewOne_IsActive()
+    {
+        Assert.True(new Faculty("WI", "Wydział Informatyki").IsActive);
+    }
+
+    [Fact]
+    public void DeactivateThenActivate_SwitchesItOffAndOn()
+    {
+        var item = new Faculty("WI", "Wydział Informatyki");
+
+        item.Deactivate();
+        Assert.False(item.IsActive);
+
+        item.Activate();
+        Assert.True(item.IsActive);
+    }
 }

@@ -64,4 +64,22 @@ public class FieldOfStudyTests
 
         Assert.Throws<ArgumentNullException>(() => field.MoveToFaculty(null!));
     }
+
+    [Fact]
+    public void NewOne_IsActive()
+    {
+        Assert.True(new FieldOfStudy("Informatyka", StudyLevel.FirstCycle, new Faculty("WI", "Wydział Informatyki")).IsActive);
+    }
+
+    [Fact]
+    public void DeactivateThenActivate_SwitchesItOffAndOn()
+    {
+        var item = new FieldOfStudy("Informatyka", StudyLevel.FirstCycle, new Faculty("WI", "Wydział Informatyki"));
+
+        item.Deactivate();
+        Assert.False(item.IsActive);
+
+        item.Activate();
+        Assert.True(item.IsActive);
+    }
 }

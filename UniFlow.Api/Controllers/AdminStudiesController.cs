@@ -52,6 +52,10 @@ public sealed class AdminStudiesController : ControllerBase
         if (fieldOfStudy is null)
             return FieldError(nameof(request.FieldOfStudyId), "Wybrany kierunek nie istnieje. Odśwież stronę.");
 
+        // Phased out - students already on it finish, nobody new starts
+        if (!fieldOfStudy.IsActive)
+            return FieldError(nameof(request.FieldOfStudyId), "Ten kierunek jest wyłączony.");
+
         // One studies per field of study and student - ended ones are taken up again, so the
         // history of their applications stays in one place
         var existing = await _db.Enrollments
@@ -92,12 +96,13 @@ public sealed class AdminStudiesController : ControllerBase
         UpdateAsync(accountId, id, enrollment => enrollment.Reactivate(request.Semester),
             cancellationToken);
 
-    // For the "Dodaj studia" dialog
+    // For the "Dodaj studia" dialog - only switched-on fields of study
     [HttpGet("/api/admin/fields-of-study")]
     public async Task<IReadOnlyList<FieldOfStudyOption>> GetFieldsOfStudy(
         CancellationToken cancellationToken)
     {
         var fields = await _db.FieldsOfStudy
+            .Where(f => f.IsActive)
             .OrderBy(f => f.Faculty.Name)
             .ThenBy(f => f.Name)
             .ThenBy(f => f.Level)
