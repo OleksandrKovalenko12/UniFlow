@@ -201,34 +201,38 @@ public static class DemoStories
             General(GroupType.Exercises, "1", "4", "Zmiana składu zespołu konkursowego."),
             [Submitted(At(1, 9, 50))]),
         
-        // ========== Personal data - decided by the dean's office alone. Places and numbers are
-        // made up; e-mails in the example.com domain, which belongs to nobody.
+                // ========== Personal data - decided by the dean's office alone. The student writes the old
+        // values too. Places and numbers are made up; e-mails in the example.com domain, which
+        // belongs to nobody.
 
         // ---------- WIiT: closed
         new("s100014@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
-            PersonalData(phone: "600 000 114"),
+            PersonalData(phone: ("600 000 914", "600 000 114")),
             [Submitted(At(27, 10, 30)), Taken(Katarzyna, At(26, 9, 0)), Approved(Katarzyna, At(26, 9, 10))]),
 
+        // Moves abroad - the address of another country
         new("s100013@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
-            PersonalData(address: ("ul. Lipowa 7/2", "11-200", "Lipowa Wola")),
+            PersonalData(address: (Address("ul. Lipowa 7/2", "11-200", "Lipowa Wola"),
+                Address("Hauptstraße 5", "10115", "Berlin", "Niemcy"))),
             [Submitted(At(23, 19, 0)), Taken(Anna, At(22, 8, 30)), Approved(Anna, At(22, 8, 35))]),
 
         new("s100006@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
-            PersonalData(phone: "600 000 106", email: "michal.piotrowski@example.com"),
+            PersonalData(phone: ("600 000 906", "600 000 106"),
+                email: ("michal.p@example.com", "michal.piotrowski@example.com")),
             [Submitted(At(17, 20, 40)), Taken(Katarzyna, At(16, 10, 0)), Approved(Katarzyna, At(16, 10, 5))]),
 
         // The university address is not a private one - rejected, then submitted again right
         new("s100008@student.uniflow.test", Informatics, StudyLevel.SecondCycle,
-            PersonalData(email: "jakub.pawlak@student.uniflow.test"),
+            PersonalData(email: ("jakub.p@example.com", "jakub.pawlak@student.uniflow.test")),
             [Submitted(At(14, 22, 15)), Taken(Anna, At(13, 9, 10)),
              Rejected(Anna, At(13, 9, 20), "Podany adres to adres uczelniany - jako prywatny proszę podać adres spoza uczelni.")]),
 
         new("s100008@student.uniflow.test", Informatics, StudyLevel.SecondCycle,
-            PersonalData(email: "jakub.pawlak@example.com"),
+            PersonalData(email: ("jakub.p@example.com", "jakub.pawlak@example.com")),
             [Submitted(At(12, 18, 0)), Taken(Anna, At(11, 8, 45)), Approved(Anna, At(11, 8, 50))]),
 
         new(Maria, Informatics, StudyLevel.SecondCycle,
-            PersonalData(phone: "600 000 102"),
+            PersonalData(phone: ("600 000 902", "600 000 102")),
             [Submitted(At(10, 8, 0)), Withdrawn(At(9, 7, 30))]),
 
         // ---------- WIiT: in progress
@@ -238,26 +242,31 @@ public static class DemoStories
              SentBack(Joanna, At(8, 10, 20), "Załączony skan aktu małżeństwa jest nieczytelny - proszę dołączyć wyraźny skan.")]),
 
         new("s100012@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
-            PersonalData(address: ("ul. Ogrodowa 3", "11-400", "Dębowiec")),
+            PersonalData(address: (Address("ul. Polna 2", "11-410", "Dębowiec"),
+                Address("ul. Ogrodowa 3", "11-400", "Dębowiec"))),
             [Submitted(At(6, 9, 15)), Taken(Katarzyna, At(5, 10, 0)),
              SentBack(Katarzyna, At(5, 10, 10), "Proszę podać pełny adres - brakuje numeru mieszkania."),
-             CorrectedTo(At(3, 21, 0), PersonalData(address: ("ul. Ogrodowa 3/15", "11-400", "Dębowiec")))]),
+             CorrectedTo(At(3, 21, 0), PersonalData(address: (Address("ul. Polna 2", "11-410", "Dębowiec"),
+                 Address("ul. Ogrodowa 3/15", "11-400", "Dębowiec"))))]),
 
         new(Tomasz, Teleinformatics, StudyLevel.FirstCycle,
-            PersonalData(phone: "600 000 103"),
+            PersonalData(phone: ("600 000 903", "600 000 103")),
             [Submitted(At(4, 12, 0)), Taken(Anna, At(3, 8, 50))]),
 
         new("s100005@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
-            PersonalData(address: ("ul. Polna 12", "11-300", "Brzozowo"), phone: "600 000 105"),
+            PersonalData(address: (Address("ul. Leśna 4", "11-310", "Brzozowo"), Address("ul. Polna 12", "11-300", "Brzozowo")),
+                phone: ("600 000 905", "600 000 105")),
             [Submitted(At(2, 17, 30))]),
 
+        // The old e-mail is the one the system knows - the form suggested it
         new(Jan, Informatics, StudyLevel.FirstCycle,
-            PersonalData(email: "j.zielinski@example.com"),
+            PersonalData(email: ("jan.zielinski@example.com", "j.zielinski@example.com")),
             [Submitted(At(1, 20, 10))]),
 
         // ---------- WPiA
         new("s100010@student.uniflow.test", Law, StudyLevel.LongCycle,
-            PersonalData(address: ("al. Klonowa 21/4", "11-500", "Klonowo"), email: "kacper.krol@example.com"),
+            PersonalData(address: (Address("ul. Krótka 1", "11-510", "Klonowo"), Address("al. Klonowa 21/4", "11-500", "Klonowo")),
+                email: ("kacper.k@example.com", "kacper.krol@example.com")),
             [Submitted(At(12, 11, 0)), Taken(Ewa, At(11, 8, 30)), Approved(Ewa, At(11, 8, 40))]),
 
         // Approved - the administrator then entered the new name on the account (FinishAccountsAsync)
@@ -271,7 +280,7 @@ public static class DemoStories
              Rejected(Ewa, At(4, 10, 0), "Dołączona decyzja o zmianie nazwiska nie jest jeszcze prawomocna - proszę złożyć wniosek po jej uprawomocnieniu.")]),
 
         new(Maria, Law, StudyLevel.LongCycle,
-            PersonalData(address: ("ul. Polna 5", "11-600", "Wierzbno")),
+            PersonalData(address: (Address("ul. Długa 8", "11-610", "Wierzbno"), Address("ul. Polna 5", "11-600", "Wierzbno"))),
             [Submitted(At(5, 20, 0)), Taken(Ewa, At(4, 9, 30)),
              SentBack(Ewa, At(4, 9, 45), "Kod pocztowy nie pasuje do podanej miejscowości - proszę sprawdzić adres.")]),
 
@@ -281,7 +290,7 @@ public static class DemoStories
             [Submitted(At(3, 10, 30), files: 1), Taken(Joanna, At(2, 9, 0))]),
 
         new("s100012@student.uniflow.test", Administration, StudyLevel.FirstCycle,
-            PersonalData(phone: "600 000 112"),
+            PersonalData(phone: ("600 000 912", "600 000 112")),
             [Submitted(At(1, 7, 40))]),
     ];
 
@@ -295,7 +304,7 @@ public static class DemoStories
         new("s100013@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
             PersonalData(name: ("Amelia", "", PersonalDataChangeReason.Marriage, null)), At(1, 22, 10), Files: 0),
         new("s100006@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
-            PersonalData(address: ("ul. Lipowa 1", "", "")), At(2, 19, 0), Files: 0),
+            PersonalData(address: (Address("ul. Lipowa 1", "", ""), Address("", "", ""))), At(2, 19, 0), Files: 0),
     ];
 
     private static DemoTime At(int daysAgo, int hour, int minute) => new(daysAgo, hour, minute);
@@ -326,11 +335,12 @@ public static class DemoStories
             Justification = justification
         };
 
-    // Only the parts given are ticked
+    // Only the parts given are ticked; address, phone and e-mail as (old, new)
     private static PersonalDataChangeForm PersonalData(
         (string First, string Last, PersonalDataChangeReason Reason, string? Details)? name = null,
-        (string Street, string PostalCode, string City)? address = null,
-        string? phone = null, string? email = null) => new()
+        (PostalAddress Old, PostalAddress New)? address = null,
+        (string Old, string New)? phone = null,
+        (string Old, string New)? email = null) => new()
         {
             ChangeName = name is not null,
             NewFirstName = name?.First,
@@ -338,13 +348,23 @@ public static class DemoStories
             Reason = name?.Reason ?? default,
             ReasonDetails = name?.Details,
             ChangeAddress = address is not null,
-            Street = address?.Street,
-            PostalCode = address?.PostalCode,
-            City = address?.City,
+            OldAddress = address?.Old ?? new(),
+            NewAddress = address?.New ?? new(),
             ChangePhone = phone is not null,
-            Phone = phone,
+            OldPhone = phone?.Old,
+            NewPhone = phone?.New,
             ChangeEmail = email is not null,
-            Email = email
+            OldEmail = email?.Old,
+            NewEmail = email?.New
+        };
+
+    private static PostalAddress Address(string street, string postalCode, string city,
+        string country = PostalAddress.DefaultCountry) => new()
+        {
+            Street = street,
+            PostalCode = postalCode,
+            City = city,
+            Country = country
         };
 
     private static DemoStep Submitted(DemoTime at, int files = 0) =>

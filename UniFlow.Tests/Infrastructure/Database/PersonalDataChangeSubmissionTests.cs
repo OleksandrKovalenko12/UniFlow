@@ -181,7 +181,8 @@ public sealed class PersonalDataChangeSubmissionTests : IAsyncLifetime
     {
         var (userId, enrollmentId) = await CreateStudentAsync();
 
-        var response = await SubmitAsync(userId, enrollmentId, new { changePhone = true, phone = "600 123 456" });
+        var response = await SubmitAsync(userId, enrollmentId,
+            new { changePhone = true, oldPhone = "600 111 222", newPhone = "600 123 456" });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }

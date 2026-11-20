@@ -1,20 +1,20 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using UniFlow.Shared.Admin;
 
 namespace UniFlow.Shared.Forms;
 
-// The student ticks what changes - at least one part - and fills only those parts. The current
-// name and e-mail are on the account: ValidateAgainst checks that they really change. Only a
-// new name needs a supporting document (RequiredAttachments) - a file, not a field.
+// The student ticks what changes - at least one part - and fills only those parts: the old
+// value and the new one. Only the current name is taken from the account (ValidateAgainst
+// checks that it really changes); the address and the phone are only in USOS, so the student
+// writes them. Only a new name needs a supporting document (RequiredAttachments).
 public sealed partial class PersonalDataChangeForm : IValidatableObject
 {
     // The same limits as on the account - the new values must fit there
     public const int MaxNameLength = AccountForm.MaxNameLength;
     public const int MaxEmailLength = AccountForm.MaxEmailLength;
     public const int MaxReasonDetailsLength = 500;
-    public const int MaxStreetLength = 150;
-    public const int MaxCityLength = 100;
 
     // The error of the ticks themselves - shown above them, not under a field
     public const string ChangesField = "Changes";
@@ -24,27 +24,30 @@ public sealed partial class PersonalDataChangeForm : IValidatableObject
     public bool ChangePhone { get; set; }
     public bool ChangeEmail { get; set; }
 
-    // ChangeName
+    // ChangeName - the old name is on the account
     public string? NewFirstName { get; set; }
     public string? NewLastName { get; set; }
     public PersonalDataChangeReason Reason { get; set; }
     public string? ReasonDetails { get; set; } // Reason = Other
 
-    // ChangeAddress - the correspondence address, in Poland
-    public string? Street { get; set; } // with the number, e.g. "ul. Kwiatowa 5/12"
-    public string? PostalCode { get; set; }
-    public string? City { get; set; }
+    // ChangeAddress - the correspondence address
+    public PostalAddress OldAddress { get; set; } = new();
+    public PostalAddress NewAddress { get; set; } = new();
 
     // ChangePhone
-    public string? Phone { get; set; }
+    public string? OldPhone { get; set; }
+    public string? NewPhone { get; set; }
 
     // ChangeEmail - the private one; the university address does not change
-    public string? Email { get; set; }
+    public string? OldEmail { get; set; }
+    public string? NewEmail { get; set; }
 
-    // A new first name or last name is official - a document must confirm it
+    // A new first name or last name is official - a document must confirm it.
+    // Not saved with the form - it follows from it.
+    [JsonIgnore]
     public int RequiredAttachments => ChangeName ? 1 : 0;
 
-    // Trims text, keeps only digits and "+" of the phone, and clears the parts not ticked
+    // Trims text, keeps only digits and "+" of the phones, and clears the parts not ticked
     public void Normalize()
     {
         NewFirstName = ChangeName ? NewFirstName?.Trim() : null;
@@ -52,12 +55,21 @@ public sealed partial class PersonalDataChangeForm : IValidatableObject
         Reason = ChangeName ? Reason : default;
         ReasonDetails = ChangeName && Reason == PersonalDataChangeReason.Other ? ReasonDetails?.Trim() : null;
 
-        Street = ChangeAddress ? Street?.Trim() : null;
-        PostalCode = ChangeAddress ? PostalCode?.Trim() : null;
-        City = ChangeAddress ? City?.Trim() : null;
+        if (ChangeAddress)
+        {
+            OldAddress.Normalize();
+            NewAddress.Normalize();
+        }
+        else
+        {
+            OldAddress = new PostalAddress();
+            NewAddress = new PostalAddress();
+        }
 
-        Phone = ChangePhone ? PhoneSeparators().Replace(Phone ?? "", "") : null;
-        Email = ChangeEmail ? Email?.Trim() : null;
+        OldPhone = ChangePhone ? PhoneDigits(OldPhone) : null;
+        NewPhone = ChangePhone ? PhoneDigits(NewPhone) : null;
+        OldEmail = ChangeEmail ? OldEmail?.Trim() : null;
+        NewEmail = ChangeEmail ? NewEmail?.Trim() : null;
     }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -73,43 +85,47 @@ public sealed partial class PersonalDataChangeForm : IValidatableObject
 
         if (ChangeAddress)
         {
-            if (string.IsNullOrWhiteSpace(Street))
-                yield return Error("Podaj ulicę i numer.", nameof(Street));
-            else if (Street.Trim().Length > MaxStreetLength)
-                yield return Error($"Adres może mieć najwyżej {MaxStreetLength} znaków.", nameof(Street));
+            var errors = OldAddress.Validate($"{nameof(OldAddress)}.")
+                .Concat(NewAddress.Validate($"{nameof(NewAddress)}."))
+                .ToList();
+            foreach (var error in errors)
+                yield return error;
 
-            if (string.IsNullOrWhiteSpace(PostalCode))
-                yield return Error("Podaj kod pocztowy.", nameof(PostalCode));
-            else if (!PostalCodeFormat().IsMatch(PostalCode.Trim()))
-                yield return Error("Podaj kod pocztowy w formacie 00-000.", nameof(PostalCode));
-
-            if (string.IsNullOrWhiteSpace(City))
-                yield return Error("Podaj miejscowość.", nameof(City));
-            else if (City.Trim().Length > MaxCityLength)
-                yield return Error($"Miejscowość może mieć najwyżej {MaxCityLength} znaków.", nameof(City));
+            if (errors.Count == 0 && NewAddress.SameAs(OldAddress))
+                yield return Error("Nowy adres jest taki sam jak dotychczasowy.",
+                    $"{nameof(NewAddress)}.{nameof(PostalAddress.Street)}");
         }
 
         if (ChangePhone)
         {
-            var phone = PhoneSeparators().Replace(Phone ?? "", "");
-            if (phone.Length == 0)
-                yield return Error("Podaj numer telefonu.", nameof(Phone));
-            else if (!PhoneFormat().IsMatch(phone))
-                yield return Error("Podaj numer telefonu, np. 600 123 456 albo +48 600 123 456.", nameof(Phone));
+            var oldError = PhoneError(OldPhone, nameof(OldPhone));
+            var newError = PhoneError(NewPhone, nameof(NewPhone));
+            if (oldError is not null)
+                yield return oldError;
+            if (newError is not null)
+                yield return newError;
+
+            if (oldError is null && newError is null && PhoneDigits(OldPhone) == PhoneDigits(NewPhone))
+                yield return Error("Nowy numer jest taki sam jak dotychczasowy.", nameof(NewPhone));
         }
 
         if (ChangeEmail)
         {
-            var email = Email?.Trim() ?? "";
-            if (email.Length == 0)
-                yield return Error("Podaj adres e-mail.", nameof(Email));
-            else if (email.Length > MaxEmailLength || !new EmailAddressAttribute().IsValid(email))
-                yield return Error("Podaj poprawny adres e-mail.", nameof(Email));
+            var oldError = EmailError(OldEmail, nameof(OldEmail));
+            var newError = EmailError(NewEmail, nameof(NewEmail));
+            if (oldError is not null)
+                yield return oldError;
+            if (newError is not null)
+                yield return newError;
+
+            if (oldError is null && newError is null
+                && string.Equals(OldEmail!.Trim(), NewEmail!.Trim(), StringComparison.OrdinalIgnoreCase))
+                yield return Error("Nowy adres e-mail jest taki sam jak dotychczasowy.", nameof(NewEmail));
         }
     }
 
-    // What only the server knows: the current name and e-mail. Something ticked must change.
-    // Exact comparison of the name - a fixed capital letter is a change too.
+    // What only the server knows: the current name on the account. A new name must differ.
+    // Exact comparison - a fixed capital letter is a change too.
     public IEnumerable<ValidationResult> ValidateAgainst(CurrentPersonalData current)
     {
         if (ChangeName
@@ -117,9 +133,6 @@ public sealed partial class PersonalDataChangeForm : IValidatableObject
             && string.Equals(NewLastName?.Trim(), current.LastName, StringComparison.Ordinal))
             yield return Error("Imię i nazwisko są takie same jak obecne - zmień przynajmniej jedno z nich.",
                 nameof(NewLastName));
-
-        if (ChangeEmail && string.Equals(Email?.Trim(), current.PrivateEmail, StringComparison.OrdinalIgnoreCase))
-            yield return Error("To jest Twój obecny adres e-mail.", nameof(Email));
     }
 
     private IEnumerable<ValidationResult> ValidateName()
@@ -146,15 +159,34 @@ public sealed partial class PersonalDataChangeForm : IValidatableObject
         }
     }
 
-    // "00-000"
-    [GeneratedRegex(@"^\d{2}-\d{3}$")]
-    private static partial Regex PostalCodeFormat();
+    private static ValidationResult? PhoneError(string? phone, string field)
+    {
+        var digits = PhoneDigits(phone);
+        if (digits.Length == 0)
+            return Error("Podaj numer telefonu.", field);
+        if (!PhoneFormat().IsMatch(digits))
+            return Error("Podaj numer telefonu, np. 600 123 456 albo +48 600 123 456.", field);
+        return null;
+    }
+
+    private static ValidationResult? EmailError(string? email, string field)
+    {
+        var trimmed = email?.Trim() ?? "";
+        if (trimmed.Length == 0)
+            return Error("Podaj adres e-mail.", field);
+        if (trimmed.Length > MaxEmailLength || !new EmailAddressAttribute().IsValid(trimmed))
+            return Error("Podaj poprawny adres e-mail.", field);
+        return null;
+    }
+
+    // "600 123 456", "600-123-456", "(+48) 600..." -> "600123456", "+48600..."
+    private static string PhoneDigits(string? phone) => PhoneSeparators().Replace(phone ?? "", "");
 
     // 9 to 15 digits, "+" in front for a number from abroad
     [GeneratedRegex(@"^\+?\d{9,15}$")]
     private static partial Regex PhoneFormat();
 
-    // "600 123 456", "600-123-456", "(+48) 600..." - what people type around the digits
+    // What people type around the digits
     [GeneratedRegex(@"[\s\-()]")]
     private static partial Regex PhoneSeparators();
 

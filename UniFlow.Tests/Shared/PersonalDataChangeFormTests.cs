@@ -7,6 +7,10 @@ public class PersonalDataChangeFormTests
 {
     private static readonly CurrentPersonalData Current = new("Anna", "Testowa", "anna@example.com");
 
+    private static PostalAddress Address(string street, string postalCode, string city = "Lipowa Wola",
+        string country = "Polska") =>
+        new() { Street = street, PostalCode = postalCode, City = city, Country = country };
+
     private static List<string> ErrorFields(PersonalDataChangeForm form) =>
         form.Validate(new ValidationContext(form)).SelectMany(e => e.MemberNames).ToList();
 
@@ -28,31 +32,72 @@ public class PersonalDataChangeFormTests
 
     [Theory]
     [InlineData("00-950", true)]
-    [InlineData("00950", false)]
-    [InlineData("0-0950", false)]
-    public void Validate_PostalCode_MustLookLikePolishOne(string postalCode, bool valid)
+    [InlineData("10115", true)]
+    [InlineData("SW1A 1AA", true)]
+    [InlineData("0", false)]
+    [InlineData("--", false)]
+    [InlineData("00-950 Lipowa Wola", false)]
+    public void Validate_PostalCode_AcceptsCodesOfManyCountries(string postalCode, bool valid)
     {
         var form = new PersonalDataChangeForm
         {
             ChangeAddress = true,
-            Street = "ul. Kwiatowa 5/12",
-            PostalCode = postalCode,
-            City = "Warszawa"
+            OldAddress = Address("ul. Lipowa 7/2", "11-200"),
+            NewAddress = Address("ul. Polna 12", postalCode)
         };
 
         Assert.Equal(valid, ErrorFields(form).Count == 0);
     }
 
-    [Theory]
-    [InlineData("600 123 456", true)]
-    [InlineData("+48 600-123-456", true)]
-    [InlineData("12345", false)]
-    [InlineData("600 abc 456", false)]
-    public void Validate_Phone_AcceptsWhatPeopleType(string phone, bool valid)
+    [Fact]
+    public void Validate_EmptyOldAddress_ReportsItsFields()
     {
-        var form = new PersonalDataChangeForm { ChangePhone = true, Phone = phone };
+        var form = new PersonalDataChangeForm
+        {
+            ChangeAddress = true,
+            NewAddress = Address("ul. Polna 12", "11-300")
+        };
+
+        Assert.Equal(
+            ["OldAddress.Street", "OldAddress.PostalCode", "OldAddress.City", "OldAddress.Country"],
+            ErrorFields(form));
+    }
+
+    [Fact]
+    public void Validate_SameAddressWrittenDifferently_IsNoChange()
+    {
+        var form = new PersonalDataChangeForm
+        {
+            ChangeAddress = true,
+            OldAddress = Address("ul. Polna 12", "11-300"),
+            NewAddress = Address(" UL. POLNA 12 ", "11-300", "lipowa wola", "polska")
+        };
+
+        Assert.Equal(["NewAddress.Street"], ErrorFields(form));
+    }
+
+    [Theory]
+    [InlineData("600 123 456", "+48 600-111-222", true)]
+    [InlineData("600 123 456", "600-123-456", false)]
+    [InlineData("600 123 456", "12345", false)]
+    public void Validate_Phone_NewMustBeAnotherValidNumber(string oldPhone, string newPhone, bool valid)
+    {
+        var form = new PersonalDataChangeForm { ChangePhone = true, OldPhone = oldPhone, NewPhone = newPhone };
 
         Assert.Equal(valid, ErrorFields(form).Count == 0);
+    }
+
+    [Fact]
+    public void Validate_SameEmailInOtherLetters_IsNoChange()
+    {
+        var form = new PersonalDataChangeForm
+        {
+            ChangeEmail = true,
+            OldEmail = "anna@example.com",
+            NewEmail = "ANNA@example.com"
+        };
+
+        Assert.Equal([nameof(form.NewEmail)], ErrorFields(form));
     }
 
     [Fact]
@@ -61,33 +106,25 @@ public class PersonalDataChangeFormTests
         var form = new PersonalDataChangeForm
         {
             ChangePhone = true,
-            Phone = "+48 600-123 456",
+            OldPhone = "600 111 222",
+            NewPhone = "+48 600-123 456",
             NewLastName = "Zostaje po odznaczeniu",
-            City = "Warszawa"
+            NewAddress = Address("ul. Polna 12", "11-300")
         };
 
         form.Normalize();
 
-        Assert.Equal("+48600123456", form.Phone);
+        Assert.Equal("+48600123456", form.NewPhone);
         Assert.Null(form.NewLastName);
-        Assert.Null(form.City);
+        Assert.True(form.NewAddress.IsEmpty);
     }
 
     [Fact]
-    public void ValidateAgainst_SameNameAndEmail_ReportsBoth()
+    public void ValidateAgainst_SameName_ReportsLastName()
     {
-        var form = new PersonalDataChangeForm
-        {
-            ChangeName = true,
-            NewFirstName = "Anna",
-            NewLastName = "Testowa",
-            ChangeEmail = true,
-            Email = "ANNA@example.com"
-        };
+        var form = new PersonalDataChangeForm { ChangeName = true, NewFirstName = "Anna", NewLastName = "Testowa" };
 
-        Assert.Equal(
-            [nameof(form.NewLastName), nameof(form.Email)],
-            form.ValidateAgainst(Current).SelectMany(e => e.MemberNames));
+        Assert.Equal([nameof(form.NewLastName)], form.ValidateAgainst(Current).SelectMany(e => e.MemberNames));
     }
 
     [Fact]

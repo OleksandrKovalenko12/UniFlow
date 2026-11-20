@@ -44,9 +44,14 @@ public class PersonalDataChangeTemplateTests
     [Fact]
     public async Task Render_OnlyPhone_ShowsOnlyThatRowAndNoDocumentSentence()
     {
-        var html = await RenderAsync(new PersonalDataChangeForm { ChangePhone = true, Phone = "600123456" });
+        var html = await RenderAsync(new PersonalDataChangeForm
+        {
+            ChangePhone = true,
+            OldPhone = "600111222",
+            NewPhone = "600123456"
+        });
 
-        Assert.Contains("<tr><td>Telefon</td><td>–</td><td>600123456</td></tr>", html);
+        Assert.Contains("<tr><td>Telefon</td><td>600111222</td><td>600123456</td></tr>", html);
         Assert.DoesNotContain("Nazwisko", html);
         Assert.DoesNotContain("Dokument potwierdzający", html);
     }

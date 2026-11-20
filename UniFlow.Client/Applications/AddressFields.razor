@@ -1,0 +1,63 @@
+﻿@* One postal address - the old and the new one look the same. Prefix: where its errors are in
+   the form, e.g. "NewAddress." - like "Subjects[0]." of a group change. *@
+
+<MudText Typo="Typo.subtitle2" Class="mb-1">@Title</MudText>
+<MudGrid Spacing="2" Class="mb-3">
+    <MudItem xs="12">
+        <label class="field-label" for="@($"{Id}-street")">Ulica i numer</label>
+        <MudTextField @bind-Value="Address.Street" @bind-Value:after="ChangedAsync"
+                      InputId="@($"{Id}-street")" Placeholder="np. ul. Kwiatowa 5/12"
+                      MaxLength="PostalAddress.MaxStreetLength"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Error="Errors.Has(Prefix + nameof(PostalAddress.Street))"
+                      ErrorText="@Errors.For(Prefix + nameof(PostalAddress.Street))" />
+    </MudItem>
+    <MudItem xs="5" md="3">
+        <label class="field-label" for="@($"{Id}-postal-code")">Kod pocztowy</label>
+        <MudTextField @bind-Value="Address.PostalCode" @bind-Value:after="ChangedAsync"
+                      InputId="@($"{Id}-postal-code")" Placeholder="np. 00-950" MaxLength="12"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Error="Errors.Has(Prefix + nameof(PostalAddress.PostalCode))"
+                      ErrorText="@Errors.For(Prefix + nameof(PostalAddress.PostalCode))" />
+    </MudItem>
+    <MudItem xs="7" md="5">
+        <label class="field-label" for="@($"{Id}-city")">Miejscowość</label>
+        <MudTextField @bind-Value="Address.City" @bind-Value:after="ChangedAsync"
+                      InputId="@($"{Id}-city")" MaxLength="PostalAddress.MaxCityLength"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Error="Errors.Has(Prefix + nameof(PostalAddress.City))"
+                      ErrorText="@Errors.For(Prefix + nameof(PostalAddress.City))" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <label class="field-label" for="@($"{Id}-country")">Kraj</label>
+        <MudTextField @bind-Value="Address.Country" @bind-Value:after="ChangedAsync"
+                      InputId="@($"{Id}-country")" MaxLength="PostalAddress.MaxCountryLength"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Error="Errors.Has(Prefix + nameof(PostalAddress.Country))"
+                      ErrorText="@Errors.For(Prefix + nameof(PostalAddress.Country))" />
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter, EditorRequired]
+    public PostalAddress Address { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    // "OldAddress." - the paths of its errors
+    [Parameter, EditorRequired]
+    public string Prefix { get; set; } = "";
+
+    // Unique on the page - the labels point at their fields
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    [Parameter, EditorRequired]
+    public FormErrors Errors { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+}

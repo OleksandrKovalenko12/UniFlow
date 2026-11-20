@@ -7,7 +7,7 @@
     </p>
 
     @* The bordered table of DocumentPage, the same as the subjects of a group change. Only the
-       parts the student ticked; "–" where the system does not know the current value. *@
+       parts the student ticked. The old name comes from the account, the rest from the student. *@
     <table class="subjects">
         <thead>
             <tr><th></th><th>Dane dotychczasowe</th><th>Dane nowe</th></tr>
@@ -20,15 +20,15 @@
             }
             @if (Form.ChangeAddress)
             {
-                <tr><td>Adres korespondencyjny</td><td>–</td><td>@Form.Street, @Form.PostalCode @Form.City</td></tr>
+                <tr><td>Adres korespondencyjny</td><td>@Form.OldAddress</td><td>@Form.NewAddress</td></tr>
             }
             @if (Form.ChangePhone)
             {
-                <tr><td>Telefon</td><td>–</td><td>@Form.Phone</td></tr>
+                <tr><td>Telefon</td><td>@Form.OldPhone</td><td>@Form.NewPhone</td></tr>
             }
             @if (Form.ChangeEmail)
             {
-                <tr><td>Prywatny e-mail</td><td>@(Model.Current.PrivateEmail ?? "–")</td><td>@Form.Email</td></tr>
+                <tr><td>Prywatny e-mail</td><td>@Form.OldEmail</td><td>@Form.NewEmail</td></tr>
             }
         </tbody>
     </table>

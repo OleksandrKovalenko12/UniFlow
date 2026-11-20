@@ -18,18 +18,24 @@
     }
     @if (Form.ChangeAddress)
     {
-        <span class="mud-text-secondary">Adres korespondencyjny</span>
-        <span><b>@Form.Street, @Form.PostalCode @Form.City</b></span>
+        <span class="mud-text-secondary">Dotychczasowy adres</span>
+        <span>@Form.OldAddress</span>
+        <span class="mud-text-secondary">Nowy adres</span>
+        <span><b>@Form.NewAddress</b></span>
     }
     @if (Form.ChangePhone)
     {
-        <span class="mud-text-secondary">Telefon</span>
-        <span><b>@Form.Phone</b></span>
+        <span class="mud-text-secondary">Dotychczasowy telefon</span>
+        <span>@Form.OldPhone</span>
+        <span class="mud-text-secondary">Nowy telefon</span>
+        <span><b>@Form.NewPhone</b></span>
     }
     @if (Form.ChangeEmail)
     {
-        <span class="mud-text-secondary">Prywatny e-mail</span>
-        <span><b>@Form.Email</b></span>
+        <span class="mud-text-secondary">Dotychczasowy e-mail</span>
+        <span>@Form.OldEmail</span>
+        <span class="mud-text-secondary">Nowy e-mail</span>
+        <span><b>@Form.NewEmail</b></span>
     }
 </div>
 

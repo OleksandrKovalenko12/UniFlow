@@ -1,17 +1,17 @@
 ﻿@* The fields of the personal data form - the same when the application is submitted and when
-   it is corrected. The student ticks what changes; only those parts are shown. Checking and
-   saving stay with the page: it hears about every change. *@
+   it is corrected. The student ticks what changes; only those parts are shown, each with the old
+   and the new value. Checking and saving stay with the page: it hears about every change. *@
 
 <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
     <MudText Typo="Typo.h6" GutterBottom="true">Co chcesz zmienić?</MudText>
     <div class="d-flex flex-column">
         <MudCheckBox T="bool" @bind-Value="Form.ChangeName" @bind-Value:after="NameTickedAsync"
                      Color="Color.Primary" Label="Imię lub nazwisko" />
-        <MudCheckBox T="bool" @bind-Value="Form.ChangeAddress" @bind-Value:after="ChangedAsync"
+        <MudCheckBox T="bool" @bind-Value="Form.ChangeAddress" @bind-Value:after="AddressTickedAsync"
                      Color="Color.Primary" Label="Adres korespondencyjny" />
         <MudCheckBox T="bool" @bind-Value="Form.ChangePhone" @bind-Value:after="ChangedAsync"
                      Color="Color.Primary" Label="Numer telefonu" />
-        <MudCheckBox T="bool" @bind-Value="Form.ChangeEmail" @bind-Value:after="ChangedAsync"
+        <MudCheckBox T="bool" @bind-Value="Form.ChangeEmail" @bind-Value:after="EmailTickedAsync"
                      Color="Color.Primary" Label="Prywatny adres e-mail" />
     </div>
     @if (Errors.Has(PersonalDataChangeForm.ChangesField))
@@ -80,49 +80,36 @@
 @if (Form.ChangeAddress)
 {
     <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
-        <MudText Typo="Typo.h6" GutterBottom="true">Nowy adres korespondencyjny</MudText>
-        <MudGrid Spacing="2">
-            <MudItem xs="12">
-                <label class="field-label" for="street">Ulica i numer</label>
-                <MudTextField @bind-Value="Form.Street" @bind-Value:after="ChangedAsync"
-                              InputId="street" Placeholder="np. ul. Kwiatowa 5/12"
-                              MaxLength="PersonalDataChangeForm.MaxStreetLength"
-                              Variant="Variant.Outlined" Margin="Margin.Dense"
-                              Error="Errors.Has(nameof(PersonalDataChangeForm.Street))"
-                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.Street))" />
-            </MudItem>
-            <MudItem xs="5" md="3">
-                <label class="field-label" for="postal-code">Kod pocztowy</label>
-                <MudTextField @bind-Value="Form.PostalCode" @bind-Value:after="ChangedAsync"
-                              InputId="postal-code" Placeholder="00-000" MaxLength="6"
-                              Variant="Variant.Outlined" Margin="Margin.Dense"
-                              Error="Errors.Has(nameof(PersonalDataChangeForm.PostalCode))"
-                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.PostalCode))" />
-            </MudItem>
-            <MudItem xs="7" md="9">
-                <label class="field-label" for="city">Miejscowość</label>
-                <MudTextField @bind-Value="Form.City" @bind-Value:after="ChangedAsync"
-                              InputId="city" MaxLength="PersonalDataChangeForm.MaxCityLength"
-                              Variant="Variant.Outlined" Margin="Margin.Dense"
-                              Error="Errors.Has(nameof(PersonalDataChangeForm.City))"
-                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.City))" />
-            </MudItem>
-        </MudGrid>
+        <MudText Typo="Typo.h6" GutterBottom="true">Adres korespondencyjny</MudText>
+        <AddressFields Address="Form.OldAddress" Title="Dotychczasowy adres" Id="old-address"
+                       Prefix="@($"{nameof(PersonalDataChangeForm.OldAddress)}.")"
+                       Errors="Errors" OnChanged="OnChanged" />
+        <AddressFields Address="Form.NewAddress" Title="Nowy adres" Id="new-address"
+                       Prefix="@($"{nameof(PersonalDataChangeForm.NewAddress)}.")"
+                       Errors="Errors" OnChanged="OnChanged" />
     </MudPaper>
 }
 
 @if (Form.ChangePhone)
 {
     <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
-        <MudText Typo="Typo.h6" GutterBottom="true">Nowy numer telefonu</MudText>
+        <MudText Typo="Typo.h6" GutterBottom="true">Numer telefonu</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6">
-                <label class="field-label" for="phone">Numer telefonu</label>
-                <MudTextField @bind-Value="Form.Phone" @bind-Value:after="ChangedAsync"
-                              InputId="phone" InputType="InputType.Telephone" Placeholder="np. 600 123 456"
+                <label class="field-label" for="old-phone">Dotychczasowy numer</label>
+                <MudTextField @bind-Value="Form.OldPhone" @bind-Value:after="ChangedAsync"
+                              InputId="old-phone" InputType="InputType.Telephone"
                               MaxLength="20" Variant="Variant.Outlined" Margin="Margin.Dense"
-                              Error="Errors.Has(nameof(PersonalDataChangeForm.Phone))"
-                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.Phone))" />
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.OldPhone))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.OldPhone))" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <label class="field-label" for="new-phone">Nowy numer</label>
+                <MudTextField @bind-Value="Form.NewPhone" @bind-Value:after="ChangedAsync"
+                              InputId="new-phone" InputType="InputType.Telephone" Placeholder="np. 600 123 456"
+                              MaxLength="20" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.NewPhone))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.NewPhone))" />
             </MudItem>
         </MudGrid>
     </MudPaper>
@@ -131,22 +118,25 @@
 @if (Form.ChangeEmail)
 {
     <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
-        <MudText Typo="Typo.h6">Nowy prywatny adres e-mail</MudText>
-        @if (Current is not null)
-        {
-            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-                @(Current.PrivateEmail is null ? "Obecnie nie masz podanego prywatnego adresu." : $"Obecnie: {Current.PrivateEmail}")
-            </MudText>
-        }
+        <MudText Typo="Typo.h6" GutterBottom="true">Prywatny adres e-mail</MudText>
         <MudGrid Spacing="2">
             <MudItem xs="12" md="6">
-                <label class="field-label" for="email">Adres e-mail</label>
-                <MudTextField @bind-Value="Form.Email" @bind-Value:after="ChangedAsync"
-                              InputId="email" InputType="InputType.Email"
+                <label class="field-label" for="old-email">Dotychczasowy adres</label>
+                <MudTextField @bind-Value="Form.OldEmail" @bind-Value:after="ChangedAsync"
+                              InputId="old-email" InputType="InputType.Email"
                               MaxLength="PersonalDataChangeForm.MaxEmailLength"
                               Variant="Variant.Outlined" Margin="Margin.Dense"
-                              Error="Errors.Has(nameof(PersonalDataChangeForm.Email))"
-                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.Email))" />
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.OldEmail))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.OldEmail))" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <label class="field-label" for="new-email">Nowy adres</label>
+                <MudTextField @bind-Value="Form.NewEmail" @bind-Value:after="ChangedAsync"
+                              InputId="new-email" InputType="InputType.Email"
+                              MaxLength="PersonalDataChangeForm.MaxEmailLength"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.NewEmail))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.NewEmail))" />
             </MudItem>
         </MudGrid>
     </MudPaper>
@@ -163,7 +153,8 @@
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
-    // The name and e-mail the system knows now - shown as "Obecnie"; null while loading
+    // The name and e-mail the system knows now - the name is shown as "Obecnie", the e-mail is
+    // suggested as the old one; null while loading
     [Parameter]
     public CurrentPersonalData? Current { get; set; }
 
@@ -183,6 +174,27 @@
             Form.NewFirstName = Current.FirstName;
             Form.NewLastName = Current.LastName;
         }
+
+        return ChangedAsync();
+    }
+
+    // Most students live in Poland - the country is filled in, it can be changed
+    private Task AddressTickedAsync()
+    {
+        if (Form.ChangeAddress && Form.OldAddress.IsEmpty && Form.NewAddress.IsEmpty)
+        {
+            Form.OldAddress.Country = PostalAddress.DefaultCountry;
+            Form.NewAddress.Country = PostalAddress.DefaultCountry;
+        }
+
+        return ChangedAsync();
+    }
+
+    // The e-mail the system knows is suggested as the old one - the student can correct it
+    private Task EmailTickedAsync()
+    {
+        if (Form.ChangeEmail && string.IsNullOrEmpty(Form.OldEmail) && Current?.PrivateEmail is not null)
+            Form.OldEmail = Current.PrivateEmail;
 
         return ChangedAsync();
     }
