@@ -1,0 +1,25 @@
+﻿@* A number in a sentence on the start page, e.g. "U prodziekana 2" - leads to the list behind it.
+   Href for a plain page; OnClick when the list must open on a given tab first. *@
+
+@if (Href is not null)
+{
+    <a href="@Href" class="welcome-count"><span>@Label</span><b>@Value</b></a>
+}
+else
+{
+    <button type="button" class="welcome-count" @onclick="OnClick"><span>@Label</span><b>@Value</b></button>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public int Value { get; set; }
+
+    [Parameter]
+    public string? Href { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+}

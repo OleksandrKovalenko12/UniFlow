@@ -66,13 +66,14 @@
                         </MudNavLink>
                     </AuthorizeView>
                     <AuthorizeView Roles="@RoleNames.Administrator">
-                        <MudNavGroup Title="Administracja" Icon="@Icons.Material.Outlined.AdminPanelSettings"
-                                     Expanded="true">
-                            <MudNavLink Href="admin/accounts" Match="NavLinkMatch.Prefix">Konta</MudNavLink>
-                            <MudNavLink Href="admin/log" Match="NavLinkMatch.Prefix">Dziennik zmian</MudNavLink>
-                            <MudNavLink Href="admin/application-types" Match="NavLinkMatch.Prefix">Rodzaje wniosków</MudNavLink>
-                            <MudNavLink Href="admin/structure" Match="NavLinkMatch.Prefix">Struktura uczelni</MudNavLink>
-                        </MudNavGroup>
+                        <MudNavLink Href="admin/accounts" Match="NavLinkMatch.Prefix"
+                                    Icon="@Icons.Material.Outlined.People">Konta</MudNavLink>
+                        <MudNavLink Href="admin/structure" Match="NavLinkMatch.Prefix"
+                                    Icon="@Icons.Material.Outlined.AccountTree">Struktura uczelni</MudNavLink>
+                        <MudNavLink Href="admin/application-types" Match="NavLinkMatch.Prefix"
+                                    Icon="@Icons.Material.Outlined.Description">Rodzaje wniosków</MudNavLink>
+                        <MudNavLink Href="admin/log" Match="NavLinkMatch.Prefix"
+                                    Icon="@Icons.Material.Outlined.History">Dziennik zmian</MudNavLink>
                     </AuthorizeView>
                     <AuthorizeView Roles="@RoleNames.Student">
                         @* All, not Prefix: "my" would also light up on "my/zakonczone" *@

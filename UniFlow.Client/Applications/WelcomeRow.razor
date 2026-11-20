@@ -1,0 +1,50 @@
+﻿@* One case on the start page - the whole row leads to it. Action: a word on the right instead
+   of the arrow, e.g. "Popraw". IsNew: arrived since the previous login. *@
+
+<a href="@Href" class="welcome-item">
+    @if (Number is not null)
+    {
+        <span class="welcome-item-number">@Number</span>
+    }
+    <span class="welcome-item-text">
+        <span class="d-block">
+            @Title
+            @if (IsNew)
+            {
+                <span class="welcome-new">nowy</span>
+            }
+        </span>
+        @if (Subtitle is not null)
+        {
+            <span class="mud-text-secondary welcome-item-sub">@Subtitle</span>
+        }
+    </span>
+    @if (Action is not null)
+    {
+        <span class="welcome-item-action">@Action</span>
+    }
+    else
+    {
+        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="mud-text-secondary" />
+    }
+</a>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Href { get; set; } = "";
+
+    [Parameter]
+    public string? Number { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string? Subtitle { get; set; }
+
+    [Parameter]
+    public bool IsNew { get; set; }
+
+    [Parameter]
+    public string? Action { get; set; }
+}

@@ -38,7 +38,7 @@ else
         @foreach (var draft in _drafts)
         {
             <div class="draft-card">
-                <a href="@ContinueUrl(draft)" class="application-card">
+                <a href="@ApplicationLinks.Continue(draft, "/my")" class="application-card">
                     <MudPaper Class="pa-4 pr-16" Elevation="0" Outlined="true">
                         <div class="d-flex flex-wrap align-center gap-2 mb-1">
                             <MudText><b>@draft.TypeName</b></MudText>
@@ -153,14 +153,6 @@ else
 
     // The menu shows the same numbers as these lists
     private void UpdateCounts() => Counts.Set(Open.Count + _drafts!.Count, Closed.Count);
-
-    // Every type has its own form; "continue" skips the question the form would ask,
-    // "from" brings the student back here with "Wróć"
-    private static string ContinueUrl(DraftSummary draft) => draft.TypeCode switch
-    {
-        ApplicationTypeCodes.GroupChange => $"new/group-change/{draft.EnrollmentId}?continue=true&from=/my",
-        _ => "new"
-    };
 
     private async Task DeleteAsync(DraftSummary draft)
     {

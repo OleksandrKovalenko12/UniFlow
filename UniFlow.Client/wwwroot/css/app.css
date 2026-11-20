@@ -508,51 +508,126 @@ code {
 }
 
 
-/* Start page: numbers side by side, as many in a row as fit (two on a phone) */
-.welcome-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+/* Start page: cards of the same height side by side */
+.welcome-card {
+    height: 100%;
+}
+
+/* One case - the whole row is the link */
+.welcome-item {
+    display: flex;
+    align-items: center;
     gap: 12px;
-}
-
-.welcome-stat {
-    padding: 12px 16px;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 8px;
-}
-
-    /* Something waits for this user - in the app's colour */
-    .welcome-stat.attention {
-        border-color: var(--mud-palette-primary);
-        background: var(--mud-palette-primary-hover);
-    }
-
-/* A number that leads to its list - the whole tile is the link */
-a.welcome-stat {
-    display: block;
+    padding: 10px 0;
     color: inherit;
     text-decoration: none;
 }
 
-    a.welcome-stat:hover {
-        border-color: var(--mud-palette-primary);
+    .welcome-item + .welcome-item {
+        border-top: 1px solid var(--mud-palette-lines-default);
     }
 
-.welcome-stat-value {
-    font-size: 2rem;
+    .welcome-item:hover .welcome-item-text > span:first-child {
+        text-decoration: underline;
+    }
+
+.welcome-item-number {
+    min-width: 7.5em;
+    color: var(--mud-palette-primary);
     font-weight: 600;
-    line-height: 1.2;
+    white-space: nowrap;
 }
 
-/* Changes since the previous login and recent log entries */
-.welcome-row {
+.welcome-item-text {
+    flex: 1;
+    min-width: 0;
+}
+
+/* At most two lines - a long request of the office is read on the application's page */
+.welcome-item-sub {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.875rem;
+    overflow-wrap: break-word;
+}
+
+.welcome-item-action {
+    color: var(--mud-palette-primary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Arrived since the previous login */
+.welcome-new {
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-text);
+    vertical-align: middle;
+}
+
+/* A number in a sentence, leading to its list */
+.welcome-count {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+    .welcome-count + .welcome-count {
+        border-top: 1px solid var(--mud-palette-lines-default);
+    }
+
+    .welcome-count:hover span {
+        text-decoration: underline;
+    }
+
+/* The student's changes since the previous login - one line in the app's colour */
+.welcome-news {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 4px 8px;
-    padding: 6px 0;
+    gap: 4px 16px;
+    padding: 10px 16px;
+    border: 1px solid var(--mud-palette-primary);
+    border-radius: 8px;
+    background: var(--mud-palette-primary-hover);
 }
 
-    .welcome-row + .welcome-row {
-        border-top: 1px solid var(--mud-palette-lines-default);
+.welcome-news-item {
+    color: inherit;
+    text-decoration: none;
+}
+
+    .welcome-news-item:hover {
+        text-decoration: underline;
     }
+
+    .welcome-news-item b {
+        color: var(--mud-palette-primary);
+    }
+
+/* On a phone the number goes above the text instead of beside it */
+@media (max-width: 599.98px) {
+    .welcome-item {
+        flex-wrap: wrap;
+        gap: 2px 12px;
+    }
+
+    .welcome-item-number {
+        min-width: 0;
+        flex-basis: 100%;
+    }
+}

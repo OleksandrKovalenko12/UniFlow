@@ -1,10 +1,13 @@
 ﻿@page "/"
 @inject ApiClient Api
+@inject NavigationManager Navigation
+@inject ReviewListState ReviewState
 
 <PageTitle>UniFlow</PageTitle>
 
-@* The start page after logging in, and where the logo leads: what has changed since the
-   previous login and what is waiting - a section for each role the user has *@
+@* The start page after logging in, and where the logo leads. Built around "what do I do now":
+   the cases waiting for the user on the left, the numbers on the right - a section for each
+   role the user has. *@
 
 @if (_noRole)
 {
@@ -35,188 +38,206 @@ else
                 }
             </MudText>
         </div>
-        @* The student's main action - visible at once *@
-        @if (_welcome.Student is not null)
-        {
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Size="Size.Large"
-                       StartIcon="@Icons.Material.Filled.NoteAdd" Href="new">
-                Nowy wniosek
-            </MudButton>
-        }
+        @* The main action of each role - the first one filled *@
+        <div class="d-flex flex-wrap gap-2">
+            @foreach (var (text, href, icon, index) in MainActions.Select((a, i) => (a.Text, a.Href, a.Icon, i)))
+            {
+                <MudButton Variant="@(index == 0 ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
+                           DropShadow="false" StartIcon="@icon" Href="@href">
+                    @text
+                </MudButton>
+            }
+        </div>
     </div>
 
     @if (_welcome.Student is { } student)
     {
-        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <section class="mb-6">
             @if (ShowHeaders)
             {
-                <MudText Typo="Typo.h6" GutterBottom="true">Twoje wnioski</MudText>
+                <MudText Typo="Typo.h6" Class="mb-2">Twoje wnioski</MudText>
             }
-            @* The numbers lead to the list - no separate "Moje wnioski" button, the menu has it *@
-            <div class="welcome-stats mb-4">
-                <WelcomeStat Label="W toku" Value="student.InProgress" Href="my" />
-                <WelcomeStat Label="Do poprawy" Value="student.NeedsCorrection" Attention="true" Href="my"
-                             Hint="@(student.NeedsCorrection > 0 ? "czekają na Ciebie" : null)" />
-                <WelcomeStat Label="Niedokończone" Value="student.Drafts" Href="my" />
-            </div>
 
-            @if (_welcome.PreviousLoginAt is not null && student.Changes.Count > 0)
+            @* What the office did since the previous login - one short line, only when something
+            happened. The details are below or one click away. *@
+            @if (student.Changes.Total > 0)
             {
-                <MudText Typo="Typo.subtitle2">Od ostatniego logowania</MudText>
-                @foreach (var change in student.Changes)
-                {
-                    <div class="welcome-row">
-                        <MudLink Href="@($"applications/{change.ApplicationId}")"><b>@change.Number</b></MudLink>
-                        <StatusChip Status="change.Status" />
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            @change.TypeName · @DateText.Format(change.ChangedAt)
-                        </MudText>
-                    </div>
-                }
+                <div class="welcome-news mb-4">
+                    <MudIcon Icon="@Icons.Material.Outlined.NotificationsActive" Size="Size.Small" Color="Color.Primary" />
+                    <b>Od ostatniego logowania:</b>
+                    @foreach (var change in student.Changes.Items)
+                    {
+                        <a href="@ApplicationLinks.FromHome($"applications/{change.ApplicationId}")" class="welcome-news-item">
+                            <b>@change.Number</b> – @StudentChange(change.Status)
+                        </a>
+                    }
+                    @if (student.Changes.Total > student.Changes.Items.Count)
+                    {
+                        <MudLink Href="my">i jeszcze @(student.Changes.Total - student.Changes.Items.Count)</MudLink>
+                    }
+                </div>
             }
-            else if (student.Recent.Count > 0)
-            {
-                @* A quiet day - where things stand instead of "nothing new" *@
-                <MudText Typo="Typo.subtitle2">Ostatnie wnioski</MudText>
-                @foreach (var recent in student.Recent)
-                {
-                    <div class="welcome-row">
-                        <MudLink Href="@($"applications/{recent.ApplicationId}")"><b>@recent.Number</b></MudLink>
-                        <StatusChip Status="recent.Status" />
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            @recent.TypeName · złożony @DateText.Day(recent.ChangedAt)
-                        </MudText>
-                    </div>
-                }
-            }
-            else
-            {
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                    Nie masz jeszcze wniosków. Zacznij od „Nowy wniosek”.
-                </MudText>
-            }
-        </MudPaper>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="7">
+                    <MudPaper Class="pa-4 welcome-card" Elevation="0" Outlined="true">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1"><b>Do zrobienia (@(student.ToCorrect.Total + student.Drafts.Total))</b></MudText>
+                        @if (student.ToCorrect.Total == 0 && student.Drafts.Total == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Nie masz nic do zrobienia.</MudText>
+                        }
+                        @foreach (var item in student.ToCorrect.Items)
+                        {
+                            <WelcomeRow Href="@ApplicationLinks.FromHome(ApplicationLinks.Correction(item.TypeCode, item.ApplicationId) ?? $"applications/{item.ApplicationId}")"
+                                        Number="@item.Number" Title="Popraw wniosek" Action="Popraw" IsNew="IsNew(item.At)"
+                                        Subtitle="@(item.Comment is null ? item.TypeName : $"„{item.Comment}”")" />
+                        }
+                        <WelcomeMore List="student.ToCorrect" Href="my" />
+                        @foreach (var draft in student.Drafts.Items)
+                        {
+                            <WelcomeRow Href="@ApplicationLinks.Continue(draft, "/")" Title="@($"Dokończ: {draft.TypeName}")"
+                                        Action="Dokończ"
+                                        Subtitle="@($"{draft.FieldOfStudyName} · zapisany {DateText.Format(draft.UpdatedAt)}")" />
+                        }
+                        <WelcomeMore List="student.Drafts" Href="my" />
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudPaper Class="pa-4 welcome-card" Elevation="0" Outlined="true">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1"><b>Twoje wnioski</b></MudText>
+                        <WelcomeCount Label="W toku" Value="student.InProgress" Href="my" />
+                        <WelcomeCount Label="Niedokończone" Value="student.Drafts.Total" Href="my" />
+                        <WelcomeCount Label="Zakończone" Value="student.Closed" Href="my/zakonczone" />
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </section>
     }
 
     @if (_welcome.DeanOffice is { } office)
     {
-        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <section class="mb-6">
             @if (ShowHeaders)
             {
-                <MudText Typo="Typo.h6" GutterBottom="true">Dziekanat</MudText>
+                <MudText Typo="Typo.h6" Class="mb-2">Dziekanat</MudText>
             }
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="7">
+                    <MudPaper Class="pa-4 welcome-card" Elevation="0" Outlined="true">
+                        @* First what only this employee can move on *@
+                        <MudText Typo="Typo.subtitle1" Class="mb-1"><b>Czeka na Ciebie (@office.ForYou.Total)</b></MudText>
+                        @if (office.ForYou.Total == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                Nic nie czeka na Ciebie - możesz wziąć nowe wnioski.
+                            </MudText>
+                        }
+                        @foreach (var item in office.ForYou.Items)
+                        {
+                           <WelcomeRow Href="@ApplicationLinks.FromHome($"applications/{item.ApplicationId}")" Number="@item.Number"
+                                        Title="@(item.StudentName ?? "")"
+                                        Subtitle="@(item.Status == ApplicationState.Resubmitted
+                                            ? $"Poprawiony przez studenta · {DateText.Format(item.At)}"
+                                            : $"W weryfikacji {Since(item.At)}")" />
+                        }
+                        <WelcomeMore List="office.ForYou" OnClick="() => OpenReview(ReviewTab.InReview, AssignedFilter.Me)" />
 
-            @* First what only this employee can do - the cases they handle *@
-            <MudText Typo="Typo.subtitle2">Twoje sprawy</MudText>
-            @if (office.MyCorrected.Count == 0 && office.MyInReview == 0)
-            {
-                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
-                    Nie masz spraw czekających na Ciebie.
-                </MudText>
-            }
-            @foreach (var corrected in office.MyCorrected)
-            {
-                <div class="welcome-row">
-                    <MudLink Href="@($"applications/{corrected.ApplicationId}")"><b>@corrected.Number</b></MudLink>
-                    <MudText Typo="Typo.body2">student poprawił wniosek</MudText>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                        @corrected.TypeName · @DateText.Format(corrected.ChangedAt)
-                    </MudText>
-                </div>
-            }
-            @if (office.MyInReview > 0)
-            {
-                <MudText Typo="Typo.body2" Class="mt-1 mb-2">
-                    W weryfikacji: <b>@office.MyInReview</b> @(office.MyInReview == 1 ? "wniosek" : "wnioski")
-                </MudText>
-            }
-
-            <MudText Typo="Typo.subtitle2" Class="mt-3 mb-2">Na Twoich wydziałach</MudText>
-            <div class="welcome-stats mb-4">
-                <WelcomeStat Label="Nowe" Value="office.New" Attention="true"
-                             Hint="@SinceLastLogin(office.NewSinceLastLogin)" />
-                <WelcomeStat Label="Poprawione - prowadzą inni" Value="office.OthersCorrected" />
-                <WelcomeStat Label="Czekają na studenta" Value="office.WaitingForStudent" />
-            </div>
-
-            @* The front of the queue - the list starts with the same ones *@
-            @if (office.OldestNew.Count > 0)
-            {
-                <MudText Typo="Typo.subtitle2">Najdłużej czekające</MudText>
-                @foreach (var waiting in office.OldestNew)
-                {
-                    <div class="welcome-row">
-                        <MudLink Href="@($"applications/{waiting.ApplicationId}")"><b>@waiting.Number</b></MudLink>
-                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                            @waiting.TypeName · złożony @DateText.Day(waiting.ChangedAt) · czeka @WaitText(waiting.ChangedAt)
-                        </MudText>
-                    </div>
-                }
-            }
-
-            @* The only way to the work for an employee without the menu *@
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Class="mt-4"
-                       StartIcon="@Icons.Material.Outlined.Inbox" Href="review">
-                Wnioski do rozpatrzenia
-            </MudButton>
-        </MudPaper>
+                        <MudText Typo="Typo.subtitle1" Class="mt-4 mb-1"><b>Nowe do wzięcia (@office.NewToTake.Total)</b></MudText>
+                        @if (office.NewToTake.Total == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Brak nowych wniosków.</MudText>
+                        }
+                        @foreach (var item in office.NewToTake.Items)
+                        {
+                            <WelcomeRow Href="@ApplicationLinks.FromHome($"applications/{item.ApplicationId}")" Number="@item.Number"
+                                        Title="@(item.StudentName ?? "")" IsNew="IsNew(item.At)"
+                                        Subtitle="@($"Złożony {DateText.Day(item.At)} · czeka {Waiting(item.At)}")" />
+                        }
+                        <WelcomeMore List="office.NewToTake" OnClick="() => OpenReview(ReviewTab.New)" />
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudPaper Class="pa-4 welcome-card" Elevation="0" Outlined="true">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1"><b>Na Twoich wydziałach</b></MudText>
+                        <WelcomeCount Label="Nowe, nikt nie prowadzi" Value="office.NewToTake.Total"
+                                      OnClick="() => OpenReview(ReviewTab.New)" />
+                        <WelcomeCount Label="Czekają na poprawki studenta" Value="office.WaitingForStudent"
+                                      OnClick="() => OpenReview(ReviewTab.WaitingForStudent)" />
+                        <WelcomeCount Label="U prodziekana" Value="office.AtViceDean"
+                                      OnClick="() => OpenReview(ReviewTab.AtViceDean)" />
+                        <WelcomeCount Label="Prowadzą inne osoby" Value="office.HandledByOthers"
+                                      OnClick="() => OpenReview(ReviewTab.InReview, string.Empty)" />
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </section>
     }
 
     @if (_welcome.ViceDean is { } viceDean)
     {
-        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <section class="mb-6">
             @if (ShowHeaders)
             {
-                <MudText Typo="Typo.h6" GutterBottom="true">Prodziekan</MudText>
+                <MudText Typo="Typo.h6" Class="mb-2">Prodziekan</MudText>
             }
-            <div class="welcome-stats mb-4">
-                <WelcomeStat Label="Czekają na Twoją decyzję" Value="viceDean.Waiting" Attention="true"
-                             Hint="@SinceLastLogin(viceDean.WaitingSinceLastLogin)" />
-            </div>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
-                       StartIcon="@Icons.Material.Outlined.Inbox" Href="review">
-                Wnioski do rozpatrzenia
-            </MudButton>
-        </MudPaper>
+            <MudPaper Class="pa-4 welcome-card" Elevation="0" Outlined="true">
+                <MudText Typo="Typo.subtitle1" Class="mb-1"><b>Czeka na Twoją decyzję (@viceDean.Waiting.Total)</b></MudText>
+                @if (viceDean.Waiting.Total == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Nic nie czeka na Twoją decyzję.</MudText>
+                }
+                @foreach (var item in viceDean.Waiting.Items)
+                {
+                    <WelcomeRow Href="@ApplicationLinks.FromHome($"applications/{item.ApplicationId}")" Number="@item.Number"
+                                Title="@(item.StudentName ?? "")" IsNew="IsNew(item.At)"
+                                Subtitle="@($"{item.TypeName} · przekazany {DateText.Day(item.At)} · czeka {Waiting(item.At)}")" />
+                }
+                <WelcomeMore List="viceDean.Waiting" OnClick="() => OpenReview(ReviewTab.AtViceDean)" />
+            </MudPaper>
+        </section>
     }
 
     @if (_welcome.Admin is { } admin)
     {
-        <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <section class="mb-6">
             @if (ShowHeaders)
             {
-                <MudText Typo="Typo.h6" GutterBottom="true">Administracja</MudText>
+                <MudText Typo="Typo.h6" Class="mb-2">Administracja</MudText>
             }
-            @* The numbers lead to the account list, filtered where it can be *@
-            <div class="welcome-stats mb-4">
-                <WelcomeStat Label="Aktywne konta" Value="admin.ActiveAccounts" Href="admin/accounts?status=active" />
-                <WelcomeStat Label="Wyłączone konta" Value="admin.InactiveAccounts" Href="admin/accounts?status=inactive" />
-                <WelcomeStat Label="Bez własnego hasła" Value="admin.AwaitingPassword" Href="admin/accounts"
-                             Hint="@(admin.AwaitingPassword > 0 ? "nie zalogowali się jeszcze" : null)" />
-            </div>
-
-            <div class="d-flex align-center">
-                <MudText Typo="Typo.subtitle2" Class="flex-grow-1">Ostatnie zmiany</MudText>
-                <MudLink Href="admin/log" Typo="Typo.body2">Cały dziennik</MudLink>
-            </div>
-            @if (admin.RecentChanges.Count == 0)
-            {
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Brak wpisów w dzienniku.</MudText>
-            }
-            @foreach (var entry in admin.RecentChanges)
-            {
-                <div class="welcome-row">
-                    <MudText Typo="Typo.body2" Class="audit-details">@AuditTexts.Describe(entry)</MudText>
-                    @if (entry.TargetUserId is not null)
-                    {
-                        <MudLink Href="@($"admin/accounts/{entry.TargetUserId}")" Typo="Typo.body2">@entry.TargetName</MudLink>
-                    }
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                        @entry.ActorName · @DateText.Format(entry.CreatedAt)
-                    </MudText>
-                </div>
-            }
-        </MudPaper>
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="7">
+                    <MudPaper Class="pa-4 welcome-card" Elevation="0" Outlined="true">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1"><b>Ostatnie zmiany</b></MudText>
+                        @if (admin.RecentChanges.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Brak wpisów w dzienniku.</MudText>
+                        }
+                        @foreach (var entry in admin.RecentChanges)
+                        {
+                            <WelcomeRow Href="@(entry.TargetUserId is null ? "admin/log" : $"admin/accounts/{entry.TargetUserId}")"
+                                        Title="@AuditTexts.Describe(entry)"
+                                        Subtitle="@($"{(entry.TargetName is null ? "" : entry.TargetName + " · ")}{entry.ActorName} · {DateText.Format(entry.CreatedAt)}")" />
+                        }
+                        <MudLink Href="admin/log" Typo="Typo.body2" Class="d-inline-block mt-2">Cały dziennik</MudLink>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <MudPaper Class="pa-4 welcome-card" Elevation="0" Outlined="true">
+                        <MudText Typo="Typo.subtitle1" Class="mb-1"><b>Konta</b></MudText>
+                        <WelcomeCount Label="Aktywne" Value="admin.ActiveAccounts" Href="admin/accounts?status=active" />
+                        <WelcomeCount Label="Wyłączone" Value="admin.InactiveAccounts" Href="admin/accounts?status=inactive" />
+                        <WelcomeCount Label="Bez własnego hasła" Value="admin.AwaitingPassword.Total" Href="admin/accounts" />
+                        @* Who has not logged in yet - someone to remind *@
+                        @foreach (var account in admin.AwaitingPassword.Items)
+                        {
+                            <WelcomeRow Href="@($"admin/accounts/{account.Id}")" Title="@account.Name"
+                                        Subtitle="ma hasło tymczasowe" />
+                        }
+                        <WelcomeMore List="admin.AwaitingPassword" Href="admin/accounts" />
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </section>
     }
 }
 
@@ -236,6 +257,19 @@ else
         new object?[] { _welcome!.Student, _welcome.DeanOffice, _welcome.ViceDean, _welcome.Admin }
             .Count(section => section is not null) > 1;
 
+    private IEnumerable<(string Text, string Href, string Icon)> MainActions
+    {
+        get
+        {
+            if (_welcome!.Student is not null)
+                yield return ("Nowy wniosek", "new", Icons.Material.Filled.NoteAdd);
+            if (_welcome.DeanOffice is not null || _welcome.ViceDean is not null)
+                yield return ("Wnioski do rozpatrzenia", "review", Icons.Material.Outlined.Inbox);
+            if (_welcome.Admin is not null)
+                yield return ("Nowe konto", "admin/accounts/new", Icons.Material.Filled.PersonAdd);
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         var user = (await AuthState).User;
@@ -252,19 +286,42 @@ else
             _error = result.Error.Message;
     }
 
-    // "+3 od ostatniego logowania" - nothing when there is nothing new
-    private static string? SinceLastLogin(int count) =>
-        count > 0 ? $"+{count} od ostatniego logowania" : null;
-
-    // "od dziś", "1 dzień", "6 dni"
-    private static string WaitText(DateTime submittedUtc)
+    // The dean's office list, opened on the tab the number is about
+    private void OpenReview(ReviewTab tab, string? assigned = null)
     {
-        var days = (DateTime.UtcNow - submittedUtc).Days;
-        return days switch
-        {
-            0 => "od dziś",
-            1 => "1 dzień",
-            _ => $"{days} dni"
-        };
+        ReviewState.Tab = tab;
+        if (assigned is not null)
+            ReviewState.Assigned[tab] = assigned;
+        Navigation.NavigateTo("review");
     }
+
+    // Arrived since the previous login - nothing is "new" at the very first one
+    private bool IsNew(DateTime at) => _welcome!.PreviousLoginAt is { } previous && at > previous;
+
+    // What happened to the student's application, after its number: "UF/2026/0018 - zatwierdzony"
+    private static string StudentChange(ApplicationState status) => status switch
+    {
+        ApplicationState.UnderReview => "w weryfikacji",
+        ApplicationState.NeedsCorrection => "odesłany do poprawy",
+        ApplicationState.ForwardedToDean => "przekazany prodziekanowi",
+        ApplicationState.Approved => "zatwierdzony",
+        ApplicationState.Rejected => "odrzucony",
+        _ => StatusLabels.Name(status)
+    };
+
+    // "czeka od dziś", "czeka 1 dzień", "czeka 6 dni"
+    private static string Waiting(DateTime sinceUtc) => (DateTime.UtcNow - sinceUtc).Days switch
+    {
+        0 => "od dziś",
+        1 => "1 dzień",
+        var days => $"{days} dni"
+    };
+
+    // "W weryfikacji od dziś", "od 1 dnia", "od 3 dni"
+    private static string Since(DateTime sinceUtc) => (DateTime.UtcNow - sinceUtc).Days switch
+    {
+        0 => "od dziś",
+        1 => "od 1 dnia",
+        var days => $"od {days} dni"
+    };
 }

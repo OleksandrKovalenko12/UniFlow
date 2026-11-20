@@ -1,0 +1,27 @@
+﻿@typeparam T
+@* "i jeszcze 3" under a shortened list on the start page - nothing when everything is shown.
+   Href for a plain page; OnClick when the list must open on a given tab first. *@
+
+@if (List.Total > List.Items.Count)
+{
+    var rest = List.Total - List.Items.Count;
+    if (Href is not null)
+    {
+        <MudLink Href="@Href" Typo="Typo.body2" Class="d-inline-block mt-2">i jeszcze @rest</MudLink>
+    }
+    else
+    {
+        <MudLink Typo="Typo.body2" Class="d-inline-block mt-2 cursor-pointer" OnClick="OnClick">i jeszcze @rest</MudLink>
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public WelcomeList<T> List { get; set; } = null!;
+
+    [Parameter]
+    public string? Href { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+}

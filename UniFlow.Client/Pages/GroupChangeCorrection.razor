@@ -13,7 +13,7 @@
 <NavigationLock OnBeforeInternalNavigation="ConfirmLeaveAsync" ConfirmExternalNavigation="HasUnsavedChanges" />
 
 <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
-           Href="@($"applications/{Id}")" Class="mb-2 ml-n2">
+           Href="@ApplicationUrl" Class="mb-2 ml-n2">
     Wróć
 </MudButton>
 
@@ -33,7 +33,7 @@ else if (!CanCorrect)
     <MudAlert Severity="Severity.Info" Class="mb-4">
         Tego wniosku nie można teraz poprawić - dziekanat nie czeka na poprawę.
     </MudAlert>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="@($"applications/{Id}")">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false" Href="@ApplicationUrl">
         Otwórz wniosek
     </MudButton>
 }
@@ -129,6 +129,12 @@ else
 @code {
     [Parameter]
     public Guid Id { get; set; }
+    
+    // "/" when opened from the start page - the application's "Wróć" leads back there too
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    private string ApplicationUrl => ApplicationLinks.KeepFromHome($"applications/{Id}", From);
 
     private ApplicationDetails? _details;
     private string? _error;
@@ -295,7 +301,7 @@ else
         {
             Snackbar.Add("Wniosek złożony ponownie.", Severity.Success);
             // replace: "wstecz" does not bring back a correction that is already sent
-            Navigation.NavigateTo($"applications/{Id}", replace: true);
+            Navigation.NavigateTo(ApplicationUrl, replace: true);
             return;
         }
 

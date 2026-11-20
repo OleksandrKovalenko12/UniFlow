@@ -6,12 +6,13 @@
 
 @* Back to where this view belongs - not by role: a student working in the office has both.
    Opened from "Inne wnioski": back to the application the employee started from, and the list
-   one click away too. Going back step by step is the browser's own back button. *@
+   one click away too. Opened from the start page: back there. Going back step by step is the
+   browser's own back button. *@
 @if (_details is not null)
 {
     <div class="d-flex flex-wrap gap-2 mb-2 ml-n2">
         <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
-                   Href="@(OriginId is null ? ListUrl : $"applications/{OriginId}")">
+            Href="@BackUrl">
             @BackText
         </MudButton>
         @if (OriginId is not null)
@@ -41,11 +42,11 @@ else
             {
                 <div class="pre-line mt-1">@CorrectionComment</div>
             }
-            @if (CorrectionPages.TryGetValue(_details.TypeCode, out var page))
+                        @if (ApplicationLinks.Correction(_details.TypeCode, Id) is { } correction)
             {
                 <div class="mt-3">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" DropShadow="false"
-                               Href="@($"applications/{Id}/correct/{page}")">
+                               Href="@ApplicationLinks.KeepFromHome(correction, From)">
                         Popraw wniosek
                     </MudButton>
                 </div>
@@ -68,18 +69,12 @@ else
 }
 
 @code {
-    // Types with a correction page and the end of its address
-    private static readonly Dictionary<string, string> CorrectionPages = new()
-    {
-        [ApplicationTypeCodes.GroupChange] = "group-change"
-    };
 
     [Parameter]
     public Guid Id { get; set; }
-    
-    
-    // The application the employee started from, when this one was opened from "Inne wnioski".
-    // Only an address of an application is used - the link could be changed by anyone.
+   
+    // The application the employee started from, when this one was opened from "Inne wnioski",
+    // or "/" from the start page. Only these are used - the link could be changed by anyone.
     [SupplyParameterFromQuery(Name = "from")]
     public string? From { get; set; }
 
@@ -89,9 +84,15 @@ else
             ? id
             : null;
 
+
+    private string BackUrl =>
+        OriginId is not null ? $"applications/{OriginId}"
+        : ApplicationLinks.IsFromHome(From) ? "/"
+        : ListUrl;
+
     // "Wróć do UF/2026/0001" - the number is on this page's list of the student's applications
     private string BackText =>
-        OriginId is null ? "Wróć"
+        OriginId is null ? (ApplicationLinks.IsFromHome(From) ? "Wróć do strony głównej" : "Wróć")
         : _details!.OtherApplications.FirstOrDefault(a => a.Id == OriginId)?.Number is { } number
             ? $"Wróć do {number}"
             : "Poprzedni wniosek";
