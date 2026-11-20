@@ -3,7 +3,8 @@ using UniFlow.Shared.Applications;
 
 namespace UniFlow.Shared.Review;
 
-// Tabs of the dean's office list - each one is a group of statuses
+// Tabs of the dean's office list - each one is a group of statuses. All: every status at once,
+// to look a case up, e.g. everything one student has asked for.
 [JsonConverter(typeof(JsonStringEnumConverter<ReviewTab>))]
 public enum ReviewTab
 {
@@ -11,7 +12,8 @@ public enum ReviewTab
     InReview,           // UnderReview
     WaitingForStudent,  // NeedsCorrection
     AtViceDean,         // ForwardedToDean
-    Closed              // Approved, Rejected, Withdrawn
+    Closed,             // Approved, Rejected, Withdrawn
+    All                 // every status
 }
 
 // What an employee may do with an application now - the server decides, the page shows buttons

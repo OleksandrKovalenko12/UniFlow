@@ -53,6 +53,7 @@ public static class ReviewRules
         ReviewTab.AtViceDean => [ApplicationStatus.ForwardedToDean],
         ReviewTab.Closed => [ApplicationStatus.Approved, ApplicationStatus.Rejected,
             ApplicationStatus.Withdrawn],
+        ReviewTab.All => Enum.GetValues<ApplicationStatus>(),
         _ => throw new ArgumentOutOfRangeException(nameof(tab), tab, "Unknown tab.")
     };
 }

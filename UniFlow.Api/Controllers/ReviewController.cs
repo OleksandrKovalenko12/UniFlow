@@ -79,13 +79,13 @@ public sealed class ReviewController : ControllerBase
         var totalCount = await query.CountAsync(cancellationToken);
 
         // A queue: the oldest first, corrected applications before new ones.
-        // Closed cases are looked up, not worked through - the latest first.
+        // Closed cases and the whole list are looked up, not worked through - the latest first.
         query = tab switch
         {
             ReviewTab.New => query
                 .OrderByDescending(a => a.Status == ApplicationStatus.Resubmitted)
                 .ThenBy(a => a.CreatedAt),
-            ReviewTab.Closed => query.OrderByDescending(a => a.UpdatedAt),
+            ReviewTab.Closed or ReviewTab.All => query.OrderByDescending(a => a.UpdatedAt),
             _ => query.OrderBy(a => a.CreatedAt)
         };
 

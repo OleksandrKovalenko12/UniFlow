@@ -77,12 +77,21 @@ public class ReviewRulesTests
         Assert.Equal(expected, ReviewRules.CanWithdraw(status));
     }
 
-    // Every tab has its statuses and every status is on exactly one tab
+    // Every tab of the work has its statuses and every status is on exactly one of them
     [Fact]
     public void StatusesOf_CoverEveryStatusOnce()
     {
-        var onTabs = Enum.GetValues<ReviewTab>().SelectMany(ReviewRules.StatusesOf).ToList();
+        var onTabs = Enum.GetValues<ReviewTab>()
+            .Where(tab => tab != ReviewTab.All)
+            .SelectMany(ReviewRules.StatusesOf)
+            .ToList();
 
         Assert.Equal(Enum.GetValues<ApplicationStatus>().Order(), onTabs.Order());
+    }
+
+    [Fact]
+    public void StatusesOf_All_IsEveryStatus()
+    {
+        Assert.Equal(Enum.GetValues<ApplicationStatus>().Order(), ReviewRules.StatusesOf(ReviewTab.All).Order());
     }
 }

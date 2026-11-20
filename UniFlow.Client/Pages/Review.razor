@@ -145,7 +145,7 @@
     private static readonly List<ReviewTab> AllTabs = [.. Enum.GetValues<ReviewTab>()];
 
     // A vice-dean only decides on what was forwarded; the server sends nothing else anyway
-    private static readonly List<ReviewTab> ViceDeanTabs = [ReviewTab.AtViceDean, ReviewTab.Closed];
+    private static readonly List<ReviewTab> ViceDeanTabs = [ReviewTab.AtViceDean, ReviewTab.Closed, ReviewTab.All];
 
     [CascadingParameter]
     private Task<AuthenticationState> AuthState { get; set; } = null!;
@@ -266,10 +266,11 @@
             ReviewTab.InReview => "W weryfikacji",
             ReviewTab.WaitingForStudent => "Czekają na studenta",
             ReviewTab.AtViceDean => _viceDeanOnly ? "Do decyzji" : "U prodziekana",
-            _ => "Zakończone"
+            ReviewTab.Closed => "Zakończone",
+            _ => "Wszystkie"
         };
 
-        // Closed cases only pile up - their number would not tell anything
+        // Closed cases and the whole list only pile up - their number would not tell anything
         var count = tab switch
         {
             ReviewTab.New => _counts?.New,
