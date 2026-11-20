@@ -207,19 +207,21 @@ public class Application
     }
 
     //Attachments
+    // The student's files that count - not the generated PDF, not the archived ones
+    public int ActiveUploadCount =>
+        _attachments.Count(a => a.Kind == AttachmentKind.StudentUpload && !a.IsArchived);
+
     // Called by the Api before the file is saved and converted - that takes seconds
     public void EnsureCanAddAttachment(Actor actor)
     {
         EnsureStatus(ApplicationStatus.Submitted, ApplicationStatus.NeedsCorrection);
         EnsureApplicant(actor);
 
-        var activeUploads = _attachments.Count(a =>
-            a.Kind == AttachmentKind.StudentUpload && !a.IsArchived);
-
-        if (activeUploads >= MaxAttachments)
+        if (ActiveUploadCount >= MaxAttachments)
             throw new DomainException(DomainErrorCode.AttachmentLimitReached,
                 $"This application allows at most {MaxAttachments} attachments.");
     }
+
     public Attachment AddAttachment(Actor actor, StoredFile file, DateTime now)
     {
         EnsureCanAddAttachment(actor);

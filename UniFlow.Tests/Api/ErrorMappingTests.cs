@@ -42,6 +42,7 @@ public class ErrorMappingTests
     [InlineData(DomainErrorCode.AttachmentAlreadyArchived)]
     [InlineData(DomainErrorCode.EnrollmentAlreadyInactive)]
     [InlineData(DomainErrorCode.EnrollmentAlreadyActive)]
+    [InlineData(DomainErrorCode.AttachmentRequired)]
     public void Map_StateErrors_Return409(DomainErrorCode code)
     {
         Assert.Equal((StatusCodes.Status409Conflict, code.ToString()), ErrorMapping.Map(Domain(code)));

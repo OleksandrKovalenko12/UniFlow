@@ -104,8 +104,9 @@ public class DevelopmentSeeder
         var applicationTypes = new[]
         {
             new ApplicationType("PERSONAL_DATA_CHANGE", "Zmiana danych osobowych",
-                "Zmiana imienia lub nazwiska w danych uczelni. Dołącz dokument potwierdzający " +
-                "zmianę, np. odpis aktu małżeństwa lub decyzję o zmianie nazwiska.",
+                "Zmiana imienia lub nazwiska, adresu korespondencyjnego, numeru telefonu albo " +
+                "prywatnego adresu e-mail. Przy zmianie imienia lub nazwiska dołącz dokument " +
+                "potwierdzający, np. odpis aktu małżeństwa.",
                 requiresDeanDecision: false, maxAttachments: 2),
             new ApplicationType("GROUP_CHANGE", "Zmiana grupy zajęciowej",
                 "Prośba o przeniesienie do innej grupy ze wszystkich przedmiotów albo z wybranych " +

@@ -1,0 +1,53 @@
+﻿@implements IDocumentTemplate<PersonalDataChangeDocument>
+
+@* Decided by the dean's office - the vice-dean does not take part *@
+<ApplicationLayout Header="Model.Header" Title="Podanie o zmianę danych osobowych" Recipient="Dziekanat">
+    <p>
+        Zwracam się z uprzejmą prośbą o zmianę moich danych w dokumentacji przebiegu studiów:
+    </p>
+
+    @* The bordered table of DocumentPage, the same as the subjects of a group change. Only the
+       parts the student ticked; "–" where the system does not know the current value. *@
+    <table class="subjects">
+        <thead>
+            <tr><th></th><th>Dane dotychczasowe</th><th>Dane nowe</th></tr>
+        </thead>
+        <tbody>
+            @if (Form.ChangeName)
+            {
+                <tr><td>Imię</td><td>@Model.Current.FirstName</td><td>@Form.NewFirstName</td></tr>
+                <tr><td>Nazwisko</td><td>@Model.Current.LastName</td><td>@Form.NewLastName</td></tr>
+            }
+            @if (Form.ChangeAddress)
+            {
+                <tr><td>Adres korespondencyjny</td><td>–</td><td>@Form.Street, @Form.PostalCode @Form.City</td></tr>
+            }
+            @if (Form.ChangePhone)
+            {
+                <tr><td>Telefon</td><td>–</td><td>@Form.Phone</td></tr>
+            }
+            @if (Form.ChangeEmail)
+            {
+                <tr><td>Prywatny e-mail</td><td>@(Model.Current.PrivateEmail ?? "–")</td><td>@Form.Email</td></tr>
+            }
+        </tbody>
+    </table>
+
+    @if (Form.ChangeName)
+    {
+        <p><strong>Powód zmiany imienia lub nazwiska:</strong> @PersonalDataChangeReasonText.Name(Form.Reason)</p>
+        @if (Form.Reason == PersonalDataChangeReason.Other)
+        {
+            <p class="justification">@Form.ReasonDetails</p>
+        }
+
+        <p>Dokument potwierdzający zmianę imienia lub nazwiska dołączam do wniosku.</p>
+    }
+</ApplicationLayout>
+
+@code {
+    [Parameter, EditorRequired]
+    public PersonalDataChangeDocument Model { get; set; } = default!;
+
+    private PersonalDataChangeForm Form => Model.Form;
+}

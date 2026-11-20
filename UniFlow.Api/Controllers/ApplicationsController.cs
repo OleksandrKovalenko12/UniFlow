@@ -100,6 +100,90 @@ public sealed class ApplicationsController : ControllerBase
 
         return resubmitted is null ? NotFound() : resubmitted;
     }
+    // The data a student can ask to change, as the system knows them now - the form shows them
+    [HttpGet("api/personal-data")]
+    [Authorize(Roles = RoleNames.Student)]
+    public Task<CurrentPersonalData> GetPersonalData(CancellationToken cancellationToken) =>
+        CurrentPersonalDataAsync(_userManager.GetUserId(User)!, cancellationToken);
+
+    // Personal data: like the group change, but something ticked must really change and a new
+    // name needs a supporting document
+    [HttpPost("api/enrollments/{enrollmentId:int}/applications/personal-data-change")]
+    [Authorize(Roles = RoleNames.Student)]
+    [EnableRateLimiting(SubmissionRateLimit)]
+    public async Task<ActionResult<SubmittedApplication>> SubmitPersonalDataChange(int enrollmentId,
+        [FromHeader(Name = SubmissionHeaders.IdempotencyKey), Required] Guid? submissionKey,
+        [FromQuery] Guid? draftId, PersonalDataChangeForm form, CancellationToken cancellationToken)
+    {
+        form.Normalize();
+
+        var userId = _userManager.GetUserId(User)!;
+        var current = await CurrentPersonalDataAsync(userId, cancellationToken);
+        if (NothingChanges(form, current))
+            return ValidationProblem(ModelState);
+
+        var submitted = await _submission.SubmitAsync(
+            userId,
+            submissionKey!.Value,
+            enrollmentId,
+            ApplicationTypeCodes.PersonalDataChange,
+            FormJson.Serialize(form),
+            draftId,
+            PersonalDataChangeHtml(form, current),
+            cancellationToken,
+            requiredAttachments: form.RequiredAttachments);
+
+        return StatusCode(StatusCodes.Status201Created, submitted);
+    }
+
+    [HttpPost("api/applications/{id:guid}/personal-data-change/resubmit")]
+    [Authorize(Roles = RoleNames.Student)]
+    [EnableRateLimiting(SubmissionRateLimit)]
+    public async Task<ActionResult<SubmittedApplication>> ResubmitPersonalDataChange(Guid id,
+        PersonalDataChangeForm form, CancellationToken cancellationToken)
+    {
+        form.Normalize();
+
+        var userId = _userManager.GetUserId(User)!;
+        var current = await CurrentPersonalDataAsync(userId, cancellationToken);
+        if (NothingChanges(form, current))
+            return ValidationProblem(ModelState);
+
+        var resubmitted = await _submission.ResubmitAsync(
+            userId,
+            id,
+            ApplicationTypeCodes.PersonalDataChange,
+            FormJson.Serialize(form),
+            PersonalDataChangeHtml(form, current),
+            cancellationToken,
+            requiredAttachments: form.RequiredAttachments);
+
+        return resubmitted is null ? NotFound() : resubmitted;
+    }
+
+    private Task<CurrentPersonalData> CurrentPersonalDataAsync(string userId,
+        CancellationToken cancellationToken) =>
+        _db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new CurrentPersonalData(u.FirstName, u.LastName,
+                _db.StudentProfiles.Where(p => p.UserId == u.Id).Select(p => p.PrivateEmail).FirstOrDefault()))
+            .SingleAsync(cancellationToken);
+
+    // The same answer as [ApiController]'s own field errors - the form shows them under its fields
+    private bool NothingChanges(PersonalDataChangeForm form, CurrentPersonalData current)
+    {
+        foreach (var error in form.ValidateAgainst(current))
+            foreach (var field in error.MemberNames)
+                ModelState.AddModelError(field, error.ErrorMessage!);
+
+        return !ModelState.IsValid;
+    }
+
+    // The current data go into the PDF next to the new ones
+    private Func<ApplicationHeader, Task<string>> PersonalDataChangeHtml(PersonalDataChangeForm form,
+        CurrentPersonalData current) =>
+        header => _renderer.RenderAsync<PersonalDataChangeTemplate, PersonalDataChangeDocument>(
+            new PersonalDataChangeDocument(header, form, current));
 
     // The student's own applications: those waiting for them first, then the newest
     [HttpGet("api/applications/mine")]

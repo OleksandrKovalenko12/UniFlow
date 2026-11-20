@@ -1,9 +1,13 @@
 ﻿<div class="addressee">
-    <strong>Prodziekan</strong>
+    <strong>@Recipient</strong>
     @FacultyName
 </div>
 
 @code {
     [Parameter, EditorRequired]
     public string FacultyName { get; set; } = default!;
+
+    // Who decides: the vice-dean, or the dean's office for a kind it closes itself
+    [Parameter]
+    public string Recipient { get; set; } = "Prodziekan";
 }

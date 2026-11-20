@@ -1,7 +1,7 @@
 ﻿<DocumentPage Header="Header" Title="@Title">
     <DocumentDate Date="Header.SubmittedAt" />
     <StudentDataBlock Header="Header" />
-    <Addressee FacultyName="@Header.FacultyName" />
+    <Addressee FacultyName="@Header.FacultyName" Recipient="@Recipient" />
     <DocumentTitle Text="@Title" />
 
     <div class="content">
@@ -17,6 +17,9 @@
 
     [Parameter, EditorRequired]
     public string Title { get; set; } = default!;
+
+    [Parameter]
+    public string Recipient { get; set; } = "Prodziekan";
 
     [Parameter, EditorRequired]
     public RenderFragment ChildContent { get; set; } = default!;

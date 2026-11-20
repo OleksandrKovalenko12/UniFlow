@@ -33,10 +33,11 @@ public sealed class ApplicationSubmissionService
     // draftId: the student's draft whose files become the application's attachments.
     // at: when it happens - now for a student; an earlier moment only for the demo data
     // (DemoDataSeeder), which goes through the same steps.
+    // requiredAttachments: how many files the kind needs at least, e.g. 1 for a new last name.
     public async Task<SubmittedApplication> SubmitAsync(string userId, Guid submissionKey,
         int enrollmentId, string typeCode, string formData, Guid? draftId,
         Func<ApplicationHeader, Task<string>> renderHtml, CancellationToken cancellationToken,
-        DateTime? at = null)
+        DateTime? at = null, int requiredAttachments = 0)
     {
         // A repeated submission gets the first result and takes no new number
         var alreadySubmitted = await FindSubmittedAsync(userId, submissionKey, cancellationToken);
@@ -85,6 +86,7 @@ public sealed class ApplicationSubmissionService
                 throw new ArgumentException("The draft is of another application type.", nameof(draftId));
         }
 
+        EnsureAttachments(draft?.Files.Count ?? 0, requiredAttachments);
         var number = await _numbers.NextAsync(now, cancellationToken);
 
         var application = new Application(number, userId, submissionKey, enrollment, type, formData, now);
@@ -144,7 +146,7 @@ public sealed class ApplicationSubmissionService
     // status - in one save. Null when the student has no such application.
     public async Task<SubmittedApplication?> ResubmitAsync(string userId, Guid applicationId,
         string typeCode, string formData, Func<ApplicationHeader, Task<string>> renderHtml,
-        CancellationToken cancellationToken, DateTime? at = null)
+        CancellationToken cancellationToken, DateTime? at = null, int requiredAttachments = 0)
     {
         var application = await _db.Applications
             .Include(a => a.ApplicationType)
@@ -177,6 +179,9 @@ public sealed class ApplicationSubmissionService
 
             _db.Drafts.Remove(draft);
         }
+
+        // What is left after the correction - the student may have removed the only document
+        EnsureAttachments(application.ActiveUploadCount, requiredAttachments);
 
         application.Resubmit(applicant, formData, now);
 
@@ -224,6 +229,14 @@ public sealed class ApplicationSubmissionService
 
         return new StoredFile($"Wniosek_{application.Number.Replace('/', '-')}.pdf",
             Attachment.PdfContentType, path, null, pdf.Length);
+    }
+
+    // Before a number and a PDF - a refused submission must not waste them
+    private static void EnsureAttachments(int count, int required)
+    {
+        if (count < required)
+            throw new DomainException(DomainErrorCode.AttachmentRequired,
+                $"This application needs at least {required} attachment(s).");
     }
 
     private Task<SubmittedApplication?> FindSubmittedAsync(string userId, Guid submissionKey,

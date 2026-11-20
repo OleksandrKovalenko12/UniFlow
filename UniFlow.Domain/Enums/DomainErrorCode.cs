@@ -36,4 +36,7 @@ public enum DomainErrorCode
 
     // Accounts: administrators cannot remove their own role or deactivate themselves
     OwnAccountProtected = 19,
+
+    // Some kinds need a supporting document, e.g. a marriage certificate for a new last name
+    AttachmentRequired = 20,
 }
