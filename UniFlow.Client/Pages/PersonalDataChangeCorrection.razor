@@ -1,0 +1,36 @@
+﻿@page "/applications/{Id:guid}/correct/personal-data-change"
+@attribute [Authorize(Roles = RoleNames.Student)]
+@using System.ComponentModel.DataAnnotations
+@inject ApiClient Api
+
+<PageTitle>Poprawa wniosku - UniFlow</PageTitle>
+
+<ApplicationCorrection TForm="PersonalDataChangeForm" TypeCode="@ApplicationTypeCodes.PersonalDataChange"
+                       Id="Id" From="@From" ExtraRules="Against"
+                       RequiredFiles="form => form.RequiredAttachments">
+    <Fields>
+        <PersonalDataChangeFields Form="context.Form" Errors="context.Errors" OnChanged="context.OnChanged"
+                                  Current="_current" />
+    </Fields>
+</ApplicationCorrection>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    // null while loading or when it failed - the server checks the same anyway
+    private CurrentPersonalData? _current;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetPersonalDataAsync();
+        if (result.IsSuccess)
+            _current = result.Value;
+    }
+
+    private IEnumerable<ValidationResult> Against(PersonalDataChangeForm form) =>
+        _current is null ? [] : form.ValidateAgainst(_current);
+}

@@ -57,6 +57,10 @@
             {
                 <GroupChangeSummary Form="FormJson.Deserialize<GroupChangeForm>(Details.FormData)" />
             }
+            else if (Details.TypeCode == ApplicationTypeCodes.PersonalDataChange)
+            {
+                <PersonalDataChangeSummary Form="FormJson.Deserialize<PersonalDataChangeForm>(Details.FormData)" />
+            }
             else
             {
                 <MudText Class="mud-text-secondary">Podgląd tego rodzaju wniosku nie jest jeszcze dostępny - treść jest w dokumencie PDF.</MudText>

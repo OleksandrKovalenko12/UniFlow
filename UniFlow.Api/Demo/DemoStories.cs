@@ -42,7 +42,7 @@ public static class DemoStories
             [new(Law, StudyLevel.LongCycle, 7, StudyMode.FullTime)]),
         new("s100010@student.uniflow.test", "Kacper", "Król", "100010",
             [new(Law, StudyLevel.LongCycle, 3, StudyMode.FullTime)]),
-        new("s100011@student.uniflow.test", "Julia", "Wieczorek-Lis", "100011",
+        new("s100011@student.uniflow.test", "Julia", "Wieczorek", "100011",
             [new(Administration, StudyLevel.FirstCycle, 2, StudyMode.FullTime)]),
         // Two studies on two faculties - each goes to its own dean's office
         new("s100012@student.uniflow.test", "Szymon", "Jabłoński", "100012",
@@ -200,6 +200,89 @@ public static class DemoStories
         new("s100009@student.uniflow.test", Law, StudyLevel.LongCycle,
             General(GroupType.Exercises, "1", "4", "Zmiana składu zespołu konkursowego."),
             [Submitted(At(1, 9, 50))]),
+        
+        // ========== Personal data - decided by the dean's office alone. Places and numbers are
+        // made up; e-mails in the example.com domain, which belongs to nobody.
+
+        // ---------- WIiT: closed
+        new("s100014@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            PersonalData(phone: "600 000 114"),
+            [Submitted(At(27, 10, 30)), Taken(Katarzyna, At(26, 9, 0)), Approved(Katarzyna, At(26, 9, 10))]),
+
+        new("s100013@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            PersonalData(address: ("ul. Lipowa 7/2", "11-200", "Lipowa Wola")),
+            [Submitted(At(23, 19, 0)), Taken(Anna, At(22, 8, 30)), Approved(Anna, At(22, 8, 35))]),
+
+        new("s100006@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            PersonalData(phone: "600 000 106", email: "michal.piotrowski@example.com"),
+            [Submitted(At(17, 20, 40)), Taken(Katarzyna, At(16, 10, 0)), Approved(Katarzyna, At(16, 10, 5))]),
+
+        // The university address is not a private one - rejected, then submitted again right
+        new("s100008@student.uniflow.test", Informatics, StudyLevel.SecondCycle,
+            PersonalData(email: "jakub.pawlak@student.uniflow.test"),
+            [Submitted(At(14, 22, 15)), Taken(Anna, At(13, 9, 10)),
+             Rejected(Anna, At(13, 9, 20), "Podany adres to adres uczelniany - jako prywatny proszę podać adres spoza uczelni.")]),
+
+        new("s100008@student.uniflow.test", Informatics, StudyLevel.SecondCycle,
+            PersonalData(email: "jakub.pawlak@example.com"),
+            [Submitted(At(12, 18, 0)), Taken(Anna, At(11, 8, 45)), Approved(Anna, At(11, 8, 50))]),
+
+        new(Maria, Informatics, StudyLevel.SecondCycle,
+            PersonalData(phone: "600 000 102"),
+            [Submitted(At(10, 8, 0)), Withdrawn(At(9, 7, 30))]),
+
+        // ---------- WIiT: in progress
+        new("s100007@student.uniflow.test", Teleinformatics, StudyLevel.FirstCycle,
+            PersonalData(name: ("Natalia", "Grabowska-Wójcik", PersonalDataChangeReason.Marriage, null)),
+            [Submitted(At(9, 18, 0), files: 1), Taken(Joanna, At(8, 10, 0)),
+             SentBack(Joanna, At(8, 10, 20), "Załączony skan aktu małżeństwa jest nieczytelny - proszę dołączyć wyraźny skan.")]),
+
+        new("s100012@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            PersonalData(address: ("ul. Ogrodowa 3", "11-400", "Dębowiec")),
+            [Submitted(At(6, 9, 15)), Taken(Katarzyna, At(5, 10, 0)),
+             SentBack(Katarzyna, At(5, 10, 10), "Proszę podać pełny adres - brakuje numeru mieszkania."),
+             CorrectedTo(At(3, 21, 0), PersonalData(address: ("ul. Ogrodowa 3/15", "11-400", "Dębowiec")))]),
+
+        new(Tomasz, Teleinformatics, StudyLevel.FirstCycle,
+            PersonalData(phone: "600 000 103"),
+            [Submitted(At(4, 12, 0)), Taken(Anna, At(3, 8, 50))]),
+
+        new("s100005@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            PersonalData(address: ("ul. Polna 12", "11-300", "Brzozowo"), phone: "600 000 105"),
+            [Submitted(At(2, 17, 30))]),
+
+        new(Jan, Informatics, StudyLevel.FirstCycle,
+            PersonalData(email: "j.zielinski@example.com"),
+            [Submitted(At(1, 20, 10))]),
+
+        // ---------- WPiA
+        new("s100010@student.uniflow.test", Law, StudyLevel.LongCycle,
+            PersonalData(address: ("al. Klonowa 21/4", "11-500", "Klonowo"), email: "kacper.krol@example.com"),
+            [Submitted(At(12, 11, 0)), Taken(Ewa, At(11, 8, 30)), Approved(Ewa, At(11, 8, 40))]),
+
+        // Approved - the administrator then entered the new name on the account (FinishAccountsAsync)
+        new("s100011@student.uniflow.test", Administration, StudyLevel.FirstCycle,
+            PersonalData(name: ("Julia", "Wieczorek-Lis", PersonalDataChangeReason.Marriage, null)),
+            [Submitted(At(8, 16, 0), files: 1), Taken(Ewa, At(7, 9, 0)), Approved(Ewa, At(7, 9, 20))]),
+
+        new("s100010@student.uniflow.test", Law, StudyLevel.LongCycle,
+            PersonalData(name: ("Kacper", "Król-Zieliński", PersonalDataChangeReason.NameChangeDecision, null)),
+            [Submitted(At(6, 19, 30), files: 1), Taken(Ewa, At(5, 9, 0)),
+             Rejected(Ewa, At(4, 10, 0), "Dołączona decyzja o zmianie nazwiska nie jest jeszcze prawomocna - proszę złożyć wniosek po jej uprawomocnieniu.")]),
+
+        new(Maria, Law, StudyLevel.LongCycle,
+            PersonalData(address: ("ul. Polna 5", "11-600", "Wierzbno")),
+            [Submitted(At(5, 20, 0)), Taken(Ewa, At(4, 9, 30)),
+             SentBack(Ewa, At(4, 9, 45), "Kod pocztowy nie pasuje do podanej miejscowości - proszę sprawdzić adres.")]),
+
+        new("s100009@student.uniflow.test", Law, StudyLevel.LongCycle,
+            PersonalData(name: ("Wiktoria Maria", "Michalska", PersonalDataChangeReason.Other,
+                "Dodanie drugiego imienia zgodnie ze sprostowanym aktem urodzenia.")),
+            [Submitted(At(3, 10, 30), files: 1), Taken(Joanna, At(2, 9, 0))]),
+
+        new("s100012@student.uniflow.test", Administration, StudyLevel.FirstCycle,
+            PersonalData(phone: "600 000 112"),
+            [Submitted(At(1, 7, 40))]),
     ];
 
     // Begun and not submitted - "Niedokończone" on the student's list
@@ -209,6 +292,10 @@ public static class DemoStories
             General(GroupType.Laboratory, "1", "", "Kolizja z"), At(1, 21, 30), Files: 0),
         new("s100012@student.uniflow.test", Administration, StudyLevel.FirstCycle,
             General(GroupType.Exercises, "2", "3", "Nowa praca od przyszłego miesiąca."), At(2, 20, 0), Files: 1),
+        new("s100013@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            PersonalData(name: ("Amelia", "", PersonalDataChangeReason.Marriage, null)), At(1, 22, 10), Files: 0),
+        new("s100006@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            PersonalData(address: ("ul. Lipowa 1", "", "")), At(2, 19, 0), Files: 0),
     ];
 
     private static DemoTime At(int daysAgo, int hour, int minute) => new(daysAgo, hour, minute);
@@ -239,6 +326,27 @@ public static class DemoStories
             Justification = justification
         };
 
+    // Only the parts given are ticked
+    private static PersonalDataChangeForm PersonalData(
+        (string First, string Last, PersonalDataChangeReason Reason, string? Details)? name = null,
+        (string Street, string PostalCode, string City)? address = null,
+        string? phone = null, string? email = null) => new()
+        {
+            ChangeName = name is not null,
+            NewFirstName = name?.First,
+            NewLastName = name?.Last,
+            Reason = name?.Reason ?? default,
+            ReasonDetails = name?.Details,
+            ChangeAddress = address is not null,
+            Street = address?.Street,
+            PostalCode = address?.PostalCode,
+            City = address?.City,
+            ChangePhone = phone is not null,
+            Phone = phone,
+            ChangeEmail = email is not null,
+            Email = email
+        };
+
     private static DemoStep Submitted(DemoTime at, int files = 0) =>
         new(DemoAction.Submit, at, Files: files);
 
@@ -251,6 +359,10 @@ public static class DemoStories
     private static DemoStep Corrected(DemoTime at, string? justification = null, int files = 0,
         bool replaceFirstFile = false) =>
         new(DemoAction.Resubmit, at, Text: justification, Files: files, ReplaceFirstFile: replaceFirstFile);
+
+    // form: the whole corrected form, for a kind without a justification to rewrite
+    private static DemoStep CorrectedTo(DemoTime at, object form, int files = 0) =>
+        new(DemoAction.Resubmit, at, Files: files, Form: form);
 
     private static DemoStep Forwarded(string by, DemoTime at, string? note = null) =>
         new(DemoAction.Forward, at, by, note);
@@ -290,13 +402,14 @@ public enum DemoAction
 
 // One step of a story. By: the employee who acts (the student acts on their own application).
 // Text: the comment, the internal note or the corrected justification. Files: new attachments;
-// ReplaceFirstFile: in a correction the student removes their first file.
+// ReplaceFirstFile: in a correction the student removes their first file. Form: the corrected form.
 public sealed record DemoStep(DemoAction Action, DemoTime At, string? By = null, string? Text = null,
-    int Files = 0, bool ReplaceFirstFile = false);
+    int Files = 0, bool ReplaceFirstFile = false, object? Form = null);
 
-// One application of a group change, from submission to where it is today
+// One application, from submission to where it is today. Form: a GroupChangeForm or a
+// PersonalDataChangeForm - the kind follows from it.
 public sealed record DemoStory(string Student, string FieldOfStudy, StudyLevel Level,
-    GroupChangeForm Form, IReadOnlyList<DemoStep> Steps);
+    object Form, IReadOnlyList<DemoStep> Steps);
 
 public sealed record DemoDraft(string Student, string FieldOfStudy, StudyLevel Level,
-    GroupChangeForm Form, DemoTime At, int Files);
+    object Form, DemoTime At, int Files);

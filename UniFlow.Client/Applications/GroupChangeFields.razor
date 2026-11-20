@@ -168,6 +168,13 @@
 
     [Parameter, EditorRequired]
     public GroupChangeForm Form { get; set; } = null!;
+    
+    // One empty row is ready for the "Subjects" scope - on a new form and on one from a draft
+    public static void AddEmptySubject(GroupChangeForm form)
+    {
+        if (form.Subjects.Count == 0)
+            form.Subjects.Add(new SubjectGroupChange());
+    }
 
     [Parameter, EditorRequired]
     public FormErrors Errors { get; set; } = null!;

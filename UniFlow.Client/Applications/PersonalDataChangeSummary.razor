@@ -1,0 +1,49 @@
+﻿@* The personal data form, read-only - only the parts the student ticked. The old name is the
+   student's name above; the PDF has both. *@
+
+<div class="summary-grid">
+    @if (Form.ChangeName)
+    {
+        <span class="mud-text-secondary">Nowe imię</span>
+        <span><b>@Form.NewFirstName</b></span>
+        <span class="mud-text-secondary">Nowe nazwisko</span>
+        <span><b>@Form.NewLastName</b></span>
+        <span class="mud-text-secondary">Powód zmiany</span>
+        <span>@ReasonLabel</span>
+        @if (Form.Reason == PersonalDataChangeReason.Other)
+        {
+            <span class="mud-text-secondary">Opis powodu</span>
+            <span class="pre-line">@Form.ReasonDetails</span>
+        }
+    }
+    @if (Form.ChangeAddress)
+    {
+        <span class="mud-text-secondary">Adres korespondencyjny</span>
+        <span><b>@Form.Street, @Form.PostalCode @Form.City</b></span>
+    }
+    @if (Form.ChangePhone)
+    {
+        <span class="mud-text-secondary">Telefon</span>
+        <span><b>@Form.Phone</b></span>
+    }
+    @if (Form.ChangeEmail)
+    {
+        <span class="mud-text-secondary">Prywatny e-mail</span>
+        <span><b>@Form.Email</b></span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public PersonalDataChangeForm Form { get; set; } = null!;
+
+    // "zawarcie związku małżeńskiego" -> "Zawarcie związku małżeńskiego"
+    private string ReasonLabel
+    {
+        get
+        {
+            var name = PersonalDataChangeReasonText.Name(Form.Reason);
+            return char.ToUpper(name[0]) + name[1..];
+        }
+    }
+}

@@ -10,6 +10,10 @@ public static class ApiErrorMessages
 
     public const string SessionExpired = "Sesja wygasła. Zaloguj się ponownie.";
 
+    // From the server, and from the form before sending - the same words
+    public const string AttachmentRequired =
+        "Dołącz dokument potwierdzający - bez niego wniosku nie można złożyć.";
+
     // Codes from the server: ErrorMapping (Api) and DomainErrorCode (Domain)
     private static readonly Dictionary<string, string> ByCode = new()
     {
@@ -19,7 +23,7 @@ public static class ApiErrorMessages
         ["EnrollmentInactive"] = "Wybrane studia nie są już aktywne.",
         ["ApplicationTypeInactive"] = "Tego rodzaju wniosku nie można już złożyć.",
         ["AttachmentLimitReached"] = "Osiągnięto limit załączników dla tego wniosku.",
-        ["AttachmentRequired"] = "Dołącz dokument potwierdzający - bez niego wniosku nie można złożyć.",
+        ["AttachmentRequired"] = AttachmentRequired,
         ["DraftNotFound"] = "Nie znaleziono niedokończonego wniosku. Odśwież stronę.",
         ["ApplicationAlreadyInProgress"] = "Masz już wniosek tego rodzaju w toku na tych studiach. " + "Nowy złożysz, gdy tamten zostanie rozpatrzony albo wycofany.",
         ["PasswordChangeRequired"] = "Najpierw ustaw nowe hasło.",

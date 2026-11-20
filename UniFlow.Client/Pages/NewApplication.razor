@@ -63,12 +63,6 @@ else
 }
 
 @code {
-    // Types with a ready form and the page of that form; the server lists every active type
-    private static readonly Dictionary<string, string> FormPages = new()
-    {
-        [ApplicationTypeCodes.GroupChange] = "new/group-change"
-    };
-
     private IReadOnlyList<ApplicationTypeSummary>? _types;
     private IReadOnlyList<EnrollmentSummary> _enrollments = [];
     private IReadOnlyList<MyApplicationItem> _mine = [];
@@ -112,7 +106,8 @@ else
 
         _enrollments = enrollmentsResult.Value;
         _mine = mineResult.Value;
-        _types = typesResult.Value.Where(t => FormPages.ContainsKey(t.Code)).ToList();
+        // The server lists every active kind - only those with a ready form are offered
+        _types = typesResult.Value.Where(t => ApplicationLinks.HasForm(t.Code)).ToList();
     }
 
     // Applications of this type still in progress, by studies - one per studies at most
@@ -155,7 +150,7 @@ else
 
         // "from": the form's "Wróć" brings the student back here
         if (enrollmentId is not null)
-            Navigation.NavigateTo($"{FormPages[type.Code]}/{enrollmentId}?from=/new");
+            Navigation.NavigateTo(ApplicationLinks.New(type.Code, enrollmentId.Value, "/new"));
     }
 
     private void ShowStartMessage(string message, Severity severity)

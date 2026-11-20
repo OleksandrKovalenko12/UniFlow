@@ -1,0 +1,199 @@
+﻿@* The fields of the personal data form - the same when the application is submitted and when
+   it is corrected. The student ticks what changes; only those parts are shown. Checking and
+   saving stay with the page: it hears about every change. *@
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.h6" GutterBottom="true">Co chcesz zmienić?</MudText>
+    <div class="d-flex flex-column">
+        <MudCheckBox T="bool" @bind-Value="Form.ChangeName" @bind-Value:after="NameTickedAsync"
+                     Color="Color.Primary" Label="Imię lub nazwisko" />
+        <MudCheckBox T="bool" @bind-Value="Form.ChangeAddress" @bind-Value:after="ChangedAsync"
+                     Color="Color.Primary" Label="Adres korespondencyjny" />
+        <MudCheckBox T="bool" @bind-Value="Form.ChangePhone" @bind-Value:after="ChangedAsync"
+                     Color="Color.Primary" Label="Numer telefonu" />
+        <MudCheckBox T="bool" @bind-Value="Form.ChangeEmail" @bind-Value:after="ChangedAsync"
+                     Color="Color.Primary" Label="Prywatny adres e-mail" />
+    </div>
+    @if (Errors.Has(PersonalDataChangeForm.ChangesField))
+    {
+        <MudText Typo="Typo.body2" Color="Color.Error">@Errors.For(PersonalDataChangeForm.ChangesField)</MudText>
+    }
+</MudPaper>
+
+@if (Form.ChangeName)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <MudText Typo="Typo.h6">Imię i nazwisko</MudText>
+        @if (Current is not null)
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                Obecnie: @Current.FirstName @Current.LastName
+            </MudText>
+        }
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <label class="field-label" for="new-first-name">Nowe imię</label>
+                <MudTextField @bind-Value="Form.NewFirstName" @bind-Value:after="ChangedAsync"
+                              InputId="new-first-name" MaxLength="PersonalDataChangeForm.MaxNameLength"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.NewFirstName))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.NewFirstName))" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <label class="field-label" for="new-last-name">Nowe nazwisko</label>
+                <MudTextField @bind-Value="Form.NewLastName" @bind-Value:after="ChangedAsync"
+                              InputId="new-last-name" MaxLength="PersonalDataChangeForm.MaxNameLength"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.NewLastName))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.NewLastName))" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <label class="field-label" for="reason">Powód zmiany</label>
+                <MudSelect T="PersonalDataChangeReason" @bind-Value="Form.Reason" @bind-Value:after="ChangedAsync"
+                           InputId="reason" Variant="Variant.Outlined" Margin="Margin.Dense"
+                           ToStringFunc="ReasonLabel" Placeholder="Wybierz"
+                           Error="Errors.Has(nameof(PersonalDataChangeForm.Reason))"
+                           ErrorText="@Errors.For(nameof(PersonalDataChangeForm.Reason))">
+                    @foreach (var reason in Enum.GetValues<PersonalDataChangeReason>())
+                    {
+                        <MudSelectItem Value="reason" />
+                    }
+                </MudSelect>
+            </MudItem>
+            @if (Form.Reason == PersonalDataChangeReason.Other)
+            {
+                <MudItem xs="12">
+                    <label class="field-label" for="reason-details">Opis powodu</label>
+                    <MudTextField @bind-Value="Form.ReasonDetails" @bind-Value:after="ChangedAsync"
+                                  InputId="reason-details" Lines="3" Immediate="true"
+                                  Counter="PersonalDataChangeForm.MaxReasonDetailsLength"
+                                  MaxLength="PersonalDataChangeForm.MaxReasonDetailsLength"
+                                  Variant="Variant.Outlined"
+                                  Error="Errors.Has(nameof(PersonalDataChangeForm.ReasonDetails))"
+                                  ErrorText="@Errors.For(nameof(PersonalDataChangeForm.ReasonDetails))" />
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+}
+
+@if (Form.ChangeAddress)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <MudText Typo="Typo.h6" GutterBottom="true">Nowy adres korespondencyjny</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12">
+                <label class="field-label" for="street">Ulica i numer</label>
+                <MudTextField @bind-Value="Form.Street" @bind-Value:after="ChangedAsync"
+                              InputId="street" Placeholder="np. ul. Kwiatowa 5/12"
+                              MaxLength="PersonalDataChangeForm.MaxStreetLength"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.Street))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.Street))" />
+            </MudItem>
+            <MudItem xs="5" md="3">
+                <label class="field-label" for="postal-code">Kod pocztowy</label>
+                <MudTextField @bind-Value="Form.PostalCode" @bind-Value:after="ChangedAsync"
+                              InputId="postal-code" Placeholder="00-000" MaxLength="6"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.PostalCode))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.PostalCode))" />
+            </MudItem>
+            <MudItem xs="7" md="9">
+                <label class="field-label" for="city">Miejscowość</label>
+                <MudTextField @bind-Value="Form.City" @bind-Value:after="ChangedAsync"
+                              InputId="city" MaxLength="PersonalDataChangeForm.MaxCityLength"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.City))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.City))" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@if (Form.ChangePhone)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <MudText Typo="Typo.h6" GutterBottom="true">Nowy numer telefonu</MudText>
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <label class="field-label" for="phone">Numer telefonu</label>
+                <MudTextField @bind-Value="Form.Phone" @bind-Value:after="ChangedAsync"
+                              InputId="phone" InputType="InputType.Telephone" Placeholder="np. 600 123 456"
+                              MaxLength="20" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.Phone))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.Phone))" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@if (Form.ChangeEmail)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+        <MudText Typo="Typo.h6">Nowy prywatny adres e-mail</MudText>
+        @if (Current is not null)
+        {
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                @(Current.PrivateEmail is null ? "Obecnie nie masz podanego prywatnego adresu." : $"Obecnie: {Current.PrivateEmail}")
+            </MudText>
+        }
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <label class="field-label" for="email">Adres e-mail</label>
+                <MudTextField @bind-Value="Form.Email" @bind-Value:after="ChangedAsync"
+                              InputId="email" InputType="InputType.Email"
+                              MaxLength="PersonalDataChangeForm.MaxEmailLength"
+                              Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Error="Errors.Has(nameof(PersonalDataChangeForm.Email))"
+                              ErrorText="@Errors.For(nameof(PersonalDataChangeForm.Email))" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public PersonalDataChangeForm Form { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public FormErrors Errors { get; set; } = null!;
+
+    // Any change of the fields
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    // The name and e-mail the system knows now - shown as "Obecnie"; null while loading
+    [Parameter]
+    public CurrentPersonalData? Current { get; set; }
+
+    // Under the file picker: the document is needed only for a new name
+    public static string FilesHint(PersonalDataChangeForm form) => form.ChangeName
+        ? "Wymagany dokument potwierdzający zmianę imienia lub nazwiska, np. odpis aktu małżeństwa."
+        : "Przy zmianie adresu, telefonu lub e-maila załącznik nie jest potrzebny.";
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+
+    // Ticked for the first time: the current name to start from - usually only one part changes
+    private Task NameTickedAsync()
+    {
+        if (Form.ChangeName && Current is not null
+            && string.IsNullOrEmpty(Form.NewFirstName) && string.IsNullOrEmpty(Form.NewLastName))
+        {
+            Form.NewFirstName = Current.FirstName;
+            Form.NewLastName = Current.LastName;
+        }
+
+        return ChangedAsync();
+    }
+
+    // "zawarcie związku małżeńskiego" -> "Zawarcie związku małżeńskiego"; nothing chosen yet -> empty
+    private static string ReasonLabel(PersonalDataChangeReason reason)
+    {
+        if (!Enum.IsDefined(reason))
+            return "";
+
+        var name = PersonalDataChangeReasonText.Name(reason);
+        return char.ToUpper(name[0]) + name[1..];
+    }
+}

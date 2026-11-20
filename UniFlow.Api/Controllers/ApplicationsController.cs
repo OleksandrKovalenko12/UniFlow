@@ -104,7 +104,7 @@ public sealed class ApplicationsController : ControllerBase
     [HttpGet("api/personal-data")]
     [Authorize(Roles = RoleNames.Student)]
     public Task<CurrentPersonalData> GetPersonalData(CancellationToken cancellationToken) =>
-        CurrentPersonalDataAsync(_userManager.GetUserId(User)!, cancellationToken);
+        _db.CurrentPersonalDataAsync(_userManager.GetUserId(User)!, cancellationToken);
 
     // Personal data: like the group change, but something ticked must really change and a new
     // name needs a supporting document
@@ -118,7 +118,7 @@ public sealed class ApplicationsController : ControllerBase
         form.Normalize();
 
         var userId = _userManager.GetUserId(User)!;
-        var current = await CurrentPersonalDataAsync(userId, cancellationToken);
+        var current = await _db.CurrentPersonalDataAsync(userId, cancellationToken);
         if (NothingChanges(form, current))
             return ValidationProblem(ModelState);
 
@@ -145,7 +145,7 @@ public sealed class ApplicationsController : ControllerBase
         form.Normalize();
 
         var userId = _userManager.GetUserId(User)!;
-        var current = await CurrentPersonalDataAsync(userId, cancellationToken);
+        var current = await _db.CurrentPersonalDataAsync(userId, cancellationToken);
         if (NothingChanges(form, current))
             return ValidationProblem(ModelState);
 
@@ -160,14 +160,6 @@ public sealed class ApplicationsController : ControllerBase
 
         return resubmitted is null ? NotFound() : resubmitted;
     }
-
-    private Task<CurrentPersonalData> CurrentPersonalDataAsync(string userId,
-        CancellationToken cancellationToken) =>
-        _db.Users
-            .Where(u => u.Id == userId)
-            .Select(u => new CurrentPersonalData(u.FirstName, u.LastName,
-                _db.StudentProfiles.Where(p => p.UserId == u.Id).Select(p => p.PrivateEmail).FirstOrDefault()))
-            .SingleAsync(cancellationToken);
 
     // The same answer as [ApiController]'s own field errors - the form shows them under its fields
     private bool NothingChanges(PersonalDataChangeForm form, CurrentPersonalData current)

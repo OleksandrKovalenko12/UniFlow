@@ -19,11 +19,14 @@ public sealed class FormErrors
     public void Set(IReadOnlyDictionary<string, string[]> errors) =>
         _errors = new Dictionary<string, string[]>(errors);
 
-    // Runs the form's own rules - the same ones the server runs - and returns true when there are none
-    public bool Validate(object model)
+    // Runs the form's own rules - the same ones the server runs - and returns true when there are none.
+    // extra: rules the form cannot check alone, e.g. against the student's current data.
+    public bool Validate(object model, IEnumerable<ValidationResult>? extra = null)
     {
         var results = new List<ValidationResult>();
         Validator.TryValidateObject(model, new ValidationContext(model), results, validateAllProperties: true);
+        if (extra is not null)
+            results.AddRange(extra);
 
         _errors = results
             .SelectMany(r => r.MemberNames, (r, path) => (Path: path, Message: r.ErrorMessage ?? ""))

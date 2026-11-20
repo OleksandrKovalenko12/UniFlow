@@ -51,6 +51,8 @@ public sealed class DemoDataTests
             Assert.Equal(DemoStories.Stories.Count, statuses.Count);
             Assert.Equal(Enum.GetValues<ApplicationStatus>().Order(), statuses.Distinct().Order());
             Assert.Equal(DemoStories.Drafts.Count, await db.Drafts.CountAsync());
+            // Both kinds with a form - the dean's office sees each of them
+            Assert.Equal(2, await db.Applications.Select(a => a.ApplicationTypeId).Distinct().CountAsync());
             Assert.True(await db.Applications.SelectMany(a => a.Attachments).AnyAsync(a => a.IsArchived));
         }
         finally

@@ -136,9 +136,9 @@ else
                         {
                            <WelcomeRow Href="@ApplicationLinks.FromHome($"applications/{item.ApplicationId}")" Number="@item.Number"
                                         Title="@(item.StudentName ?? "")"
-                                        Subtitle="@(item.Status == ApplicationState.Resubmitted
-                                            ? $"Poprawiony przez studenta · {DateText.Format(item.At)}"
-                                            : $"W weryfikacji {Since(item.At)}")" />
+                                            Subtitle="@(item.Status == ApplicationState.Resubmitted
+                                            ? $"{item.TypeName} · poprawiony przez studenta {DateText.Format(item.At)}"
+                                            : $"{item.TypeName} · w weryfikacji {Since(item.At)}")" />
                         }
                         <WelcomeMore List="office.ForYou" OnClick="() => OpenReview(ReviewTab.InReview, AssignedFilter.Me)" />
 
@@ -151,7 +151,7 @@ else
                         {
                             <WelcomeRow Href="@ApplicationLinks.FromHome($"applications/{item.ApplicationId}")" Number="@item.Number"
                                         Title="@(item.StudentName ?? "")" IsNew="IsNew(item.At)"
-                                        Subtitle="@($"Złożony {DateText.Day(item.At)} · czeka {Waiting(item.At)}")" />
+                                        Subtitle="@($"{item.TypeName} · złożony {DateText.Day(item.At)} · czeka {Waiting(item.At)}")" />
                         }
                         <WelcomeMore List="office.NewToTake" OnClick="() => OpenReview(ReviewTab.New)" />
                     </MudPaper>

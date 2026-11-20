@@ -1,0 +1,41 @@
+﻿@page "/new/personal-data-change/{EnrollmentId:int}"
+@attribute [Authorize(Roles = RoleNames.Student)]
+@using System.ComponentModel.DataAnnotations
+@inject ApiClient Api
+
+<PageTitle>Zmiana danych osobowych - UniFlow</PageTitle>
+
+<ApplicationForm TForm="PersonalDataChangeForm" TypeCode="@ApplicationTypeCodes.PersonalDataChange"
+                 Title="Zmiana danych osobowych" About="o zmianę danych osobowych"
+                 EnrollmentId="EnrollmentId" Continue="Continue" From="@From"
+                 FilesHint="PersonalDataChangeFields.FilesHint" ExtraRules="Against"
+                 RequiredFiles="form => form.RequiredAttachments">
+    <Fields>
+        <PersonalDataChangeFields Form="context.Form" Errors="context.Errors" OnChanged="context.OnChanged"
+                                  Current="_current" />
+    </Fields>
+</ApplicationForm>
+
+@code {
+    [Parameter]
+    public int EnrollmentId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "continue")]
+    public bool Continue { get; set; }
+
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    // null while loading or when it failed - the server checks the same anyway
+    private CurrentPersonalData? _current;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Api.GetPersonalDataAsync();
+        if (result.IsSuccess)
+            _current = result.Value;
+    }
+
+    private IEnumerable<ValidationResult> Against(PersonalDataChangeForm form) =>
+        _current is null ? [] : form.ValidateAgainst(_current);
+}

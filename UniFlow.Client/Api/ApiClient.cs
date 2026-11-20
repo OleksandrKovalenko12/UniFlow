@@ -40,20 +40,25 @@ public sealed class ApiClient
     public Task<ApiResult<IReadOnlyList<EnrollmentSummary>>> GetMyEnrollmentsAsync() =>
     SendAsync<IReadOnlyList<EnrollmentSummary>>(() => _http.GetAsync("api/enrollments/mine"));
 
-    // draftId: the draft whose files become attachments; the server deletes the draft
-    public Task<ApiResult<SubmittedApplication>> SubmitGroupChangeAsync(int enrollmentId,
-    Guid submissionKey, GroupChangeForm form, Guid? draftId) =>
-    SendAsync<SubmittedApplication>(() =>
-    {
-        var request = new HttpRequestMessage(HttpMethod.Post,
-            $"api/enrollments/{enrollmentId}/applications/group-change" +
-            (draftId is null ? "" : $"?draftId={draftId}"))
+    // Any kind: formRoute is the end of its address, e.g. "group-change" (ApplicationLinks).
+    // draftId: the draft whose files become attachments; the server deletes the draft.
+    public Task<ApiResult<SubmittedApplication>> SubmitApplicationAsync<TForm>(string formRoute,
+        int enrollmentId, Guid submissionKey, TForm form, Guid? draftId) =>
+        SendAsync<SubmittedApplication>(() =>
         {
-            Content = JsonContent.Create(form)
-        };
-        request.Headers.Add(SubmissionHeaders.IdempotencyKey, submissionKey.ToString());
-        return _http.SendAsync(request);
-    });
+            var request = new HttpRequestMessage(HttpMethod.Post,
+                $"api/enrollments/{enrollmentId}/applications/{formRoute}" +
+                (draftId is null ? "" : $"?draftId={draftId}"))
+            {
+                Content = JsonContent.Create(form)
+            };
+            request.Headers.Add(SubmissionHeaders.IdempotencyKey, submissionKey.ToString());
+            return _http.SendAsync(request);
+        });
+
+    // The student's name and private e-mail as the system knows them - shown next to the new ones
+    public Task<ApiResult<CurrentPersonalData>> GetPersonalDataAsync() =>
+        SendAsync<CurrentPersonalData>(() => _http.GetAsync("api/personal-data"));
 
     public Task<ApiResult<PagedList<ReviewListItem>>> GetReviewListAsync(ReviewTab tab,
     string? search, string? type, bool? corrected, string? assigned, int page) =>
@@ -226,10 +231,10 @@ public sealed class ApiClient
             }));
 
     // The corrected application with the changes from its correction draft
-    public Task<ApiResult<SubmittedApplication>> ResubmitGroupChangeAsync(Guid applicationId,
-        GroupChangeForm form) =>
-        SendAsync<SubmittedApplication>(() =>
-            _http.PostAsJsonAsync($"api/applications/{applicationId}/group-change/resubmit", form));
+    public Task<ApiResult<SubmittedApplication>> ResubmitApplicationAsync<TForm>(string formRoute,
+     Guid applicationId, TForm form) =>
+     SendAsync<SubmittedApplication>(() =>
+         _http.PostAsJsonAsync($"api/applications/{applicationId}/{formRoute}/resubmit", form));
 
     public Task<ApiResult<Done>> DeleteDraftAsync(Guid draftId) =>
         SendAsync<Done>(() => _http.DeleteAsync($"api/drafts/{draftId}"));

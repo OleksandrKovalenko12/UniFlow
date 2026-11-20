@@ -160,14 +160,14 @@ public sealed class DemoDataSeeder
     {
         var studentId = await UserIdAsync(story.Student);
         var enrollment = await EnrollmentAsync(studentId, story, cancellationToken);
-        var form = Checked(story.Form);
+        var form = await PrepareAsync(story.Form, studentId, null, cancellationToken);
 
         // Attachments come the student's way - through a draft whose files become them
         Guid? draftId = null;
         if (step.Files > 0)
         {
-            var type = await GroupChangeTypeAsync(cancellationToken);
-            var draft = new Draft(studentId, enrollment, type, FormJson.Serialize(form), at);
+            var type = await TypeAsync(form.TypeCode, cancellationToken);
+            var draft = new Draft(studentId, enrollment, type, form.FormData, at);
             await AddSampleFilesAsync(draft, step.Files, at, cancellationToken);
             _db.Drafts.Add(draft);
             await _db.SaveChangesAsync(cancellationToken);
@@ -175,8 +175,8 @@ public sealed class DemoDataSeeder
         }
 
         var submitted = await _submissions.SubmitAsync(studentId, Guid.NewGuid(), enrollment.Id,
-            ApplicationTypeCodes.GroupChange, FormJson.Serialize(form), draftId, RenderFor(form),
-            cancellationToken, at);
+            form.TypeCode, form.FormData, draftId, form.Render, cancellationToken, at,
+            form.RequiredAttachments);
 
         return submitted.Id;
     }
@@ -185,10 +185,8 @@ public sealed class DemoDataSeeder
         CancellationToken cancellationToken)
     {
         var studentId = await UserIdAsync(story.Student);
-        var form = Checked(story.Form);
-        if (step.Text is not null)
-            form.Justification = step.Text;
-        var formData = FormJson.Serialize(form);
+        var form = await PrepareAsync(step.Form ?? story.Form, studentId, step.Text, cancellationToken);
+        var formData = form.FormData;
 
         // New files and the file to take out - the correction draft, as on the correction page
         if (step.Files > 0 || step.ReplaceFirstFile)
@@ -215,8 +213,8 @@ public sealed class DemoDataSeeder
             _db.ChangeTracker.Clear();
         }
 
-        await _submissions.ResubmitAsync(studentId, applicationId, ApplicationTypeCodes.GroupChange,
-            formData, RenderFor(form), cancellationToken, at);
+        await _submissions.ResubmitAsync(studentId, applicationId, form.TypeCode, formData, form.Render,
+            cancellationToken, at, form.RequiredAttachments);
     }
 
     // The decisions - the same Domain methods the dean's office and the vice-dean use
@@ -258,14 +256,14 @@ public sealed class DemoDataSeeder
 
     // ---------- Drafts, accounts, log, logins
 
+    // Not checked - an unfinished form may break the rules
     private async Task CreateDraftsAsync(CancellationToken cancellationToken)
     {
-        var type = await GroupChangeTypeAsync(cancellationToken);
-
         foreach (var demo in DemoStories.Drafts)
         {
             var studentId = await UserIdAsync(demo.Student);
             var enrollment = await EnrollmentAsync(studentId, demo.FieldOfStudy, demo.Level, cancellationToken);
+            var type = await TypeAsync(TypeCodeOf(demo.Form), cancellationToken);
             var at = At(demo.At);
 
             var draft = new Draft(studentId, enrollment, type, FormJson.Serialize(demo.Form), at);
@@ -277,9 +275,14 @@ public sealed class DemoDataSeeder
     }
 
     // The graduate's studies end and the account is switched off; a newcomer without their own
-    // password; a field of study being phased out
+    // password; a field of study being phased out; a new name entered after an approved application
     private async Task FinishAccountsAsync(string password, CancellationToken cancellationToken)
     {
+        // Approving does not change the account - the administrator does it (the log entry below)
+        var renamed = (await _userManager.FindByIdAsync(await UserIdAsync("s100011@student.uniflow.test")))!;
+        renamed.LastName = "Wieczorek-Lis";
+        Check(await _userManager.UpdateAsync(renamed));
+
         foreach (var student in DemoStories.Students.Where(s => s.Studies.Any(studies => studies.Ended)))
         {
             var userId = await UserIdAsync(student.Email);
@@ -397,8 +400,15 @@ public sealed class DemoDataSeeder
             .SingleAsync(e => e.StudentId == studentId && e.FieldOfStudy.Name == field
                 && e.FieldOfStudy.Level == level, cancellationToken);
 
-    private Task<ApplicationType> GroupChangeTypeAsync(CancellationToken cancellationToken) =>
-        _db.ApplicationTypes.SingleAsync(t => t.Code == ApplicationTypeCodes.GroupChange, cancellationToken);
+    private Task<ApplicationType> TypeAsync(string code, CancellationToken cancellationToken) =>
+    _db.ApplicationTypes.SingleAsync(t => t.Code == code, cancellationToken);
+
+    private static string TypeCodeOf(object form) => form switch
+    {
+        GroupChangeForm => ApplicationTypeCodes.GroupChange,
+        PersonalDataChangeForm => ApplicationTypeCodes.PersonalDataChange,
+        _ => throw new InvalidOperationException($"Demo data: unknown form {form.GetType().Name}.")
+    };
 
     // A made-up document, saved like a file a student would upload
     private async Task AddSampleFilesAsync(Draft draft, int count, DateTime at,
@@ -413,15 +423,52 @@ public sealed class DemoDataSeeder
         }
     }
 
-    private Func<ApplicationHeader, Task<string>> RenderFor(GroupChangeForm form) =>
-        header => _renderer.RenderAsync<GroupChangeTemplate, GroupChangeDocument>(
-            new GroupChangeDocument(header, form));
+    // What a story's form gives the submission, whatever its kind
+    private sealed record PreparedForm(string TypeCode, string FormData,
+        Func<ApplicationHeader, Task<string>> Render, int RequiredAttachments);
 
-    // The same rules as the form on the page - a wrong story stops here, not in the PDF
-    private static GroupChangeForm Checked(GroupChangeForm form)
+    // The same rules as the form on the page and the server - a wrong story stops here, not in
+    // the PDF. justification: the group change's rewritten one, in a correction.
+    private async Task<PreparedForm> PrepareAsync(object form, string studentId, string? justification,
+        CancellationToken cancellationToken)
     {
-        var copy = FormJson.Deserialize<GroupChangeForm>(FormJson.Serialize(form));
-        copy.Normalize();
+        switch (form)
+        {
+            case GroupChangeForm groupChange:
+                {
+                    var copy = Checked(groupChange, f =>
+                    {
+                        if (justification is not null)
+                            f.Justification = justification;
+                        f.Normalize();
+                    });
+                    return new(ApplicationTypeCodes.GroupChange, FormJson.Serialize(copy),
+                        header => _renderer.RenderAsync<GroupChangeTemplate, GroupChangeDocument>(
+                            new GroupChangeDocument(header, copy)),
+                        RequiredAttachments: 0);
+                }
+            case PersonalDataChangeForm personalData:
+                {
+                    var copy = Checked(personalData, f => f.Normalize());
+                    var current = await _db.CurrentPersonalDataAsync(studentId, cancellationToken);
+                    if (copy.ValidateAgainst(current).Any())
+                        throw new InvalidOperationException(
+                            $"Demo data: a personal data story of {current.FirstName} {current.LastName} changes nothing.");
+                    return new(ApplicationTypeCodes.PersonalDataChange, FormJson.Serialize(copy),
+                        header => _renderer.RenderAsync<PersonalDataChangeTemplate, PersonalDataChangeDocument>(
+                            new PersonalDataChangeDocument(header, copy, current)),
+                        copy.RequiredAttachments);
+                }
+            default:
+                throw new InvalidOperationException($"Demo data: unknown form {form.GetType().Name}.");
+        }
+    }
+
+    // A copy, prepared and checked - the story itself stays as written
+    private static T Checked<T>(T form, Action<T> prepare) where T : class
+    {
+        var copy = FormJson.Deserialize<T>(FormJson.Serialize(form));
+        prepare(copy);
         Validator.ValidateObject(copy, new ValidationContext(copy), validateAllProperties: true);
         return copy;
     }
