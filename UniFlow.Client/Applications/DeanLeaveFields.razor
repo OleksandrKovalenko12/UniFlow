@@ -1,0 +1,98 @@
+﻿@* The fields of the dean's leave form - the same when the application is submitted and when it
+   is corrected. Checking and saving stay with the page: it hears about every change. *@
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.h6" GutterBottom="true">Rodzaj urlopu</MudText>
+    <MudRadioGroup T="DeanLeaveKind" @bind-Value="Form.Kind" @bind-Value:after="ChangedAsync"
+                   Error="Errors.Has(nameof(DeanLeaveForm.Kind))"
+                   ErrorText="@Errors.For(nameof(DeanLeaveForm.Kind))">
+        <div class="d-flex flex-column">
+            @foreach (var kind in Enum.GetValues<DeanLeaveKind>())
+            {
+                <MudRadio Value="kind" Color="Color.Primary">@Capitalized(DeanLeaveText.Kind(kind))</MudRadio>
+            }
+        </div>
+    </MudRadioGroup>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <MudText Typo="Typo.h6" GutterBottom="true">Okres</MudText>
+    <MudGrid Spacing="2">
+        <MudItem xs="12" md="8">
+            <MudRadioGroup T="DeanLeavePeriod" @bind-Value="Form.Period" @bind-Value:after="ChangedAsync"
+                           Error="Errors.Has(nameof(DeanLeaveForm.Period))"
+                           ErrorText="@Errors.For(nameof(DeanLeaveForm.Period))">
+                <div class="d-flex flex-column">
+                    @foreach (var period in Enum.GetValues<DeanLeavePeriod>())
+                    {
+                        <MudRadio Value="period" Color="Color.Primary">@Capitalized(DeanLeaveText.Period(period))</MudRadio>
+                    }
+                </div>
+            </MudRadioGroup>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <label class="field-label" for="academic-year">Rok akademicki</label>
+            <MudSelect T="string" @bind-Value="Form.AcademicYear" @bind-Value:after="ChangedAsync"
+                       InputId="academic-year" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       Placeholder="Wybierz"
+                       Error="Errors.Has(nameof(DeanLeaveForm.AcademicYear))"
+                       ErrorText="@Errors.For(nameof(DeanLeaveForm.AcademicYear))">
+                @foreach (var year in Years)
+                {
+                    <MudSelectItem Value="year" />
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4" Elevation="0" Outlined="true">
+    <label class="field-label" for="justification">Uzasadnienie</label>
+    <MudTextField @bind-Value="Form.Justification" @bind-Value:after="ChangedAsync"
+                  InputId="justification" Lines="5" Immediate="true"
+                  Placeholder="Opisz, dlaczego prosisz o urlop."
+                  Counter="DeanLeaveForm.MaxJustificationLength"
+                  MaxLength="DeanLeaveForm.MaxJustificationLength"
+                  Variant="Variant.Outlined"
+                  Error="Errors.Has(nameof(DeanLeaveForm.Justification))"
+                  ErrorText="@Errors.For(nameof(DeanLeaveForm.Justification))" />
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public DeanLeaveForm Form { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public FormErrors Errors { get; set; } = null!;
+
+    // Any change of the fields
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    // Under the file picker: it depends on the kind of leave
+    public static string FilesHint(DeanLeaveForm form) => form.Kind switch
+    {
+        DeanLeaveKind.Health => "Wymagana dokumentacja medyczna.",
+        DeanLeaveKind.Parental => "Wymagany dokument potwierdzający opiekę nad dzieckiem, np. akt urodzenia.",
+        DeanLeaveKind.Occasional => "Opcjonalnie, np. dokument potwierdzający okoliczności.",
+        _ => "Przy urlopie zdrowotnym i wychowawczym dokument jest wymagany."
+    };
+
+    // The current and the next academic year, by the browser's (Polish) date - the server checks
+    // the same. A correction may keep a year from before, so it stays on the list.
+    private List<string> Years
+    {
+        get
+        {
+            var current = AcademicYear.StartYear(DateTime.Now);
+            var years = new List<string> { AcademicYear.Name(current), AcademicYear.Name(current + 1) };
+            if (!string.IsNullOrEmpty(Form.AcademicYear) && !years.Contains(Form.AcademicYear))
+                years.Insert(0, Form.AcademicYear);
+            return years;
+        }
+    }
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+
+    private static string Capitalized(string text) => char.ToUpper(text[0]) + text[1..];
+}

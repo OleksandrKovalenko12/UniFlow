@@ -1,0 +1,30 @@
+﻿@page "/new/dean-leave/{EnrollmentId:int}"
+@attribute [Authorize(Roles = RoleNames.Student)]
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Urlop dziekański - UniFlow</PageTitle>
+
+<ApplicationForm TForm="DeanLeaveForm" TypeCode="@ApplicationTypeCodes.DeanLeave"
+                 Title="Urlop dziekański" About="o urlop dziekański"
+                 EnrollmentId="EnrollmentId" Continue="Continue" From="@From"
+                 FilesHint="DeanLeaveFields.FilesHint" ExtraRules="Against"
+                 RequiredFiles="form => form.RequiredAttachments">
+    <Fields>
+        <DeanLeaveFields Form="context.Form" Errors="context.Errors" OnChanged="context.OnChanged" />
+    </Fields>
+</ApplicationForm>
+
+@code {
+    [Parameter]
+    public int EnrollmentId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "continue")]
+    public bool Continue { get; set; }
+
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    // By the browser's date - the server checks the same by its own
+    private static IEnumerable<ValidationResult> Against(DeanLeaveForm form) =>
+        form.ValidateAgainst(AcademicYear.StartYear(DateTime.Now));
+}

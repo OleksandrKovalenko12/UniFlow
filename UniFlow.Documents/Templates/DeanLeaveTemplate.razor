@@ -1,0 +1,24 @@
+﻿@implements IDocumentTemplate<DeanLeaveDocument>
+
+@* Decided by the vice-dean - the default addressee *@
+<ApplicationLayout Header="Model.Header" Title="Podanie o udzielenie urlopu dziekańskiego">
+    <p>
+        Zwracam się z uprzejmą prośbą o udzielenie urlopu @DeanLeaveText.KindAdjective(Form.Kind)
+        @DeanLeaveText.PeriodWithYear(Form.Period, Form.AcademicYear!).
+    </p>
+
+    <p><strong>Uzasadnienie</strong></p>
+    <p class="justification">@Form.Justification</p>
+
+    @if (DeanLeaveText.DocumentSentence(Form.Kind) is { } document)
+    {
+        <p>@document</p>
+    }
+</ApplicationLayout>
+
+@code {
+    [Parameter, EditorRequired]
+    public DeanLeaveDocument Model { get; set; } = default!;
+
+    private DeanLeaveForm Form => Model.Form;
+}

@@ -20,6 +20,7 @@ using UniFlow.Domain.Entities;
 using UniFlow.Domain.Enums;
 using UniFlow.Infrastructure.Persistence;
 using UniFlow.Infrastructure.Storage;
+using UniFlow.Infrastructure.Time;
 
 namespace UniFlow.Api.Controllers;
 
@@ -119,7 +120,7 @@ public sealed class ApplicationsController : ControllerBase
 
         var userId = _userManager.GetUserId(User)!;
         var current = await _db.CurrentPersonalDataAsync(userId, cancellationToken);
-        if (NothingChanges(form, current))
+        if (AddFieldErrors(form.ValidateAgainst(current)))
             return ValidationProblem(ModelState);
 
         var submitted = await _submission.SubmitAsync(
@@ -146,7 +147,7 @@ public sealed class ApplicationsController : ControllerBase
 
         var userId = _userManager.GetUserId(User)!;
         var current = await _db.CurrentPersonalDataAsync(userId, cancellationToken);
-        if (NothingChanges(form, current))
+        if (AddFieldErrors(form.ValidateAgainst(current)))
             return ValidationProblem(ModelState);
 
         var resubmitted = await _submission.ResubmitAsync(
@@ -161,10 +162,11 @@ public sealed class ApplicationsController : ControllerBase
         return resubmitted is null ? NotFound() : resubmitted;
     }
 
-    // The same answer as [ApiController]'s own field errors - the form shows them under its fields
-    private bool NothingChanges(PersonalDataChangeForm form, CurrentPersonalData current)
+    // Rules only the server can check, as [ApiController]'s own field errors - the form shows them
+    // under its fields. True when there are some.
+    private bool AddFieldErrors(IEnumerable<ValidationResult> errors)
     {
-        foreach (var error in form.ValidateAgainst(current))
+        foreach (var error in errors)
             foreach (var field in error.MemberNames)
                 ModelState.AddModelError(field, error.ErrorMessage!);
 
@@ -176,6 +178,64 @@ public sealed class ApplicationsController : ControllerBase
         CurrentPersonalData current) =>
         header => _renderer.RenderAsync<PersonalDataChangeTemplate, PersonalDataChangeDocument>(
             new PersonalDataChangeDocument(header, form, current));
+
+    // A dean's leave: decided by the vice-dean, like the group change. Only the current or the next
+    // academic year - by the Polish date on the server. Health and parental leave need a document.
+    [HttpPost("api/enrollments/{enrollmentId:int}/applications/dean-leave")]
+    [Authorize(Roles = RoleNames.Student)]
+    [EnableRateLimiting(SubmissionRateLimit)]
+    public async Task<ActionResult<SubmittedApplication>> SubmitDeanLeave(int enrollmentId,
+        [FromHeader(Name = SubmissionHeaders.IdempotencyKey), Required] Guid? submissionKey,
+        [FromQuery] Guid? draftId, DeanLeaveForm form, CancellationToken cancellationToken)
+    {
+        form.Normalize();
+
+        if (AddFieldErrors(form.ValidateAgainst(CurrentAcademicYear())))
+            return ValidationProblem(ModelState);
+
+        var submitted = await _submission.SubmitAsync(
+            _userManager.GetUserId(User)!,
+            submissionKey!.Value,
+            enrollmentId,
+            ApplicationTypeCodes.DeanLeave,
+            FormJson.Serialize(form),
+            draftId,
+            DeanLeaveHtml(form),
+            cancellationToken,
+            requiredAttachments: form.RequiredAttachments);
+
+        return StatusCode(StatusCodes.Status201Created, submitted);
+    }
+
+    [HttpPost("api/applications/{id:guid}/dean-leave/resubmit")]
+    [Authorize(Roles = RoleNames.Student)]
+    [EnableRateLimiting(SubmissionRateLimit)]
+    public async Task<ActionResult<SubmittedApplication>> ResubmitDeanLeave(Guid id,
+        DeanLeaveForm form, CancellationToken cancellationToken)
+    {
+        form.Normalize();
+
+        if (AddFieldErrors(form.ValidateAgainst(CurrentAcademicYear())))
+            return ValidationProblem(ModelState);
+
+        var resubmitted = await _submission.ResubmitAsync(
+            _userManager.GetUserId(User)!,
+            id,
+            ApplicationTypeCodes.DeanLeave,
+            FormJson.Serialize(form),
+            DeanLeaveHtml(form),
+            cancellationToken,
+            requiredAttachments: form.RequiredAttachments);
+
+        return resubmitted is null ? NotFound() : resubmitted;
+    }
+
+    private static int CurrentAcademicYear() =>
+        AcademicYear.StartYear(PolishTime.FromUtc(DateTime.UtcNow));
+
+    private Func<ApplicationHeader, Task<string>> DeanLeaveHtml(DeanLeaveForm form) =>
+        header => _renderer.RenderAsync<DeanLeaveTemplate, DeanLeaveDocument>(
+            new DeanLeaveDocument(header, form));
 
     // The student's own applications: those waiting for them first, then the newest
     [HttpGet("api/applications/mine")]

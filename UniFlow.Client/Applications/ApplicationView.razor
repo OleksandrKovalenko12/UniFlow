@@ -61,6 +61,10 @@
             {
                 <PersonalDataChangeSummary Form="FormJson.Deserialize<PersonalDataChangeForm>(Details.FormData)" />
             }
+            else if (Details.TypeCode == ApplicationTypeCodes.DeanLeave)
+            {
+                <DeanLeaveSummary Form="FormJson.Deserialize<DeanLeaveForm>(Details.FormData)" />
+            }
             else
             {
                 <MudText Class="mud-text-secondary">Podgląd tego rodzaju wniosku nie jest jeszcze dostępny - treść jest w dokumencie PDF.</MudText>

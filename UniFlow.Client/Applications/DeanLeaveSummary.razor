@@ -1,0 +1,18 @@
+﻿@* The dean's leave form, read-only *@
+
+<div class="summary-grid">
+    <span class="mud-text-secondary">Rodzaj urlopu</span>
+    <span><b>@Capitalized(DeanLeaveText.Kind(Form.Kind))</b></span>
+    <span class="mud-text-secondary">Okres</span>
+    <span><b>@Capitalized(DeanLeaveText.Period(Form.Period))</b>, rok akademicki @Form.AcademicYear</span>
+</div>
+
+<MudText Typo="Typo.subtitle2" Class="mt-4">Uzasadnienie</MudText>
+<MudText Class="pre-line">@Form.Justification</MudText>
+
+@code {
+    [Parameter, EditorRequired]
+    public DeanLeaveForm Form { get; set; } = null!;
+
+    private static string Capitalized(string text) => char.ToUpper(text[0]) + text[1..];
+}

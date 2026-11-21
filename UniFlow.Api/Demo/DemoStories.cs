@@ -1,5 +1,7 @@
 ﻿using UniFlow.Domain.Enums;
 using UniFlow.Shared.Forms;
+using UniFlow.Infrastructure.Time;
+using UniFlow.Shared;
 
 namespace UniFlow.Api.Demo;
 
@@ -21,6 +23,10 @@ public static class DemoStories
     private const string Jan = "s100001@student.uniflow.test";
     private const string Maria = "s100002@student.uniflow.test";
     private const string Tomasz = "s100003@student.uniflow.test";
+
+    // The academic year when the data is created - a leave is asked for this one or the next.
+    // Above the stories: static fields are set in the order they are written.
+    private static readonly int ThisYear = AcademicYear.StartYear(PolishTime.FromUtc(DateTime.UtcNow));
 
     private const string Informatics = "Informatyka";
     private const string Teleinformatics = "Teleinformatyka";
@@ -292,6 +298,103 @@ public static class DemoStories
         new("s100012@student.uniflow.test", Administration, StudyLevel.FirstCycle,
             PersonalData(phone: ("600 000 912", "600 000 112")),
             [Submitted(At(1, 7, 40))]),
+        
+        // ========== Dean's leave - the dean's office checks, the vice-dean decides. A health or
+        // parental leave comes with a document.
+
+        // ---------- WIiT: closed
+        new("s100013@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Health, DeanLeavePeriod.WinterSemester, nextYear: false,
+                "Leczenie szpitalne i rehabilitacja po wypadku - zaświadczenia lekarskie w załącznikach."),
+            [Submitted(At(26, 11, 20), files: 2), Taken(Katarzyna, At(25, 9, 15)),
+             Forwarded(Katarzyna, At(24, 10, 0), "Dokumentacja medyczna kompletna."),
+             Approved(Piotr, At(22, 12, 30))]),
+
+        // A rule of the university the system does not know - the dean's office applies it
+        new("s100005@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Occasional, DeanLeavePeriod.WholeYear, nextYear: true,
+                "Chcę wyjechać na rok do pracy za granicą."),
+            [Submitted(At(21, 20, 5)), Taken(Anna, At(20, 9, 40)),
+             Rejected(Anna, At(19, 10, 10), "Urlopu nie udziela się na pierwszym semestrze studiów - proszę złożyć wniosek po zaliczeniu semestru.")]),
+
+        // The vice-dean asks the dean's office first, then agrees
+        new("s100006@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Parental, DeanLeavePeriod.SummerSemester, nextYear: false,
+                "Opieka nad nowo narodzonym dzieckiem - akt urodzenia w załączniku."),
+            [Submitted(At(15, 18, 30), files: 1), Taken(Anna, At(14, 9, 5)),
+             Forwarded(Anna, At(13, 11, 20)),
+             Returned(Piotr, At(11, 13, 0), "Proszę potwierdzić, czy student ma zaliczony semestr zimowy."),
+             Forwarded(Anna, At(10, 9, 30), "Semestr zimowy zaliczony w całości."),
+             Approved(Piotr, At(9, 12, 15))]),
+
+        new("s100008@student.uniflow.test", Informatics, StudyLevel.SecondCycle,
+            Leave(DeanLeaveKind.Occasional, DeanLeavePeriod.SummerSemester, nextYear: false,
+                "Zmiana pracy i przeprowadzka - potrzebuję czasu na ustabilizowanie sytuacji."),
+            [Submitted(At(11, 21, 40)), Taken(Katarzyna, At(10, 8, 20)),
+             Forwarded(Katarzyna, At(9, 10, 45)),
+             Rejected(Piotr, At(7, 11, 30), "Wskazane okoliczności nie uniemożliwiają kontynuowania studiów niestacjonarnych.")]),
+
+        new(Maria, Informatics, StudyLevel.SecondCycle,
+            Leave(DeanLeaveKind.Parental, DeanLeavePeriod.WholeYear, nextYear: true,
+                "Opieka nad dzieckiem."),
+            [Submitted(At(8, 19, 0), files: 1), Withdrawn(At(6, 8, 45))]),
+
+        // ---------- WIiT: in progress
+        new("s100007@student.uniflow.test", Teleinformatics, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Health, DeanLeavePeriod.WholeYear, nextYear: true,
+                "Długotrwałe leczenie - zaświadczenie lekarskie w załączniku."),
+            [Submitted(At(7, 17, 10), files: 1), Taken(Joanna, At(6, 9, 20)),
+             SentBack(Joanna, At(6, 9, 40), "Zaświadczenie lekarskie nie podaje przewidywanego okresu leczenia - proszę dołączyć aktualne."),
+             Corrected(At(4, 20, 15), files: 1, replaceFirstFile: true)]),
+
+        new("s100012@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Occasional, DeanLeavePeriod.SummerSemester, nextYear: false,
+                "Opieka nad chorym rodzicem - przejmuję prowadzenie rodzinnej firmy na pół roku."),
+            [Submitted(At(5, 10, 50)), Taken(Katarzyna, At(4, 8, 35)),
+             Forwarded(Katarzyna, At(2, 10, 5), "Sytuacja rodzinna potwierdzona rozmową ze studentem.")]),
+
+        new(Tomasz, Teleinformatics, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Health, DeanLeavePeriod.SummerSemester, nextYear: false,
+                "Planowana operacja i rehabilitacja - skierowanie w załączniku."),
+            [Submitted(At(3, 15, 25), files: 1)]),
+
+        new(Jan, Informatics, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Occasional, DeanLeavePeriod.WholeYear, nextYear: true,
+                "Wyjazd na roczny program stażowy w firmie - umowa w załączniku."),
+            [Submitted(At(2, 21, 15), files: 1)]),
+
+        // ---------- WPiA
+        new("s100009@student.uniflow.test", Law, StudyLevel.LongCycle,
+            Leave(DeanLeaveKind.Health, DeanLeavePeriod.WinterSemester, nextYear: false,
+                "Leczenie po urazie kręgosłupa - dokumentacja z poradni i zwolnienie lekarskie."),
+            [Submitted(At(24, 12, 0), files: 2), Taken(Ewa, At(23, 8, 45)),
+             Forwarded(Ewa, At(22, 9, 30), "Dokumentacja kompletna."),
+             Approved(Marek, At(20, 11, 0))]),
+
+        // Too general at first - rewritten with a contract, now with the vice-dean
+        new("s100010@student.uniflow.test", Law, StudyLevel.LongCycle,
+            Leave(DeanLeaveKind.Occasional, DeanLeavePeriod.SummerSemester, nextYear: false,
+                "Wyjazd za granicę."),
+            [Submitted(At(13, 16, 40)), Taken(Ewa, At(12, 9, 15)),
+             SentBack(Ewa, At(12, 9, 30), "Uzasadnienie jest zbyt ogólne - proszę opisać okoliczności i, jeśli to możliwe, dołączyć dokument."),
+             Corrected(At(9, 19, 50), "Od lutego wyjeżdżam na półroczny staż w kancelarii za granicą - umowa w załączniku.", files: 1),
+             Taken(Ewa, At(8, 8, 55)),
+             Forwarded(Ewa, At(7, 10, 20), "Staż potwierdzony umową.")]),
+
+        new("s100011@student.uniflow.test", Administration, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Parental, DeanLeavePeriod.WholeYear, nextYear: true,
+                "Urodzenie dziecka w przyszłym roku - zaświadczenie lekarskie o ciąży w załączniku."),
+            [Submitted(At(4, 18, 20), files: 1), Taken(Ewa, At(3, 9, 10))]),
+
+        new("s100012@student.uniflow.test", Administration, StudyLevel.FirstCycle,
+            Leave(DeanLeaveKind.Health, DeanLeavePeriod.SummerSemester, nextYear: false,
+                "Leczenie sanatoryjne zalecone przez lekarza - skierowanie w załączniku."),
+            [Submitted(At(1, 6, 30), files: 1)]),
+
+        new(Maria, Law, StudyLevel.LongCycle,
+            Leave(DeanLeaveKind.Occasional, DeanLeavePeriod.WinterSemester, nextYear: true,
+                "Udział w rocznym programie wymiany - wyjazd w semestrze zimowym."),
+            [Submitted(At(2, 22, 0))]),
     ];
 
     // Begun and not submitted - "Niedokończone" on the student's list
@@ -305,6 +408,10 @@ public static class DemoStories
             PersonalData(name: ("Amelia", "", PersonalDataChangeReason.Marriage, null)), At(1, 22, 10), Files: 0),
         new("s100006@student.uniflow.test", Informatics, StudyLevel.FirstCycle,
             PersonalData(address: (Address("ul. Lipowa 1", "", ""), Address("", "", ""))), At(2, 19, 0), Files: 0),
+        new("s100009@student.uniflow.test", Law, StudyLevel.LongCycle,
+            Leave(DeanLeaveKind.Health, DeanLeavePeriod.SummerSemester, nextYear: false, ""), At(1, 20, 45), Files: 1),
+        new("s100008@student.uniflow.test", Informatics, StudyLevel.SecondCycle,
+            Leave(DeanLeaveKind.Parental, default, nextYear: true, "Opieka nad"), At(2, 23, 5), Files: 0),
     ];
 
     private static DemoTime At(int daysAgo, int hour, int minute) => new(daysAgo, hour, minute);
@@ -367,6 +474,15 @@ public static class DemoStories
             Country = country
         };
 
+    private static DeanLeaveForm Leave(DeanLeaveKind kind, DeanLeavePeriod period, bool nextYear,
+    string justification) => new()
+    {
+        Kind = kind,
+        Period = period,
+        AcademicYear = AcademicYear.Name(nextYear ? ThisYear + 1 : ThisYear),
+        Justification = justification
+    };
+
     private static DemoStep Submitted(DemoTime at, int files = 0) =>
         new(DemoAction.Submit, at, Files: files);
 
@@ -426,8 +542,8 @@ public enum DemoAction
 public sealed record DemoStep(DemoAction Action, DemoTime At, string? By = null, string? Text = null,
     int Files = 0, bool ReplaceFirstFile = false, object? Form = null);
 
-// One application, from submission to where it is today. Form: a GroupChangeForm or a
-// PersonalDataChangeForm - the kind follows from it.
+// One application, from submission to where it is today. Form: a GroupChangeForm, a
+// PersonalDataChangeForm or a DeanLeaveForm - the kind follows from it.
 public sealed record DemoStory(string Student, string FieldOfStudy, StudyLevel Level,
     object Form, IReadOnlyList<DemoStep> Steps);
 

@@ -115,7 +115,8 @@ public class DevelopmentSeeder
                 requiresDeanDecision: true, maxAttachments: 2),
             new ApplicationType("DEAN_LEAVE", "Urlop dziekański",
                 "Wniosek o urlop od zajęć: zdrowotny, okolicznościowy lub wychowawczy. Przy " +
-                "urlopie zdrowotnym dołącz dokumentację medyczną.",
+                "urlopie zdrowotnym dołącz dokumentację medyczną, przy wychowawczym - dokument " +
+                "potwierdzający opiekę nad dzieckiem, np. akt urodzenia.",
                 requiresDeanDecision: true, maxAttachments: 5),
         };
 

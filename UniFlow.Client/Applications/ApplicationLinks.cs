@@ -11,7 +11,8 @@ public static class ApplicationLinks
     private static readonly Dictionary<string, string> FormRoutes = new()
     {
         [ApplicationTypeCodes.GroupChange] = "group-change",
-        [ApplicationTypeCodes.PersonalDataChange] = "personal-data-change"
+        [ApplicationTypeCodes.PersonalDataChange] = "personal-data-change",
+        [ApplicationTypeCodes.DeanLeave] = "dean-leave"
     };
 
     public static bool HasForm(string typeCode) => FormRoutes.ContainsKey(typeCode);

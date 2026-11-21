@@ -2,6 +2,7 @@
 using UniFlow.Documents.Models;
 using UniFlow.Domain.Entities;
 using UniFlow.Infrastructure.Time;
+using UniFlow.Shared;
 
 namespace UniFlow.Api.Applications;
 
@@ -9,11 +10,6 @@ namespace UniFlow.Api.Applications;
 // loaded with FieldOfStudy and Faculty
 public static class ApplicationHeaderBuilder
 {
-    // Groups are usually known before 1 October; from 20 September on,
-    // applications concern the coming academic year (assumption)
-    private const int NewAcademicYearMonth = 9;
-    private const int NewAcademicYearDay = 20;
-
     public static ApplicationHeader Build(string number, DateTime submittedAtUtc,
         string firstName, string lastName, string albumNumber, Enrollment enrollment)
     {
@@ -29,14 +25,6 @@ public static class ApplicationHeaderBuilder
             FieldOfStudy: field.Name,
             StudyForm: $"{StudyTexts.Mode(enrollment.StudyMode)}, {StudyTexts.Level(field.Level)}",
             Semester: enrollment.Semester,
-            AcademicYear: AcademicYear(polishTime));
-    }
-
-    private static string AcademicYear(DateTime polishTime)
-    {
-        var newYearStart = new DateTime(polishTime.Year, NewAcademicYearMonth, NewAcademicYearDay);
-        var startYear = polishTime >= newYearStart ? polishTime.Year : polishTime.Year - 1;
-
-        return $"{startYear}/{startYear + 1}";
+            AcademicYear: AcademicYear.Of(polishTime));
     }
 }

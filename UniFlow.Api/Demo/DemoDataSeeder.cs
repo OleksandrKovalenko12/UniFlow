@@ -407,6 +407,7 @@ public sealed class DemoDataSeeder
     {
         GroupChangeForm => ApplicationTypeCodes.GroupChange,
         PersonalDataChangeForm => ApplicationTypeCodes.PersonalDataChange,
+        DeanLeaveForm => ApplicationTypeCodes.DeanLeave,
         _ => throw new InvalidOperationException($"Demo data: unknown form {form.GetType().Name}.")
     };
 
@@ -428,7 +429,7 @@ public sealed class DemoDataSeeder
         Func<ApplicationHeader, Task<string>> Render, int RequiredAttachments);
 
     // The same rules as the form on the page and the server - a wrong story stops here, not in
-    // the PDF. justification: the group change's rewritten one, in a correction.
+    // the PDF. justification: the rewritten one, in a correction of a kind that has one.
     private async Task<PreparedForm> PrepareAsync(object form, string studentId, string? justification,
         CancellationToken cancellationToken)
     {
@@ -457,6 +458,22 @@ public sealed class DemoDataSeeder
                     return new(ApplicationTypeCodes.PersonalDataChange, FormJson.Serialize(copy),
                         header => _renderer.RenderAsync<PersonalDataChangeTemplate, PersonalDataChangeDocument>(
                             new PersonalDataChangeDocument(header, copy, current)),
+                        copy.RequiredAttachments);
+                }
+            case DeanLeaveForm deanLeave:
+                {
+                    var copy = Checked(deanLeave, f =>
+                    {
+                        if (justification is not null)
+                            f.Justification = justification;
+                        f.Normalize();
+                    });
+                    // By the day the data is created - the stories ask for this year and the next
+                    if (copy.ValidateAgainst(AcademicYear.StartYear(PolishTime.FromUtc(_now))).Any())
+                        throw new InvalidOperationException("Demo data: a dean's leave for a wrong academic year.");
+                    return new(ApplicationTypeCodes.DeanLeave, FormJson.Serialize(copy),
+                        header => _renderer.RenderAsync<DeanLeaveTemplate, DeanLeaveDocument>(
+                            new DeanLeaveDocument(header, copy)),
                         copy.RequiredAttachments);
                 }
             default:

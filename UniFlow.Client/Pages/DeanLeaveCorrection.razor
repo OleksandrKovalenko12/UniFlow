@@ -1,0 +1,25 @@
+﻿@page "/applications/{Id:guid}/correct/dean-leave"
+@attribute [Authorize(Roles = RoleNames.Student)]
+@using System.ComponentModel.DataAnnotations
+
+<PageTitle>Poprawa wniosku - UniFlow</PageTitle>
+
+<ApplicationCorrection TForm="DeanLeaveForm" TypeCode="@ApplicationTypeCodes.DeanLeave"
+                       Id="Id" From="@From" ExtraRules="Against"
+                       RequiredFiles="form => form.RequiredAttachments">
+    <Fields>
+        <DeanLeaveFields Form="context.Form" Errors="context.Errors" OnChanged="context.OnChanged" />
+    </Fields>
+</ApplicationCorrection>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
+
+    // By the browser's date - the server checks the same by its own
+    private static IEnumerable<ValidationResult> Against(DeanLeaveForm form) =>
+        form.ValidateAgainst(AcademicYear.StartYear(DateTime.Now));
+}
